@@ -1916,6 +1916,18 @@ read mpv with a `probe` action while the file plays. The plan's own `probe`
 list runs after the player has closed, when there is no file and no sound
 output to ask about.
 
+### A mapped network drive can be missing from a tool's session (2026-11-21)
+
+A self-test started from a tool session may run in a logon session without
+the user's mapped drives: the library's paths (`Z:\…`) then open nothing —
+the film fails with "Failed to execute command 'seek'", seek previews say
+"could not open the file" — while the same share by its `\server\share`
+path answers. `net use Z: …` there and `net use Z: /delete` after it
+**removed the user's saved mapping** (`HKCU\Network\Z`), which had to be put
+back by hand. **Do:** check `Test-Path` on the library path first; map it for
+the test only if needed, and never delete a mapping afterwards — leave it, or
+check `HKCU\Network` is unchanged.
+
 ### Moving effects into hooks moves them in React's order
 
 A component's effects run in the order they are written; a hook's run where

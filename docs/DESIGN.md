@@ -195,6 +195,10 @@ detect (Rust)→  Skiptro and the built-in analysis → skip markers
 measure(Rust)→  cropdetect, films and one episode a season → media_probe
 browse (TS)  →  titles/episodes → rails, detail pages
 play  (TS)   →  mpv loadfile → resume seek → progress saved every 5s
+previews(Rust)→ second libmpv handle on the film being watched → one JPEG
+                per 10 s into app data/previews (seek_preview.rs; page side
+                player/seekPreview.ts): live where the bar points, filled
+                in while watching, swept when a file leaves the library
 ```
 
 Each stage is independently re-runnable. Re-parsing never re-reads the filesystem;

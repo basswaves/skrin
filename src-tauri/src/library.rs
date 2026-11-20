@@ -331,10 +331,13 @@ pub async fn move_library_root(
 }
 
 #[tauri::command]
-pub fn remove_library_root(db: tauri::State<Db>, id: i64) -> Result<(), String> {
+pub fn remove_library_root(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<(), String> {
     let conn = db.0.lock().map_err(to_string_err)?;
     conn.execute("DELETE FROM library_roots WHERE id = ?1", params![id])
         .map_err(to_string_err)?;
+    drop(conn);
+    // Its files' seek preview pictures go with it (seek_preview.rs).
+    crate::seek_preview::sweep_soon(&app);
     Ok(())
 }
 

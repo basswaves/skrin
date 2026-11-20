@@ -55,6 +55,7 @@ import { VIDEO_SYNC_KEY, VIDEO_SYNC_MODES } from './mpvOptions';
 import { startOverlay } from './overlay';
 import { applyRememberedStepDown } from './stepDown';
 import { useStepDown } from './useStepDown';
+import { useSeekPreviewFill } from './seekPreview';
 import { handMouseEventsToPage, startPointerFollowingControls } from './pageMouse';
 import { resumePoint, resumeShare } from './resume';
 import { readSound, soundLost, soundLostNotice, type SoundSnapshot } from './soundWatch';
@@ -582,6 +583,13 @@ export function usePlaybackEngine({
   useStepDown({
     sessionRef,
     seq: session.seq,
+    watching: session.open && session.frameShown,
+  });
+
+  // Seek preview pictures filled in while watching, yielding to dropped frames.
+  useSeekPreviewFill({
+    fileId: target.fileId,
+    sessionRef,
     watching: session.open && session.frameShown,
   });
 

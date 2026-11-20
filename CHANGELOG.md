@@ -5,6 +5,21 @@ Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semantic
 versioning](https://semver.org/), with the usual caveat that a `0.x` release
 makes no stability promises.
 
+## [Unreleased]
+
+### New
+
+- **Seek previews** on Windows and Linux: the seek bar shows a small picture
+  of where it points — the mouse over the bar, a drag, or Left/Right held on
+  a keyboard or a remote. Skrin makes the pictures while you watch, one for
+  every ten seconds of the film, quietly in the background and never while
+  the film drops frames; one you point at before it is made comes in a
+  fraction of a second. HDR films get proper SDR pictures, not washed-out
+  ones. They take about 10 KB each, stay on this computer (never beside your
+  videos) and go when the file leaves the library; Settings → Advanced →
+  Seek previews shows the space and deletes them. Android shows the time, as
+  before.
+
 ## [0.19.0] — 2026-11-20
 
 ### New

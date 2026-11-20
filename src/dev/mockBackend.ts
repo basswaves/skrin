@@ -987,6 +987,25 @@ let openedTaken = false;
 /** Resume points of videos outside the library, by path. */
 const looseProgress = new Map<string, { position: number; duration: number | null }>();
 let playerOffered = false;
+/** Seek preview pictures "kept" (Settings → Advanced → Storage). */
+let mockPreviewFiles = 1440;
+
+/** A seek preview picture: a drawn frame saying its second (seek_preview.rs). */
+async function mockSeekPreview(secs: number): Promise<ArrayBuffer> {
+  const at = Number.isFinite(secs) && secs > 0 ? Math.round(secs / 10) * 10 : 0;
+  const canvas = document.createElement('canvas');
+  canvas.width = 320;
+  canvas.height = 180;
+  const g = canvas.getContext('2d');
+  if (!g) return new ArrayBuffer(0);
+  g.fillStyle = `hsl(${(at / 10) % 360} 40% 30%)`;
+  g.fillRect(0, 0, 320, 180);
+  g.fillStyle = '#fff';
+  g.font = '28px sans-serif';
+  g.fillText(`${at} s`, 20, 100);
+  const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/png'));
+  return blob ? blob.arrayBuffer() : new ArrayBuffer(0);
+}
 let defaultAppsOpened = 0;
 
 function flag(name: string): string | null {
@@ -1814,6 +1833,16 @@ const handlers: Record<string, Handler> = {
   list_videos: () => shownVideos().map(videoItem),
   list_all_videos: () => shownVideos().map(videoItem),
   video_frame: () => null,
+  // Seek previews: a drawn picture saying its second, so a test can read it.
+  seek_preview: (a) => mockSeekPreview(num(a, 'secs')),
+  seek_preview_fill: () => null,
+  seek_preview_close: () => null,
+  seek_preview_usage: () => ({ files: mockPreviewFiles, bytes: mockPreviewFiles * 9800 }),
+  delete_seek_previews: () => {
+    const removed = mockPreviewFiles;
+    mockPreviewFiles = 0;
+    return removed;
+  },
   get_video_prefs: (a) =>
     videoPrefs.get(String(mockVideos.find((v) => v.id === num(a, 'fileId'))?.dir)) ?? {
       audio_lang: null,
@@ -2203,6 +2232,7 @@ const handlers: Record<string, Handler> = {
         network_shares: true,
         back_button: true,
         video_apps: true,
+        seek_previews: false,
         memory_bytes: 4 * 1024 ** 3,
         sleep: false,
         shut_down: false,
@@ -2231,6 +2261,7 @@ const handlers: Record<string, Handler> = {
       network_shares: false,
       back_button: false,
       video_apps: false,
+      seek_previews: true,
       memory_bytes: 16 * 1024 ** 3,
       sleep: !NO_POWER,
       shut_down: !NO_POWER,

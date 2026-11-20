@@ -62,6 +62,7 @@ mod power;
 mod probe;
 mod procstats;
 mod scanner;
+mod seek_preview;
 mod selftest;
 mod startup_dialog;
 mod reach;
@@ -398,6 +399,8 @@ pub fn run() {
             }
             // An offer to Windows naming a folder Skrin has moved from.
             default_player::refresh();
+            // Seek preview pictures of files that left the library while Skrin was closed.
+            seek_preview::sweep_soon(app.handle());
 
             // Network sign-ins kept from before, unlocked for the shares
             // Skrin opens itself.
@@ -597,6 +600,11 @@ pub fn run() {
             videos::list_videos,
             videos::list_all_videos,
             videos::video_frame,
+            seek_preview::seek_preview,
+            seek_preview::seek_preview_fill,
+            seek_preview::seek_preview_close,
+            seek_preview::seek_preview_usage,
+            seek_preview::delete_seek_previews,
             videos::get_video_prefs,
             videos::set_video_prefs,
             videos::dismiss_continue_video,

@@ -4663,6 +4663,32 @@ shows one steady band that moves with the film; a player that reports nothing
 draws none. The bar is drawn by hand (`::-webkit-slider-*`) for this; the
 system's own slider cannot show a second part.
 
+## Seek preview pictures (2026-11-21)
+
+The owner asked for pictures above the seek bar (2026-10-18). Chosen: a
+picture made on request where the bar points, plus filling the rest in
+while watching; a whole-library job comes later. Built on the second libmpv
+handle that already takes a Videos tile's frame (`videos.rs`), but kept open
+for the film being watched instead of opened per picture: paused, `vo=null`,
+software decoding on two threads, a keyframe seek and `screenshot-to-file`.
+Measured over a network share: ~300 ms to open, then 50–100 ms a picture at
+1080p and ~200 ms at 4K HDR — against 0.65–1 s for a fresh handle each time.
+mpv's screenshot tone-maps HDR to SDR by itself, so no filter chain of our
+own. A keyframe seek is not frame-exact, which a 320 px picture never shows.
+
+One picture per ten seconds, the nearest answering every request; newest
+request wins and older ones are answered with nothing, so a fast drag never
+queues work. Filling in runs about one picture a second at low priority and
+the page stops it at the first dropped frame, for a clean minute: a CPU
+decoder beside the film must never be the reason a film stutters (and so
+never the reason the player steps the picture down). Pictures travel to the
+page as bytes and show from a `blob:` URL — no new folder in the asset
+scope, no change to the content security policy. They live in
+`<app data>/previews/<file id>/`, with the path and size they were made from:
+a folder whose file left the library, or whose id now names another file, is
+swept at start and when a library folder is removed. A file only missing for
+now keeps them. Android makes none (no mpv) and says so in Settings.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and

@@ -574,6 +574,8 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
       <PlayerControls
         visible={controlsShown}
         timePos={timePos}
+        scrubbing={session.scrubbing}
+        fileId={target.fileId}
         loadedTo={loadedTo}
         duration={duration}
         paused={paused}

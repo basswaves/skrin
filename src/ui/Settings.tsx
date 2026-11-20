@@ -42,6 +42,7 @@ import FocusInput from './FocusInput';
 import BackupSection from './BackupSection';
 import ImportWatchedSection from './ImportWatchedSection';
 import MoveSection from './MoveSection';
+import SeekPreviewSection from './SeekPreviewSection';
 import StepDownSection from './StepDownSection';
 import VideoPlayerSection from './VideoPlayerSection';
 import AccountSection, { AccountAppFields } from './AccountSection';
@@ -1788,6 +1789,8 @@ export default function Settings({
                     Clear artwork cache
                   </FocusButton>
                 </section>
+
+                <SeekPreviewSection />
 
                 <section className="settings-section">
                   <h2>Sharing with other media apps</h2>
