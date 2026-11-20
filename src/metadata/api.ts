@@ -172,6 +172,10 @@ export const listTitlesNeedingDetail = () =>
 export const listStaleTitles = (limit: number) =>
   invoke<TrailerTarget[]>('list_stale_titles', { limit });
 
+/** TMDB titles fetched in another language than `language`, by id, after `after`. */
+export const listTitlesInOtherLanguage = (language: string, after: number, limit: number) =>
+  invoke<TrailerTarget[]>('list_titles_in_other_language', { language, after, limit });
+
 /** A title matched through Wikidata, OMDb or TVmaze, and what it can be found on TMDB by. */
 export interface FallbackTitle {
   id: number;

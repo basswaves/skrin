@@ -163,6 +163,28 @@ export function getLastScanSummary(): ScanSummary | null {
   return lastSummary;
 }
 
+/**
+ * A scan now, or as soon as the one running ends — for a change that only a
+ * scan from here on carries out (the details language: the running scan may
+ * be past the step that fetches titles again).
+ */
+export async function scanAfterThis(): Promise<ScanOutcome> {
+  const outcome = await runScanPipeline();
+  if (outcome.status !== 'skipped' || outcome.reason !== 'already-running') return outcome;
+  await new Promise<void>((resolve) => {
+    const off = subscribeScan(() => {
+      if (status !== null) return;
+      off();
+      resolve();
+    });
+    if (status === null) {
+      off();
+      resolve();
+    }
+  });
+  return runScanPipeline();
+}
+
 /** Live scan status, or null when idle. */
 export function useScanStatus(): ScanStatus | null {
   return useSyncExternalStore(subscribeScan, getScanStatus);

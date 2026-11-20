@@ -313,6 +313,21 @@ correctable by hand: the **Needs attention** view carries the reason for each re
 and a provider search, links are recorded with a `manual:` reason so they stay
 auditable, and a wrong match can be unlinked back into the queue.
 
+**The details language changes what is shown, never what is matched**
+(`detailsLanguage.ts`, GitHub #18, #19). Searching TMDB stays English, so the
+scorer sees what it was tuned on. Only the detail fetch after a match follows the
+setting, and it still asks in English, with TMDB's `translations` on the same
+request: TMDB answers a missing translation with an empty field, not the English,
+so each field (title, description) is the chosen language's where it has one and
+English where not. Episodes are asked for a second time in the chosen language and
+laid over the English, skipping TMDB's made-up names ("Odcinek 4"). Pictures:
+chosen language, then English, then none. The shown title goes in `title`; TMDB's
+English one in `english_title`, for search and for Worth a look's comparison with
+file names. Each title records the language it was fetched in
+(`details_language`), and the scan after a change fetches every title in another
+language again, in the background. Genres and collections stay English, like the
+menus.
+
 **Grids show small copies** (`thumbs.rs`, the `thumb://` scheme, `artwork/thumbs`), made when a card nears the screen; anything that fails falls back to the picture itself.
 
 **The artwork cache is an accelerator, never a source of truth.** Provider URLs stay

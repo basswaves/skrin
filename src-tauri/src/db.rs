@@ -7,7 +7,7 @@ use rusqlite::Connection;
 use std::path::Path;
 
 /// The schema this build understands. Bump it with every new `SCHEMA_V*`.
-pub const SCHEMA_VERSION: i64 = 39;
+pub const SCHEMA_VERSION: i64 = 40;
 
 /// What can go wrong opening the library.
 ///
@@ -965,6 +965,18 @@ const SCHEMA_V39: &str = r#"
 ALTER TABLE media_files ADD COLUMN placed_from TEXT;
 "#;
 
+/// Schema version 40: the details language (GitHub #18, #19). `title` is
+/// what is shown, in the chosen language; `english_title` is TMDB's own,
+/// for search and for Worth a look to compare file names with.
+/// `details_language` is the language a title was fetched in: a title in
+/// another language than the one chosen is fetched again
+/// (`metadata::titles_in_other_language`). NULL is English, which is what
+/// every title stored before this was.
+const SCHEMA_V40: &str = r#"
+ALTER TABLE titles ADD COLUMN english_title TEXT;
+ALTER TABLE titles ADD COLUMN details_language TEXT;
+"#;
+
 /// How long a statement waits for the write lock before giving up.
 ///
 /// Load-bearing from the moment there is more than one connection. SQLite
@@ -1350,7 +1362,7 @@ pub(crate) const MIGRATIONS: [&str; SCHEMA_VERSION as usize] = [
     SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24, SCHEMA_V25,
     SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31,
     SCHEMA_V32, SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38,
-    SCHEMA_V39,
+    SCHEMA_V39, SCHEMA_V40,
 ];
 
 /// Bring the database up to [`SCHEMA_VERSION`].

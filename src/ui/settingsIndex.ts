@@ -162,6 +162,11 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { section: 'subtitles', label: 'Subtitles', about: 'captions language text' },
   {
     section: 'subtitles',
+    label: 'Film and show details',
+    about: 'details language translation titles descriptions plot episode names TMDB',
+  },
+  {
+    section: 'subtitles',
     label: 'Forced subtitles',
     about: 'foreign parts signs alien language',
     values: ['Show them', 'Off'],

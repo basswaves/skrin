@@ -43,6 +43,11 @@ export interface Title {
   progress: number | null;
   /** Billed cast, in order — for search. */
   cast: string[];
+  /**
+   * TMDB's English title when `title` is in the details language — for
+   * search. Absent, null or the same as `title` otherwise.
+   */
+  english_title?: string | null;
 }
 
 export interface Episode {

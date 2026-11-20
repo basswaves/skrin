@@ -18,6 +18,7 @@ import { userError } from './errors';
 import { scanTrouble, unreachableFolders } from './scanTrouble';
 import { scanStageWords, scanWords } from '../library/scanWords';
 import LanguageSection from './LanguageSection';
+import DetailsLanguageRow from './DetailsLanguageRow';
 import ChoiceRow, { LandLeftmost } from './ChoiceRow';
 import { getVersion } from '@tauri-apps/api/app';
 import { availableUpdate, UPDATE_CHECK_KEY, type Release } from './updates';
@@ -1606,6 +1607,7 @@ export default function Settings({
                 <section className="settings-section">
                   <h2>Language and subtitles</h2>
                   <LanguageSection onError={setError} />
+                  <DetailsLanguageRow onError={setError} />
                   <SubtitleStyleRows onError={setError} />
                   <ForcedSubtitleRows onError={setError} />
                   <AccessibleTrackRows onError={setError} />

@@ -540,6 +540,7 @@ pub fn run() {
             metadata::reset_matches,
             metadata::list_titles_needing_detail,
             metadata::list_stale_titles,
+            metadata::list_titles_in_other_language,
             metadata::list_fallback_titles,
             metadata::mark_upgrade_checked,
             metadata::adopt_provider,

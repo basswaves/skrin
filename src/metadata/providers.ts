@@ -17,6 +17,19 @@
 import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting, setSetting } from './api';
 import { noteTmdbRejection } from './builtinKey';
+import {
+  detailsLanguage,
+  episodeKey,
+  imageLanguages,
+  isEnglish,
+  localiseDetail,
+  mergeEpisodes,
+  posterInLanguage,
+  splitLanguage,
+  type EpisodeText,
+  type TmdbPosterImage,
+  type TmdbTranslation,
+} from './detailsLanguage';
 import type { Candidate } from './score';
 import type { PersonInput } from '../library/person';
 
@@ -66,6 +79,15 @@ export interface TitleMetadata {
   next_air_date?: string;
   next_air_season?: number | null;
   next_air_episode?: number | null;
+  /**
+   * TMDB's title as asked without a language — the English one, or the
+   * original where there is none. Kept beside a translated `title` so search
+   * finds a film by its English name too, and Worth a look compares a file's
+   * name with what it was matched by. TMDB only.
+   */
+  english_title?: string | null;
+  /** The language the details were fetched in (detailsLanguage.ts). TMDB only. */
+  details_language?: string;
 }
 
 export interface Studio {
@@ -147,17 +169,20 @@ interface TmdbCastMember {
  *
  * English before language-neutral before anything else: a neutral logo is
  * usually the original-language one, which is right when there is no English
- * treatment and wrong when there is.
+ * treatment and wrong when there is. With details in another language, a
+ * treatment lettered in it comes first: the title it draws is the one shown.
  */
-function pickLogo(logos: TmdbImage[] | undefined): string | null {
+export function pickLogo(logos: TmdbImage[] | undefined, language = 'en'): string | null {
   if (!logos?.length) return null;
+  const { lang } = splitLanguage(language);
 
   const rank = (logo: TmdbImage): number => {
     const isPng = !logo.file_path.toLowerCase().endsWith('.svg');
-    if (!isPng) return 3;
-    if (logo.iso_639_1 === 'en') return 0;
-    if (!logo.iso_639_1) return 1;
-    return 2;
+    if (!isPng) return 4;
+    if (lang !== 'en' && logo.iso_639_1 === lang) return 0;
+    if (logo.iso_639_1 === 'en') return 1;
+    if (!logo.iso_639_1) return 2;
+    return 3;
   };
 
   const best = [...logos].sort((a, b) => {
@@ -168,7 +193,7 @@ function pickLogo(logos: TmdbImage[] | undefined): string | null {
 
   // Every candidate was an SVG. Better none than one that renders at the wrong
   // size over the hero image.
-  return rank(best) === 3 ? null : `${TMDB_IMAGE}${best.file_path}`;
+  return rank(best) === 4 ? null : `${TMDB_IMAGE}${best.file_path}`;
 }
 
 /** TMDB's release dates for a film, per country, each with its rating. */
@@ -787,15 +812,39 @@ export async function tmdbAltTitles(
   return [...new Set(names.filter(Boolean))];
 }
 
+/**
+ * The parameters of a title's one detail request. In English, exactly what
+ * was asked before the details language existed; in another language, TMDB's
+ * translations ride along on the same request, and pictures lettered in that
+ * language are asked for before English ones. The request itself stays in
+ * English, so genres and the collection keep the interface's language, and
+ * every field has its English answer to fall back on.
+ */
+export function tmdbDetailParams(kind: 'movie' | 'series', language: string): Record<string, string> {
+  // The age rating lives in a different sub-resource for each kind.
+  const append = ['external_ids', 'videos', 'images', 'credits'];
+  append.push(kind === 'movie' ? 'release_dates' : 'content_ratings');
+  if (!isEnglish(language)) append.push('translations');
+  return {
+    append_to_response: append.join(','),
+    include_image_language: imageLanguages(language),
+  };
+}
+
 export async function tmdbGetTitle(
   key: string,
   id: string,
-  kind: 'movie' | 'series'
+  kind: 'movie' | 'series',
+  language?: string
 ): Promise<TitleMetadata> {
+  const lang = language ?? (await detailsLanguage());
   const detail = await tmdbGet<{
     id: number;
     title?: string;
     name?: string;
+    original_title?: string;
+    original_name?: string;
+    original_language?: string;
     release_date?: string;
     first_air_date?: string;
     overview: string;
@@ -807,7 +856,8 @@ export async function tmdbGetTitle(
     backdrop_path: string | null;
     external_ids?: { imdb_id: string | null };
     videos?: { results: TmdbVideo[] };
-    images?: { logos?: TmdbImage[] };
+    images?: { logos?: TmdbImage[]; posters?: TmdbPosterImage[] };
+    translations?: { translations?: TmdbTranslation[] };
     credits?: { cast?: TmdbCastMember[]; crew?: TmdbCrewMember[] };
     belongs_to_collection?: { id: number; name?: string } | null;
     created_by?: Array<{ name?: string }>;
@@ -821,15 +871,22 @@ export async function tmdbGetTitle(
     // single round trip however much of it we use. `include_image_language`
     // is what makes `images` useful: without it TMDB returns only images
     // tagged with the request language, which for logos is usually none.
-  }>(key, kind === 'movie' ? `/movie/${id}` : `/tv/${id}`, {
-    // The age rating lives in a different sub-resource for each kind.
-    append_to_response: `external_ids,videos,images,credits,${
-      kind === 'movie' ? 'release_dates' : 'content_ratings'
-    }`,
-    include_image_language: 'en,null',
-  });
+  }>(key, kind === 'movie' ? `/movie/${id}` : `/tv/${id}`, tmdbDetailParams(kind, lang));
 
   const trailer = pickTrailer(detail.videos?.results);
+  const englishTitle = (detail.title ?? detail.name ?? '') as string;
+  const text = localiseDetail(
+    {
+      title: englishTitle,
+      overview: detail.overview || null,
+      originalTitle: detail.original_title ?? detail.original_name ?? null,
+      originalLanguage: detail.original_language ?? null,
+    },
+    detail.translations?.translations,
+    lang,
+    kind
+  );
+  const posterPath = posterInLanguage(detail.images?.posters, lang) ?? detail.poster_path;
 
   return {
     kind,
@@ -837,13 +894,15 @@ export async function tmdbGetTitle(
     provider_id: String(detail.id),
     imdb_id: detail.external_ids?.imdb_id ?? null,
     tmdb_id: String(detail.id),
-    title: (detail.title ?? detail.name ?? '') as string,
+    title: text.title,
+    english_title: englishTitle,
+    details_language: lang,
     year: yearOf(detail.release_date ?? detail.first_air_date ?? null),
-    overview: detail.overview || null,
+    overview: text.overview,
     genres: detail.genres?.length ? JSON.stringify(detail.genres.map((g) => g.name)) : null,
     runtime_mins: detail.runtime ?? detail.episode_run_time?.[0] ?? null,
     rating: detail.vote_average || null,
-    poster_url: detail.poster_path ? `${TMDB_IMAGE}${detail.poster_path}` : null,
+    poster_url: posterPath ? `${TMDB_IMAGE}${posterPath}` : null,
     backdrop_url: detail.backdrop_path ? `${TMDB_IMAGE}${detail.backdrop_path}` : null,
     // Empty string, not null, when TMDB has none. Null means "never asked"
     // and is what the other providers send, so `save_title` can COALESCE
@@ -854,7 +913,7 @@ export async function tmdbGetTitle(
     // it did not — `trailer_key` was null for a title with no trailer, so
     // `list_titles_needing_detail` offered it again and every scan re-fetched
     // its whole TMDB detail. On this library that was one title, every launch.
-    logo_url: pickLogo(detail.images?.logos) ?? '',
+    logo_url: pickLogo(detail.images?.logos, lang) ?? '',
     trailer_key: trailer?.key ?? '',
     trailer_site: trailer?.site ?? '',
     cast: (detail.credits?.cast ?? [])
@@ -928,21 +987,26 @@ export interface TmdbPoster {
 const POSTER_CHOICES = 24;
 
 /**
- * TMDB's posters for one title with English lettering or none, best rated
- * first. Asked for when the poster list is opened (T20), never ahead.
+ * TMDB's posters for one title lettered in the details language, in English
+ * or not at all; the details language's first, then best rated. Asked for
+ * when the poster list is opened (T20), never ahead.
  */
 export async function tmdbPosters(
   key: string,
   id: string,
-  kind: 'movie' | 'series'
+  kind: 'movie' | 'series',
+  language?: string
 ): Promise<TmdbPoster[]> {
+  const lang = language ?? (await detailsLanguage());
+  const own = splitLanguage(lang).lang;
   const data = await tmdbGet<{ posters?: TmdbImage[] }>(
     key,
     `/${kind === 'movie' ? 'movie' : 'tv'}/${encodeURIComponent(id)}/images`,
-    { include_image_language: 'en,null' }
+    { include_image_language: imageLanguages(lang) }
   );
+  const first = (p: TmdbImage) => (own !== 'en' && p.iso_639_1 === own ? 0 : 1);
   return [...(data.posters ?? [])]
-    .sort((a, b) => (b.vote_average ?? 0) - (a.vote_average ?? 0))
+    .sort((a, b) => first(a) - first(b) || (b.vote_average ?? 0) - (a.vote_average ?? 0))
     .slice(0, POSTER_CHOICES)
     .map((p) => ({ url: `${TMDB_IMAGE}${p.file_path}`, language: p.iso_639_1 || null }));
 }
@@ -970,16 +1034,54 @@ const TMDB_APPEND_MAX = 20;
  * season, all through the same rate-limited queue: a long-running show cost
  * thirty-odd round trips to match, and a first scan of a library of them was
  * minutes of waiting on TMDB's pacing for data it hands out in bulk.
+ *
+ * With details in another language the seasons are asked for twice — in
+ * English, then in that language — and the second laid over the first field
+ * by field (`mergeEpisodes`): TMDB answers a missing translation with an
+ * empty description or a made-up `Odcinek 4`, never with the English.
  */
-export async function tmdbGetEpisodes(key: string, id: string): Promise<EpisodeMetadata[]> {
+export async function tmdbGetEpisodes(
+  key: string,
+  id: string,
+  language?: string
+): Promise<EpisodeMetadata[]> {
+  const lang = language ?? (await detailsLanguage());
   const show = await tmdbGet<{ seasons?: Array<{ season_number: number }> }>(key, `/tv/${id}`);
   // Season 0 is specials; include it, since files often reference it.
   const numbers = (show.seasons ?? []).map((season) => season.season_number);
-  const episodes: EpisodeMetadata[] = [];
 
+  const episodes: EpisodeMetadata[] = (await tmdbSeasons(key, id, numbers, {})).map((e) => ({
+    season: e.season_number,
+    episode: e.episode_number,
+    name: e.name || null,
+    overview: e.overview || null,
+    air_date: e.air_date || null,
+    runtime_mins: e.runtime ?? null,
+    still_url: e.still_path ? `${TMDB_IMAGE}${e.still_path}` : null,
+  }));
+  if (isEnglish(lang) || episodes.length === 0) return episodes;
+
+  const local = new Map<string, EpisodeText>();
+  for (const e of await tmdbSeasons(key, id, numbers, { language: lang })) {
+    local.set(episodeKey(e.season_number, e.episode_number), { name: e.name, overview: e.overview });
+  }
+  return mergeEpisodes(episodes, local);
+}
+
+type TmdbEpisode = NonNullable<TmdbSeason['episodes']>[number];
+
+/** The episodes of these seasons, twenty seasons to a request. */
+async function tmdbSeasons(
+  key: string,
+  id: string,
+  numbers: number[],
+  params: Record<string, string>
+): Promise<TmdbEpisode[]> {
+  const episodes: TmdbEpisode[] = [];
   for (let i = 0; i < numbers.length; i += TMDB_APPEND_MAX) {
     const batch = numbers.slice(i, i + TMDB_APPEND_MAX);
     const data = await tmdbGet<Record<string, TmdbSeason | undefined>>(key, `/tv/${id}`, {
+      ...params,
       append_to_response: batch.map((n) => `season/${n}`).join(','),
     });
 
@@ -988,21 +1090,15 @@ export async function tmdbGetEpisodes(key: string, id: string): Promise<EpisodeM
       // one season at a time. Missing seasons would otherwise match the show
       // with no episodes at all — silently, since that is a valid answer.
       const season =
-        data[`season/${n}`] ?? (await tmdbGet<TmdbSeason>(key, `/tv/${id}/season/${n}`));
-      for (const e of season.episodes ?? []) {
-        episodes.push({
-          season: e.season_number,
-          episode: e.episode_number,
-          name: e.name || null,
-          overview: e.overview || null,
-          air_date: e.air_date || null,
-          runtime_mins: e.runtime ?? null,
-          still_url: e.still_path ? `${TMDB_IMAGE}${e.still_path}` : null,
-        });
-      }
+        data[`season/${n}`] ??
+        (await tmdbGet<TmdbSeason>(
+          key,
+          `/tv/${id}/season/${n}`,
+          Object.keys(params).length ? params : undefined
+        ));
+      episodes.push(...(season.episodes ?? []));
     }
   }
-
   return episodes;
 }
 

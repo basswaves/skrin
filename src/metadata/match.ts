@@ -15,6 +15,7 @@ import {
   ignoreFileIds,
   adoptProvider,
   listStaleTitles,
+  listTitlesInOtherLanguage,
   listTitlesNeedingDetail,
   listFallbackTitles,
   markUpgradeChecked,
@@ -58,6 +59,7 @@ import {
   type ScoredCandidate,
 } from './score';
 import { withoutQueries } from '../ui/errors';
+import { detailsLanguage } from './detailsLanguage';
 import { explainUnreachable } from './reach';
 import { wikidataGetMovie, wikidataSearch } from './wikidata';
 import { idsInName, nfoForGroup, resolveIds, resolveNfoIds, sourceName, type NfoIds } from './nfo';
@@ -406,10 +408,18 @@ export async function backfillTitleDetails(): Promise<DetailBackfill> {
     const kind = target.kind === 'series' ? 'series' : 'movie';
     try {
       const metadata = await tmdbGetTitle(keys.tmdb, target.tmdb_id, kind);
+      // A show's episodes too when its details are not in English: the
+      // title's row says which language it is in, and its episodes must be.
+      const language = metadata.details_language ?? 'en';
+      const episodes =
+        kind === 'series' && language !== 'en'
+          ? await tmdbGetEpisodes(keys.tmdb, target.tmdb_id, language)
+          : [];
       // Straight back through `saveTitle`, so a backfilled title is stored by
       // exactly the same path as a freshly matched one — including the cast
       // rows, which nothing else writes.
-      await saveTitle(metadata);
+      const titleId = await saveTitle(metadata);
+      if (episodes.length > 0) await saveEpisodes(titleId, episodes);
       if (metadata.logo_url || metadata.trailer_key) result.found++;
       else result.none++;
     } catch (e) {
@@ -437,22 +447,49 @@ export async function refreshStaleTitles(): Promise<DetailBackfill> {
   const result: DetailBackfill = { found: 0, none: 0, errors: [] };
   const keys = await loadProviderKeys();
   if (!keys.tmdb) return result;
+  const tmdb = keys.tmdb;
+  const language = await detailsLanguage();
+  let unreachable = false;
 
-  for (const target of await listStaleTitles(REFRESH_PER_SCAN)) {
+  /** One title again, title and episodes; false when the key was refused. */
+  const refetch = async (target: { tmdb_id: string; kind: string }): Promise<boolean> => {
     await yieldToPlayback();
     const kind = target.kind === 'series' ? 'series' : 'movie';
     try {
-      const titleId = await saveTitle(await tmdbGetTitle(keys.tmdb, target.tmdb_id, kind));
-      if (kind === 'series') {
-        const episodes = await tmdbGetEpisodes(keys.tmdb, target.tmdb_id);
-        if (episodes.length > 0) await saveEpisodes(titleId, episodes);
-      }
+      // Episodes before the title is saved: the title's row is what says
+      // which language it is in, so it must not say so before its episodes are.
+      const metadata = await tmdbGetTitle(tmdb, target.tmdb_id, kind, language);
+      const episodes = kind === 'series' ? await tmdbGetEpisodes(tmdb, target.tmdb_id, language) : [];
+      const titleId = await saveTitle(metadata);
+      if (episodes.length > 0) await saveEpisodes(titleId, episodes);
       result.found++;
     } catch (e) {
       result.errors.push(`${target.tmdb_id}: ${e instanceof Error ? e.message : String(e)}`);
       // A refused key will be refused for every other title too.
-      if (e instanceof TmdbKeyRejected) break;
+      if (e instanceof TmdbKeyRejected) return false;
+      if (e instanceof Unreachable) unreachable = true;
     }
+    return true;
+  };
+
+  for (const target of await listStaleTitles(REFRESH_PER_SCAN)) {
+    if (!(await refetch(target))) return result;
+  }
+
+  // A changed details language: every title in another one, in this scan,
+  // a batch at a time. The owner's choice (2026-11-20) was the whole library
+  // in the background, not each title as it is opened. A title that fails is
+  // left for the next scan, never asked about twice in one.
+  let after = 0;
+  for (;;) {
+    const batch = await listTitlesInOtherLanguage(language, after, REFRESH_PER_SCAN);
+    if (batch.length === 0) break;
+    for (const target of batch) {
+      if (!(await refetch(target))) return result;
+      // No answer from TMDB: the rest waits for a scan that has one.
+      if (unreachable) return result;
+    }
+    after = batch[batch.length - 1].id;
   }
   return result;
 }

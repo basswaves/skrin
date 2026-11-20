@@ -1113,6 +1113,8 @@ let mockHttpUrl = '';
 function mockTmdb(url: string): unknown {
   const show = { id: 3, name: 'Example Saga', first_air_date: '2019-03-01', overview: 'A fixture series.' };
   if (url.includes('/search/tv')) return { results: [show] };
+  const own = /\/3\/(?:tv|movie)\/(\d+)\?/.exec(url);
+  if (own && Number(own[1]) !== SAGA_ID) return mockTmdbDetail(Number(own[1]));
   const season = (n: number, names: string[]) => ({
     episodes: names.map((name, i) => ({ season_number: n, episode_number: i + 1, name })),
   });
@@ -1124,6 +1126,43 @@ function mockTmdb(url: string): unknown {
     'season/2': season(2, ['Saga Three', 'Saga Four', 'Saga Five', 'Saga Six']),
   };
 }
+/**
+ * The details language (detailsLanguage.ts): a fixture title's TMDB detail,
+ * in English with TMDB's translations alongside. Example Show has a Polish
+ * title and description; the others have none, so they keep their English.
+ * The English is what the fixture started with, kept apart from what a save
+ * writes over it.
+ */
+const mockEnglish = new Map<number, { title: string; overview: string | null }>();
+const MOCK_TRANSLATIONS: Record<number, { title: string; overview: string }> = {
+  1: { title: 'Przykładowy serial', overview: 'Serial testowy: pięć odcinków.' },
+};
+function mockTmdbDetail(id: number): unknown {
+  const t = [...titles, ...extraTitles].find((x) => x.id === id);
+  if (!t) return { id };
+  if (!mockEnglish.has(id)) mockEnglish.set(id, { title: t.title, overview: t.overview });
+  const english = mockEnglish.get(id) as { title: string; overview: string | null };
+  const pl = MOCK_TRANSLATIONS[id];
+  const field = t.kind === 'series' ? 'name' : 'title';
+  return {
+    id,
+    [field]: english.title,
+    overview: english.overview ?? '',
+    genres: [],
+    vote_average: t.rating ?? 0,
+    poster_path: null,
+    backdrop_path: null,
+    seasons: [],
+    translations: {
+      translations: pl
+        ? [{ iso_639_1: 'pl', iso_3166_1: 'PL', data: { [field]: pl.title, overview: pl.overview } }]
+        : [],
+    },
+  };
+}
+/** The language each fixture title was last saved in; none is English. */
+const mockDetailsLanguage = new Map<number, string>();
+
 const FETCHED_POSTER = 'https://image.tmdb.org/t/p/original/first.jpg';
 const LOCAL_POSTER = 'C:\\fixture\\Example Part Two (2014)\\poster.jpg';
 const posterChoice = new Map<number, string>();
@@ -1901,7 +1940,26 @@ const handlers: Record<string, Handler> = {
     return (a.fileIds as number[]).length;
   },
   // A link from Needs attention (match.ts), against the mock TMDB above.
-  save_title: (a) => ((a.title as { provider_id?: string }).provider_id === '3' ? SAGA_ID : 4242),
+  // A fixture title fetched again in the details language is stored over itself.
+  save_title: (a) => {
+    const input = a.title as {
+      provider_id?: string;
+      title: string;
+      overview: string | null;
+      english_title?: string | null;
+      details_language?: string;
+    };
+    if (input.provider_id === '3') return SAGA_ID;
+    const own = [...titles, ...extraTitles].find((t) => String(t.id) === input.provider_id);
+    if (own && input.details_language) {
+      own.title = input.title;
+      own.overview = input.overview;
+      (own as { english_title?: string | null }).english_title = input.english_title ?? null;
+      mockDetailsLanguage.set(own.id, input.details_language);
+      return own.id;
+    }
+    return 4242;
+  },
   save_episodes: (a) => (a.episodes as unknown[]).length,
   record_match: (a) => {
     mockLastMatch = a;
@@ -1973,6 +2031,16 @@ const handlers: Record<string, Handler> = {
   restart_after_update: () => null,
   list_titles_needing_detail: () => [],
   list_stale_titles: () => [],
+  // Only with `kinemaMockTmdb=1`, the one way the mock answers TMDB.
+  list_titles_in_other_language: (a) =>
+    flag('kinemaMockTmdb') !== '1'
+      ? []
+      : [...titles, ...extraTitles]
+          .filter((t) => t.provider === 'tmdb' && t.id > num(a, 'after'))
+          .filter((t) => (mockDetailsLanguage.get(t.id) ?? 'en') !== String(a.language))
+          .sort((x, y) => x.id - y.id)
+          .slice(0, num(a, 'limit'))
+          .map((t) => ({ id: t.id, tmdb_id: String(t.id), kind: t.kind })),
   list_fallback_titles: () => [],
   mark_upgrade_checked: () => null,
   adopt_provider: () => false,
@@ -2419,7 +2487,7 @@ const handlers: Record<string, Handler> = {
     // `kinemaMockSlowSearch=1`: a search that takes a while, to press OK again in.
     if (flag('kinemaMockSlowSearch') === '1') await new Promise((r) => setTimeout(r, 600));
     mockHttpUrl = String((a.clientConfig as { url?: string } | undefined)?.url ?? '');
-    if (flag('kinemaMockTmdb') === '1' && /api\.themoviedb\.org\/3\/(search\/tv|tv\/)/.test(mockHttpUrl)) return 1;
+    if (flag('kinemaMockTmdb') === '1' && /api\.themoviedb\.org\/3\/(search\/tv|tv\/|movie\/)/.test(mockHttpUrl)) return 1;
     if (flag('kinemaMockPosters') !== '1') throw new Error('mock: no network');
     return 1;
   },

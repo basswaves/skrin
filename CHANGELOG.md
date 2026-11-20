@@ -17,6 +17,14 @@ makes no stability promises.
   stays at 100%; sound sent untouched to a receiver is the receiver's to
   turn up.
 
+- **Film and show details in your language** (#18, #19): Settings → Language
+  & subtitles → Film and show details. Titles, descriptions and episode names
+  come from TMDB in the language you choose, and where TMDB has no
+  translation the English is shown instead of nothing. Posters lettered in
+  that language are preferred. Titles already in your library are fetched
+  again in the background; search still finds them by their English names.
+  English stays the default, and menus stay in English. On Android too.
+
 ### Changed
 
 - **When Skrin switches the screen to the film's refresh rate or HDR**, the

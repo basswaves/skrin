@@ -62,6 +62,14 @@ pub struct TitleInput {
     pub next_air_season: Option<i64>,
     #[serde(default)]
     pub next_air_episode: Option<i64>,
+    /// TMDB's title as asked without a language, beside a translated
+    /// `title`. Absent from other providers, whose `title` is that already.
+    #[serde(default)]
+    pub english_title: Option<String>,
+    /// The language the details were fetched in, `en` or `pl-PL`. Absent from
+    /// other providers, which fetch in English.
+    #[serde(default)]
+    pub details_language: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -150,6 +158,9 @@ pub struct Title {
     pub imdb_votes: Option<i64>,
     /// Rotten Tomatoes' Tomatometer, 0–100, through the user's OMDb key.
     pub tomatometer: Option<i64>,
+    /// TMDB's English title when `title` is a translation (the details
+    /// language), for search to match on too. None or the same otherwise.
+    pub english_title: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -272,12 +283,15 @@ pub fn save_title(db: tauri::State<Db>, title: TitleInput) -> Result<i64, String
              genres, runtime_mins, rating, poster_url, backdrop_url, fetched_at,
              trailer_key, trailer_site, logo_url, certification, directors, writers,
              collection_id, collection_name, show_status, next_air_date, next_air_season,
-             next_air_episode)
+             next_air_episode, english_title, details_language)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,
-                 ?21,?22,?23,?24,?25,?26)
+                 ?21,?22,?23,?24,?25,?26,?27,?28)
          ON CONFLICT(provider, provider_id) DO UPDATE SET
             imdb_id = excluded.imdb_id, tmdb_id = excluded.tmdb_id,
             title = excluded.title, year = excluded.year, overview = excluded.overview,
+            -- Both always together with the title they describe.
+            english_title = excluded.english_title,
+            details_language = excluded.details_language,
             genres = excluded.genres, runtime_mins = excluded.runtime_mins,
             rating = excluded.rating, poster_url = excluded.poster_url,
             backdrop_url = excluded.backdrop_url, fetched_at = excluded.fetched_at,
@@ -308,7 +322,8 @@ pub fn save_title(db: tauri::State<Db>, title: TitleInput) -> Result<i64, String
             title.trailer_key, title.trailer_site, title.logo_url, title.certification,
             joined(&title.directors), joined(&title.writers), title.collection_id,
             title.collection_name, title.show_status, title.next_air_date,
-            title.next_air_season, title.next_air_episode
+            title.next_air_season, title.next_air_episode, title.english_title,
+            title.details_language
         ],
     )
     .map_err(to_string_err)?;
@@ -470,7 +485,8 @@ pub(crate) const TITLE_SELECT: &str = "
            t.certification,
            (SELECT r.rating FROM imdb_ratings r WHERE r.imdb_id = t.imdb_id),
            (SELECT r.votes  FROM imdb_ratings r WHERE r.imdb_id = t.imdb_id),
-           (SELECT s.tomatometer FROM omdb_scores s WHERE s.imdb_id = t.imdb_id)
+           (SELECT s.tomatometer FROM omdb_scores s WHERE s.imdb_id = t.imdb_id),
+           t.english_title
       FROM titles t";
 
 pub(crate) fn map_title(r: &rusqlite::Row) -> rusqlite::Result<Title> {
@@ -515,6 +531,7 @@ pub(crate) fn map_title(r: &rusqlite::Row) -> rusqlite::Result<Title> {
         imdb_rating: r.get(25)?,
         imdb_votes: r.get(26)?,
         tomatometer: r.get(27)?,
+        english_title: r.get(28)?,
     })
 }
 
@@ -785,6 +802,42 @@ pub fn list_stale_titles(db: tauri::State<Db>, limit: i64) -> Result<Vec<Trailer
     stale_titles(&conn, crate::util::now_secs(), limit).map_err(to_string_err)
 }
 
+/// TMDB titles fetched in another language than `language`, the one chosen
+/// for details (detailsLanguage.ts), by id. A title stored before the setting
+/// existed has none, which is English. `after` is the last id of the batch
+/// before, so a title that failed is not asked about again in the same pass.
+pub(crate) fn titles_in_other_language(
+    conn: &rusqlite::Connection,
+    language: &str,
+    after: i64,
+    limit: i64,
+) -> rusqlite::Result<Vec<TrailerTarget>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, provider_id, kind FROM titles
+          WHERE provider = 'tmdb' AND COALESCE(details_language, 'en') <> ?1 AND id > ?2
+          ORDER BY id LIMIT ?3",
+    )?;
+    let rows = stmt.query_map(params![language, after, limit], |r| {
+        Ok(TrailerTarget {
+            id: r.get(0)?,
+            tmdb_id: r.get(1)?,
+            kind: r.get(2)?,
+        })
+    })?;
+    rows.collect()
+}
+
+#[tauri::command]
+pub fn list_titles_in_other_language(
+    db: tauri::State<Db>,
+    language: String,
+    after: i64,
+    limit: i64,
+) -> Result<Vec<TrailerTarget>, String> {
+    let conn = db.0.lock().map_err(to_string_err)?;
+    titles_in_other_language(&conn, &language, after, limit).map_err(to_string_err)
+}
+
 /// A title matched through a fallback provider, and what is known to find it
 /// on TMDB with.
 #[derive(Debug, Serialize)]
@@ -1052,7 +1105,8 @@ pub fn list_unmatched(
 #[cfg(test)]
 mod tests {
     use super::{
-        about_for, adopt, episodes_for, fallback_titles, map_title, stale_titles, titles_needing_detail, Title, TITLE_SELECT,
+        about_for, adopt, episodes_for, fallback_titles, map_title, stale_titles,
+        titles_in_other_language, titles_needing_detail, Title, TITLE_SELECT,
         TMDB_MAX_AGE_SECS,
     };
     use rusqlite::{named_params, params};
@@ -1189,6 +1243,32 @@ mod tests {
             .collect();
         assert_eq!(stale, vec!["33", "22"]);
         assert_eq!(stale_titles(&conn, now, 1).unwrap().len(), 1);
+    }
+
+    /// A change of details language lists every TMDB title fetched in
+    /// another one — a title from before the setting is English — and only
+    /// TMDB's: the fallbacks have nothing to translate.
+    #[test]
+    fn titles_in_another_language_are_listed_after_the_last_one_asked() {
+        let conn = library("language");
+        conn.execute_batch(
+            "UPDATE titles SET provider = 'tmdb', details_language = NULL WHERE id = 1;
+             INSERT INTO titles (id, kind, provider, provider_id, title, fetched_at, details_language) VALUES
+                 (2, 'movie',  'tmdb',   '22', 'Done',     0, 'pl-PL'),
+                 (3, 'series', 'tmdb',   '33', 'English',  0, 'en'),
+                 (4, 'series', 'tvmaze', '44', 'Fallback', 0, NULL);",
+        )
+        .unwrap();
+        let ids = |language: &str, after: i64| -> Vec<i64> {
+            titles_in_other_language(&conn, language, after, 10)
+                .unwrap()
+                .into_iter()
+                .map(|t| t.id)
+                .collect()
+        };
+        assert_eq!(ids("pl-PL", 0), vec![1, 3]);
+        assert_eq!(ids("pl-PL", 1), vec![3]);
+        assert_eq!(ids("en", 0), vec![2]);
     }
 
     /// A film found through Wikidata moves to TMDB under the same row, and
