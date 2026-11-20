@@ -17,6 +17,12 @@ makes no stability promises.
   stays at 100%; sound sent untouched to a receiver is the receiver's to
   turn up.
 
+### Changed
+
+- **When Skrin switches the screen to the film's refresh rate or HDR**, the
+  notice now says the screen may go black for a moment, which is the screen
+  changing mode, not a fault.
+
 ### Fixed
 
 - **The volume bar could be covered by Skip intro**, so a click near 100%

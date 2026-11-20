@@ -10,7 +10,9 @@ import { filmNow, mayswitch, restoreScreen, switchForFilm } from './displaySwitc
 import { isPictureFullscreen, setPaused, setPictureFullscreen } from './engine';
 import type { Session } from './session';
 
-const MATCHING = 'Matching the screen to the video…';
+// Said with it: a screen changing mode goes black for a moment, and someone
+// who has not met a player that switches takes that for a fault (GitHub #21).
+const MATCHING = 'Matching the screen to the video. It may go black for a moment.';
 
 export function useScreen({
   onExit,
