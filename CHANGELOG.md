@@ -5,19 +5,20 @@ Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semantic
 versioning](https://semver.org/), with the usual caveat that a `0.x` release
 makes no stability promises.
 
-## [Unreleased]
+## [0.19.0] — 2026-11-20
 
 ### New
 
-- **The volume goes to 200%**, as VLC's does, on Windows and Linux (thanks to
-  Rengoku30). Above 100% the sound is made louder and held just below full
+- **The volume goes to 200%**, as VLC's does, on Windows and Linux (#22, thanks
+  to Rengoku30). Above 100% the sound is made louder and held just below full
   scale, so it never clips, with volume levelling on or off. Turning it up
   or down with keys, the mouse wheel or a remote stops at 100% for a moment
   before going on, and a click on the bar near 100% lands on 100%. Android
   stays at 100%; sound sent untouched to a receiver is the receiver's to
   turn up.
 
-- **Film and show details in your language** (#18, #19): Settings → Language
+- **Film and show details in your language** (#18, #19, thanks to IanBesky
+  and tomcik78): Settings → Language
   & subtitles → Film and show details. Titles, descriptions and episode names
   come from TMDB in the language you choose, and where TMDB has no
   translation the English is shown instead of nothing. Posters lettered in
@@ -29,7 +30,7 @@ makes no stability promises.
 
 - **When Skrin switches the screen to the film's refresh rate or HDR**, the
   notice now says the screen may go black for a moment, which is the screen
-  changing mode, not a fault.
+  changing mode, not a fault (#21, thanks to SynapseScribe).
 
 ### Fixed
 
@@ -39,7 +40,7 @@ makes no stability promises.
 - **Resuming on Linux systems with an older mpv** (0.37, as on Linux Mint and
   Ubuntu 24.04): a film watched part-way failed with "loadfile: invalid
   parameter" and only played from the beginning. Skrin now uses the form of
-  the command that the installed mpv takes.
+  the command that the installed mpv takes (#23, thanks to gingitsune182).
 
 ## [0.18.0] — 2026-11-15
 
