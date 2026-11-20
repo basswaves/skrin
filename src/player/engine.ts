@@ -44,6 +44,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { logPaths } from '../metadata/api';
 import { capabilitiesNow, loadCapabilities } from '../capabilities';
 import { keyCommand, keyFromValue, KEY_PROPERTY, MPV_KEYS } from './mpvKeys';
+import { loadfile } from './loadfile';
 import { MOUSE_PROPERTY, parseMouse, type MouseEvent } from './mpvMouse';
 import * as media3 from './media3';
 import { VOLUME_MAX, VOLUME_NORMAL } from './volume';
@@ -399,23 +400,23 @@ export async function openFile(
   openDisc = source.disc ? path : null;
   discLogMark = source.log_mark ?? 0;
   clipLanguages = source.languages;
-  // `loadfile <url> <flags> <index> <options>`: the per-file `start` option
-  // opens the file at the resume point. The index argument (-1, "no playlist
-  // position") is required before options since mpv 0.38.
+  // The per-file `start` option opens the file at the resume point; the form
+  // of `loadfile` that carries it depends on the mpv (loadfile.ts).
   // mpv takes a share as a percentage of the file's own length.
   const at =
     start !== null
-      ? ['replace', '-1', `start=${start}`]
+      ? `start=${start}`
       : share !== null
-        ? ['replace', '-1', `start=${(share * 100).toFixed(3)}%`]
-        : [];
+        ? `start=${(share * 100).toFixed(3)}%`
+        : null;
+  const run = (name: string, args: string[]) => command(name, args);
   if (source.disc) {
     // Through `set`, a plain string: a path in the per-file options would
     // need quoting for every comma a folder name can hold.
     await command('set', ['bluray-device', path]);
-    await command('loadfile', ['bd://', ...at]);
+    await loadfile(run, 'bd://', at);
   } else {
-    await command('loadfile', [path, ...at]);
+    await loadfile(run, path, at);
   }
 }
 

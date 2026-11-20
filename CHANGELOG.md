@@ -5,6 +5,15 @@ Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semantic
 versioning](https://semver.org/), with the usual caveat that a `0.x` release
 makes no stability promises.
 
+## [Unreleased]
+
+### Fixed
+
+- **Resuming on Linux systems with an older mpv** (0.37, as on Linux Mint and
+  Ubuntu 24.04): a film watched part-way failed with "loadfile: invalid
+  parameter" and only played from the beginning. Skrin now uses the form of
+  the command that the installed mpv takes.
+
 ## [0.18.0] — 2026-11-15
 
 ### New

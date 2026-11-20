@@ -59,6 +59,11 @@ export interface FakeMpvState {
    */
   failNextLoad: string | null;
   /**
+   * Answer `loadfile` as mpv before 0.38 does: `<url> <flags> <options>`,
+   * no playlist index. Each form is refused by the other's mpv.
+   */
+  oldLoadfile: boolean;
+  /**
    * What `current-ao` answers while a file is open. Null stands in for a
    * sound output that would not open — mpv then plays the film mute — so the
    * player's fallbacks and their notices can be driven.
@@ -108,6 +113,7 @@ const state: FakeMpvState = {
   subVisible: true,
   audioOutFormat: 'float',
   failNextLoad: null,
+  oldLoadfile: false,
   currentAo: 'wasapi',
   fullscreen: true,
   extra: {},
@@ -148,16 +154,27 @@ function seek(target: number): void {
   send({ event: 'playback-restart' });
 }
 
-/** Per-file options from `loadfile <path> <flags> <index> <options>`. */
+/**
+ * Per-file options from `loadfile <path> <flags> <index> <options>` (mpv 0.38
+ * on) or `loadfile <path> <flags> <options>` (before); the other form is
+ * refused, as the real one refuses it.
+ */
 function startOption(args: unknown[]): number | null {
-  const options = typeof args[3] === 'string' ? args[3] : '';
+  if (args.length > 2) {
+    const index = args[2];
+    const isIndex = typeof index === 'string' && /^-?\d+$/.test(index);
+    if (state.oldLoadfile ? args.length > 3 || isIndex : !isIndex) {
+      throw new Error("Failed to execute command 'loadfile': invalid parameter");
+    }
+  }
+  const options = String((state.oldLoadfile ? args[2] : args[3]) ?? '');
   const match = /(?:^|,)start=([\d.]+)/.exec(options);
   return match ? Number(match[1]) : null;
 }
 
 function loadfile(args: unknown[]): void {
-  const path = String(args[0]);
   const start = startOption(args);
+  const path = String(args[0]);
 
   // The outgoing file keeps reporting until the new one is open — the
   // behaviour that GOTCHAS "Clearing an observed property" is about.

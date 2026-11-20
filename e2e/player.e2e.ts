@@ -475,6 +475,23 @@ test('the volume boost: to 200% by key and bar, kept across episodes, none for a
   expect((await mpv(page)).volume).toBe(200);
 });
 
+test('resuming on mpv before 0.38, whose loadfile takes no playlist index', async ({ page }) => {
+  await play(page, 'series');
+  await expect.poll(async () => (await mpv(page)).path).toContain('S01E01');
+  await page.evaluate(() => {
+    (window as unknown as { __fakeMpv: { oldLoadfile: boolean } }).__fakeMpv.oldLoadfile = true;
+  });
+  await playheadTo(page, 600);
+  await expect.poll(async () => (await mpv(page)).position).toBeGreaterThan(600);
+  await press(page, 'n');
+  await expect.poll(async () => (await mpv(page)).path).toContain('S01E02');
+  await press(page, 'p');
+  await expect.poll(async () => (await mpv(page)).path).toContain('S01E01');
+  await expect(page.locator('.resume-toast')).toContainText('Resumed from 10:0');
+  expect((await mpv(page)).position).toBeGreaterThanOrEqual(600);
+  await expect(page.locator('.player-error')).toHaveCount(0);
+});
+
 test('Skip intro steps aside while Audio & subtitles is open, never over its rows', async ({ page }) => {
   // Both sit in the same corner: the button covered the panel's last rows and
   // the ring on them (found on a box).

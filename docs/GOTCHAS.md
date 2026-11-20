@@ -280,6 +280,13 @@ shown before the jump.
 start=<secs>`. The `-1` is the playlist index, which mpv 0.38 put in front of the
 per-file options; without it the options are read as the index.
 
+**But mpv before 0.38 refuses the `-1`** ("invalid parameter"), and Linux
+systems ship 0.37: every resume failed there while a start from 0:00 (no
+options) played (0.18.0, issue 23). `loadfile.ts` tries the 0.38 form, falls
+back to `loadfile <url> replace <options>` on refusal and keeps the form that
+worked. The fake mpv refuses the wrong form too (`oldLoadfile`), so a test
+catches either regression.
+
 ### A Blu-ray disc opens only as `bd://`, and its failures are only in the log
 
 `loadfile <disc.iso>` and `loadfile <disc>/BDMV/index.bdmv` both fail with
