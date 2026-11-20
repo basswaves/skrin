@@ -2,7 +2,9 @@
  * The player's volume: the level, mute, and whether a receiver has the
  * volume instead (sound bitstreamed to it, where this level would do
  * nothing). The level is remembered across films (volume.ts). It goes to
- * `max`: 200 where mpv boosts the sound, 100 on Media3, which cannot.
+ * `max`: 200 where mpv boosts the sound, 100 on Media3, which cannot. The
+ * part above 100 is a gain and a limiter (soundLevel.ts `setBoost`), so it
+ * never clips, with volume levelling or without.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -11,7 +13,8 @@ import {
   soundGoesUntouched,
   volumeMax,
 } from './engine';
-import { clampVolume, persistVolume, savedVolume } from './volume';
+import { setBoost } from './soundLevel';
+import { clampVolume, persistVolume, savedVolume, stepVolume } from './volume';
 
 export function useVolume({
   fail,
@@ -38,6 +41,8 @@ export function useVolume({
   /** Sound bitstreamed to a receiver: this volume would do nothing. */
   const [receiver, setReceiver] = useState(false);
   const max = volumeMax();
+  /** When the last step came, for the rest at 100% (volume.ts `stepVolume`). */
+  const lastStep = useRef(0);
 
   // The remembered level, applied once per player; mpv keeps it across files.
   useEffect(() => {
@@ -47,6 +52,7 @@ export function useVolume({
       setVolume(level);
       levelNow.current = level;
       void applyVolume(level).catch((e) => console.warn('volume: could not apply', e));
+      void setBoost(level);
     });
     return () => {
       live = false;
@@ -63,6 +69,7 @@ export function useVolume({
       levelNow.current = level;
       setVolume(level);
       void applyVolume(level).catch(fail);
+      void setBoost(level);
       if (save) void persistVolume(level).catch((e) => console.warn('volume: could not save', e));
       // Turning it up is a clear enough request to hear something.
       if (muted && level > volume) {
@@ -75,9 +82,15 @@ export function useVolume({
   );
 
   const changeVolume = useCallback(
-    (delta: number) => setVolumeLevel(levelNow.current + delta),
-    [setVolumeLevel]
+    (delta: number) => {
+      const now = performance.now();
+      const since = now - lastStep.current;
+      lastStep.current = now;
+      setVolumeLevel(stepVolume(levelNow.current, delta, max, since));
+    },
+    [setVolumeLevel, max]
   );
+
 
   const toggleMute = useCallback(() => {
     const next = !muted;
@@ -118,5 +131,14 @@ export function useVolume({
     };
   }, [osdVisible, path, frameShown]);
 
-  return { volume, max, muted, receiver, setVolumeLevel, changeVolume, toggleMute, volumeKey };
+  return {
+    volume,
+    max,
+    muted,
+    receiver,
+    setVolumeLevel,
+    changeVolume,
+    toggleMute,
+    volumeKey,
+  };
 }

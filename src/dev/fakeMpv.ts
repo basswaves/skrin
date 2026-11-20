@@ -48,6 +48,13 @@ export interface FakeMpvState {
   /** Every command received, newest last, for assertions. */
   commands: Array<{ name: string; args: unknown[] }>;
   volume: number;
+  /**
+   * The volume's boost on the filter chain, in dB (`af` with
+   * `volume@boost`, changed in place by `af-command`); null without one.
+   */
+  boostDb: number | null;
+  /** mpv's `af` as last set. */
+  af: string;
   mute: boolean;
   subVisible: boolean;
   /** Set to e.g. 'spdif-truehd' to stand in for sound going to a receiver. */
@@ -117,6 +124,8 @@ const state: FakeMpvState = {
   currentAo: 'wasapi',
   fullscreen: true,
   extra: {},
+  boostDb: null,
+  af: '',
   audioDelay: 0,
   chapters: [],
 };
@@ -215,7 +224,22 @@ export function command(name: string, args: unknown[]): null {
     }
     case 'set': {
       const [property, value] = args as [string, unknown];
+      if (property === 'af') {
+        state.af = String(value);
+        const db = /volume@boost=volume=(-?[\d.]+)dB/.exec(state.af);
+        state.boostDb = db ? Number(db[1]) : null;
+        break;
+      }
       setProperty(property, value);
+      break;
+    }
+    case 'af-command': {
+      const [label, cmd, value, target] = args as string[];
+      if (label !== 'skrinboost' || cmd !== 'volume' || target !== 'volume@boost' || state.boostDb === null) {
+        throw new Error('af-command: error running command');
+      }
+      state.boostDb = Number.parseFloat(value);
+      state.af = state.af.replace(/volume@boost=volume=-?[\d.]+dB/, `volume@boost=volume=${value}`);
       break;
     }
     case 'sub-add': {

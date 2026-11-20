@@ -48,6 +48,10 @@ interface FakeMpv {
   paused: boolean;
   position: number;
   volume: number;
+  /** mpv's own volume, 100 at most; `volume` from mpv() is the level heard. */
+  ownVolume: number;
+  boostDb: number | null;
+  af: string;
   mute: boolean;
   currentAo: string | null;
   commands: { name: string; args: unknown[] }[];
@@ -60,7 +64,11 @@ function mpv(page: Page): Promise<Omit<FakeMpv, 'commands'>> {
       path: f.path,
       paused: f.paused,
       position: f.position,
-      volume: f.volume,
+      // The level heard: mpv's own volume (100 at most), and the boost on top.
+      volume: f.boostDb === null ? f.volume : Math.round(f.volume * 10 ** (f.boostDb / 60)),
+      ownVolume: f.volume,
+      boostDb: f.boostDb,
+      af: f.af,
       mute: f.mute,
       currentAo: f.currentAo,
     };
@@ -438,10 +446,22 @@ test('the volume boost: to 200% by key and bar, kept across episodes, none for a
   await press(page, '0');
   await expect.poll(async () => (await mpv(page)).volume).toBe(105);
   await expect(page.locator('.volume-control.boosted')).toBeAttached();
-  await expect(control).toHaveAttribute('title', /can clip or distort/);
+  await expect(control).toHaveAttribute('title', /held below clipping/);
   // It stops at 200, however long the key is pressed.
   await press(page, '0', 22);
   await expect.poll(async () => (await mpv(page)).volume).toBe(200);
+  // The boost is a gain and a limiter after it, changed in place; mpv's own
+  // volume stays at 100.
+  const at200 = await mpv(page);
+  expect(at200.ownVolume).toBe(100);
+  expect(at200.boostDb).toBe(18.06);
+  expect(at200.af).toMatch(/volume@boost=volume=18\.06dB,alimiter=limit=0\.944:level=0/);
+  const rebuilt = await page.evaluate(() =>
+    (window as unknown as { __fakeMpv: FakeMpv }).__fakeMpv.commands.filter(
+      (c) => c.name === 'set' && c.args[0] === 'af'
+    ).length
+  );
+  expect(rebuilt).toBe(1);
   await press(page, '-', 10);
   await expect.poll(async () => (await mpv(page)).volume).toBe(150);
   await expect.poll(() => call(page, '/src/metadata/api.ts', 'getSetting', 'volume')).toBe('150');
@@ -457,9 +477,13 @@ test('the volume boost: to 200% by key and bar, kept across episodes, none for a
   await expect(hit).toBeVisible();
   const box = await hit.boundingBox();
   if (!box) throw new Error('no volume bar');
+  // Skip intro is up at this point of the episode: the pop-up is over it.
+  await expect(page.locator('.skip-button')).toBeVisible();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect.poll(async () => (await mpv(page)).volume).toBe(100);
   await expect(page.locator('.volume-control.boosted')).toHaveCount(0);
+  // At 100% there is no filter at all.
+  expect((await mpv(page)).af).not.toContain('alimiter');
   await page.mouse.click(box.x + box.width / 2, box.y + 1);
   await expect.poll(async () => (await mpv(page)).volume).toBe(200);
   await expect.poll(() => call(page, '/src/metadata/api.ts', 'getSetting', 'volume')).toBe('200');
@@ -878,6 +902,38 @@ test('no audio description unless asked', async ({ page }) => {
   const panel = await openTrackPanel(page);
   await expect(panel.locator('.track-option', { hasText: 'Audio description' })).toBeVisible();
   expect(await sets(page)).not.toContain('aid=3');
+});
+
+test('the volume rests at 100% on its way up, then goes on after a pause', async ({
+  page,
+}) => {
+  await play(page, 'series');
+  await expect.poll(async () => (await mpv(page)).path).toContain('S01E01');
+  await press(page, '-');
+  await expect.poll(async () => (await mpv(page)).volume).toBe(95);
+  // Keys that keep coming stop at the film's own level...
+  await press(page, '0', 4);
+  await expect.poll(async () => (await mpv(page)).volume).toBe(100);
+  // ...and after a pause the next one goes on into the boost.
+  await pause(page, 800, 'the rest at 100% lets the next step on after a pause');
+  await press(page, '0');
+  await expect.poll(async () => (await mpv(page)).volume).toBe(105);
+});
+
+test('the boost goes after volume levelling, with the limiter last', async ({ page }) => {
+  await play(page, 'series', async (p) => {
+    await call(p, '/src/metadata/api.ts', 'setSetting', 'sound_levelling', 'more');
+    await call(p, '/src/metadata/api.ts', 'setSetting', 'volume', '150');
+  });
+  await expect.poll(async () => (await mpv(page)).path).toContain('S01E01');
+  await expect.poll(async () => (await mpv(page)).volume).toBe(150);
+  const { af } = await mpv(page);
+  expect(af).toMatch(/^@kinema:lavfi=\[dynaudnorm[^\]]*\],@skrinboost:lavfi=\[volume@boost=volume=[\d.]+dB,alimiter/);
+  // Turned up with levelling on: the gain changes in place, levelling stays.
+  await pause(page, 800, 'one step on its own');
+  await press(page, '0');
+  await expect.poll(async () => (await mpv(page)).volume).toBe(155);
+  expect((await mpv(page)).af).toContain('dynaudnorm');
 });
 
 test('no levelling on a track that goes to the receiver untouched, and the panel says why', async ({

@@ -40,7 +40,6 @@ function levelAt(e: PointerEvent<HTMLDivElement>, max: number): number {
   return levelOnBar((rect.bottom - e.clientY) / rect.height, max);
 }
 
-const CLIP_WARNING = 'Above 100% the sound is boosted and can clip or distort';
 
 export default function VolumeControl({
   level,
@@ -83,7 +82,7 @@ export default function VolumeControl({
       title={
         receiver
           ? name
-          : `${name}. Scroll to change, click to mute (M)${boosted ? `. ${CLIP_WARNING}` : ''}`
+          : `${name}. Scroll to change, click to mute (M)${boosted ? '. Above 100% the sound is boosted, held below clipping' : ''}`
       }
       onClick={() => !receiver && onToggleMute()}
       onWheel={(e) => !receiver && onChange(e.deltaY < 0 ? VOLUME_STEP : -VOLUME_STEP)}
@@ -124,13 +123,6 @@ export default function VolumeControl({
                 )}
               </div>
             </div>
-            {/* Room kept for it whenever a boost is possible: shown and hidden
-                in place, so the bar does not move under a drag across 100. */}
-            {max > VOLUME_NORMAL && (
-              <span className="volume-pop-warn" style={{ visibility: boosted ? 'visible' : 'hidden' }}>
-                Boost may distort
-              </span>
-            )}
             <span className="volume-pop-hint">▲▼</span>
           </>
         )}

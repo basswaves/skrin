@@ -14,18 +14,21 @@
  * own mouse commands in a windowless Sway (CONTRIBUTING).
  */
 import { expect, test, type Page } from '@playwright/test';
+import { pause } from './kb';
 
 interface FakeMpv {
   paused: boolean;
   position: number;
   duration: number | null;
   volume: number;
+  boostDb?: number | null;
 }
 
 function mpv(page: Page): Promise<FakeMpv> {
   return page.evaluate(() => {
     const f = (window as unknown as { __fakeMpv: FakeMpv }).__fakeMpv;
-    return { paused: f.paused, position: f.position, duration: f.duration, volume: f.volume };
+    const volume = f.boostDb == null ? f.volume : Math.round(f.volume * 10 ** (f.boostDb / 60));
+    return { paused: f.paused, position: f.position, duration: f.duration, volume };
   });
 }
 
@@ -119,6 +122,8 @@ test('the player by mouse: controls, pause, full screen, seek bar, volume and Ba
   // The wheel over the film is the volume too (GitHub #11): two notches down,
   // two steps, not one.
   const level = (await mpv(page)).volume;
+  // Back at 100%, where the volume rests before going on (volume.ts stepVolume).
+  await pause(page, 800, 'past the rest at 100%');
   await page.mouse.move(film.x, film.y);
   await page.mouse.wheel(0, 100);
   await page.mouse.wheel(0, 100);

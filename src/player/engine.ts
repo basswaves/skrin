@@ -849,24 +849,25 @@ export async function addSubtitle(path: string, language: string, title: string)
 }
 
 /**
- * The top of the volume control here: mpv boosts to VOLUME_MAX (its
- * `volume-max`, mpvOptions.ts); Media3's gain stops at the film's own level,
- * so on Android there is no boost (docs/AUDIO_VOLUME_BOOST.md).
+ * The top of the volume control here: VOLUME_MAX on mpv, where the part
+ * above 100 is a gain and a limiter (soundLevel.ts `setBoost`); Media3's gain
+ * stops at the film's own level, so on Android there is no boost (docs/DESIGN.md, "The volume goes to 200%").
  */
 export function volumeMax(): number {
   return isMedia3() ? VOLUME_NORMAL : VOLUME_MAX;
 }
 
 /**
- * The volume, 0–`volumeMax()`; above 100 a boost. Through `set` rather than
+ * mpv's own volume, 0–100: the boost above it is a filter (soundLevel.ts
+ * `setBoost`), so that a limiter can come after it. Through `set` rather than
  * `setProperty`: the command takes a string and lets mpv parse it, which
  * sidesteps the typed-number trouble some properties have with the plugin
  * (docs/GOTCHAS.md, `sid` / `aid`).
  */
 export async function setVolume(level: number): Promise<void> {
-  // The plugin's level is 0–100; never hand it a boost it cannot give.
+  // Neither engine is handed more than 100.
   if (isMedia3()) return media3.setVolume(Math.min(level, VOLUME_NORMAL));
-  await command('set', ['volume', String(level)]);
+  await command('set', ['volume', String(Math.min(level, VOLUME_NORMAL))]);
 }
 
 export async function setMuted(muted: boolean): Promise<void> {

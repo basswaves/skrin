@@ -7,7 +7,20 @@ makes no stability promises.
 
 ## [Unreleased]
 
+### New
+
+- **The volume goes to 200%**, as VLC's does, on Windows and Linux (thanks to
+  Rengoku30). Above 100% the sound is made louder and held just below full
+  scale, so it never clips, with volume levelling on or off. Turning it up
+  or down with keys, the mouse wheel or a remote stops at 100% for a moment
+  before going on, and a click on the bar near 100% lands on 100%. Android
+  stays at 100%; sound sent untouched to a receiver is the receiver's to
+  turn up.
+
 ### Fixed
+
+- **The volume bar could be covered by Skip intro**, so a click near 100%
+  skipped the intro instead.
 
 - **Resuming on Linux systems with an older mpv** (0.37, as on Linux Mint and
   Ubuntu 24.04): a film watched part-way failed with "loadfile: invalid

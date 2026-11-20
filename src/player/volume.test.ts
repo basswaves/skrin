@@ -9,7 +9,9 @@ vi.mock('../metadata/api', () => ({
 import {
   clampVolume,
   levelOnBar,
+  NORMAL_REST_MS,
   persistVolume,
+  stepVolume,
   savedVolume,
   VOLUME_MAX,
   VOLUME_NORMAL,
@@ -96,6 +98,15 @@ describe('levelOnBar', () => {
     expect(levelOnBar(0.25, 200)).toBe(50);
     expect(levelOnBar(0.5, 200)).toBe(100);
     expect(levelOnBar(0.75, 200)).toBe(150);
+  });
+
+  it('lands on 100% from just either side of it, where a boost is possible', () => {
+    expect(levelOnBar(0.47, 200)).toBe(100);
+    expect(levelOnBar(0.53, 200)).toBe(100);
+    expect(levelOnBar(0.44, 200)).toBe(90);
+    expect(levelOnBar(0.56, 200)).toBe(110);
+    // With 100 as the top there is nothing to snap to.
+    expect(levelOnBar(0.95, 100)).toBe(95);
     expect(levelOnBar(1, 200)).toBe(200);
   });
 
@@ -103,6 +114,30 @@ describe('levelOnBar', () => {
     expect(levelOnBar(-0.3, 200)).toBe(0);
     expect(levelOnBar(1.4, 200)).toBe(200);
     expect(levelOnBar(1.4, 100)).toBe(100);
+  });
+});
+
+describe('stepVolume: a rest at 100%', () => {
+  const later = NORMAL_REST_MS + 1;
+
+  it('a step that would cross 100% lands on it, either way', () => {
+    expect(stepVolume(95, 5, 200, later)).toBe(100);
+    expect(stepVolume(90, 15, 200, later)).toBe(100);
+    expect(stepVolume(110, -15, 200, later)).toBe(100);
+  });
+
+  it('steps that keep coming stay at 100%; after a pause they go on', () => {
+    expect(stepVolume(100, 5, 200, 50)).toBe(100);
+    expect(stepVolume(100, -5, 200, 50)).toBe(100);
+    expect(stepVolume(100, 5, 200, later)).toBe(105);
+    expect(stepVolume(100, -5, 200, later)).toBe(95);
+  });
+
+  it('elsewhere a step is a step, and without a boost there is no rest', () => {
+    expect(stepVolume(120, 5, 200, 10)).toBe(125);
+    expect(stepVolume(40, -5, 200, 10)).toBe(35);
+    expect(stepVolume(100, 5, 100, later)).toBe(100);
+    expect(stepVolume(95, 5, 100, 10)).toBe(100);
   });
 });
 

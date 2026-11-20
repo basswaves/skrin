@@ -151,11 +151,6 @@ export const BASE_MPV_OPTIONS: Record<string, string | boolean | number> = {
   'force-window': 'yes',
   terminal: 'no',
 
-  // The volume control goes to 200%, as VLC's does (volume.ts VOLUME_MAX).
-  // mpv's own ceiling is 130; above it `set volume` is refused. The boost is
-  // a gain on decoded sound only: a bitstream to a receiver is never touched.
-  'volume-max': '200',
-
   // Subtitles: pick up sidecar files with fuzzy name matching
   'sub-auto': 'fuzzy',
   'sub-visibility': 'yes',

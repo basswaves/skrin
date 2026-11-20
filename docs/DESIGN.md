@@ -635,6 +635,25 @@ rather than the settings that were requested — different claims, and only the
 second answers "is anything touching my image?". All flat scalar reads, polled
 rather than observed, each one individually allowed to fail.
 
+**The volume goes to 200%, never clips, and stops at 100% on the way.** Where
+mpv plays, the control reaches twice the film's own level, as VLC's does. Up
+to 100% it is mpv's own `volume`; above it, mpv's volume stays at 100 and the
+rest is a gain and then a limiter at the end of the `af` chain, after volume
+levelling and the dialogue lift (soundLevel.ts `setBoost`). The gain follows
+mpv's cubic curve on past 100 (200% is +18 dB), so each step sounds like the
+ones below it; the limiter (`alimiter`, −0.5 dBFS, `level=0`) holds every peak
+under full scale, so a boost makes the sound louder and flatter, never
+clipped — with levelling or without (measured: 15% of samples clipped at
+200% with levelling and mpv's own volume, none with the limiter). A change of
+amount goes to the gain filter alone (`af-command`, no gap in the sound);
+only switching the boost on or off rebuilds the chain (~2 ms). Getting back to
+exactly 100% must be easy by every input: steps (keys, wheel, remote) that
+would cross it land on it, and steps that keep coming stay there until a
+pause (`stepVolume`, 600 ms); a click or drag within 10% of it snaps to it
+(`levelOnBar`). At 100% and under there is no filter at all. Media3 has no
+gain above 1.0, so Android stays at 100%; sound bitstreamed to a receiver is
+the receiver's to turn up, and gets no boost, as it gets no levelling.
+
 **Badges say what the file holds, and the file says it.** The detail page's
 picture and sound badges are the stats panel's counterpart for a file not
 playing: ffprobe's reading of the file at scan time (`probe.rs`), the picture's

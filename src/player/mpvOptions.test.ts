@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_MPV_OPTIONS, cacheOptions, shaderCacheOptions } from './mpvOptions';
-import { VOLUME_MAX } from './volume';
 
 const MiB = 1024 * 1024;
 const GiB = 1024 * MiB;
@@ -61,8 +60,8 @@ describe('BASE_MPV_OPTIONS: nothing is fetched that a file only points to', () =
 });
 
 describe('BASE_MPV_OPTIONS: the volume', () => {
-  it('lets mpv take the whole range of the control, boost included', () => {
-    expect(Number(BASE_MPV_OPTIONS['volume-max'])).toBe(VOLUME_MAX);
+  it('keeps mpv’s own volume to its default range: the boost is a filter', () => {
+    expect(BASE_MPV_OPTIONS['volume-max']).toBeUndefined();
   });
 
   it('leaves the sound path alone: no filter, no passthrough change', () => {

@@ -3359,6 +3359,8 @@ button.cast-member {
   border-radius: 0.625rem;
   background: rgba(20, 20, 24, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.14);
+  /* Over Skip intro (z-index 5), which sits where the bar reaches up to. */
+  z-index: 6;
 }
 
 /* Fills the gap between the control and the pop-up, so the pointer can
@@ -3419,15 +3421,6 @@ button.cast-member {
 }
 
 .volume-control.boosted .volume-value {
-  color: #f5a524;
-}
-
-.volume-pop-warn {
-  width: 5.5rem;
-  font-size: max(var(--fs-floor), 0.625rem);
-  line-height: 1.3;
-  text-align: center;
-  white-space: normal;
   color: #f5a524;
 }
 
