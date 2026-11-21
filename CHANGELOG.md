@@ -9,6 +9,18 @@ makes no stability promises.
 
 ### New
 
+- **Fix subtitle timing automatically** (Windows and Linux). In the subtitle
+  menu, beside Earlier / Later: Skrin reads a few short stretches of the film
+  and compares when the subtitle shows its lines with when people speak (or
+  with a subtitle built into the film), then moves the subtitle and says what
+  it did — "Subtitles 2.5 s earlier — 7 of 8 checks agree", with **Undo**. A
+  subtitle made for a 25 fps release that drifts further off towards the end
+  is slowed to match too. When the checks do not agree, nothing moves and it
+  says so. Remembered for that file, like Earlier / Later. After a subtitle is
+  downloaded from OpenSubtitles (one not made for this exact file), the same
+  check runs quietly and only *offers* a fix when they are clearly off. Works
+  on subtitle files (SRT, ASS, VTT); the file itself is never changed, and
+  nothing leaves the computer. Mouse, keyboard and remote.
 - **Trailers play inside Skrin on Linux too.** YouTube's embedded player refused Skrin's own page there ("Error 153"), so the trailer always opened in the browser. Skrin now serves one small page on this computer only (`127.0.0.1`) that holds YouTube's official player, and the same trailer window shows it, with the same keys and mouse as on Windows. Any error from YouTube still opens the browser. Nothing new leaves the computer.
 - **Film and show pages, the later items.** *More like this*: TMDB's
   recommendations that are in your library, in TMDB's order — and nothing at

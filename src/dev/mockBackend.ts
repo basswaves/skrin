@@ -2472,6 +2472,23 @@ const handlers: Record<string, Handler> = {
     return `C:\\fixture\\subs\\${String(a.offerFileId)}.srt`;
   },
   forced_subtitle: () => null,
+  // Automatic subtitle timing (sub_timing.rs): `kinemaMockSubTiming` picks
+  // the answer — 'unsure', 'drift' (25 fps on 23.976) or 'in_time'; by
+  // default 2.34 s late. Each check is kept in `__subTimingChecks`.
+  sub_timing_check: async (a) => {
+    const w = window as unknown as { __subTimingChecks?: unknown[] };
+    (w.__subTimingChecks ??= []).push(a);
+    await new Promise((done) => setTimeout(done, 300));
+    const kind = flag('kinemaMockSubTiming');
+    const base = { agree: 7, usable: 7, checks: 8, reference: 'speech', millis: 300 };
+    if (kind === 'unsure')
+      return { ...base, outcome: 'unsure', delay_secs: 0, speed: 1, from_fps: 1, to_fps: 1, agree: 2 };
+    if (kind === 'in_time')
+      return { ...base, outcome: 'in_time', delay_secs: 0, speed: 1, from_fps: 1, to_fps: 1 };
+    if (kind === 'drift')
+      return { ...base, outcome: 'fixed', delay_secs: 1.2, speed: 25 / 23.976, from_fps: 25, to_fps: 23.976 };
+    return { ...base, outcome: 'fixed', delay_secs: -2.34, speed: 1, from_fps: 1, to_fps: 1 };
+  },
   // What a fetched subtitle covers (subtitle_files.rs): the second of the
   // fixture's offers stops at a quarter of an hour, made for another cut.
   subtitle_span: (a) =>

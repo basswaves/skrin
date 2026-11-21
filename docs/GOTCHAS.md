@@ -2115,6 +2115,28 @@ failing the download.
 
 ---
 
+### Speech by loudness counts a film's music and effects as speech (2026-11-21)
+
+Automatic subtitle timing (`sub_timing.rs`) first called a 10 ms frame
+"speech" when its voice-band energy stood a fixed amount above the stretch's
+noise floor. Every unit test passed on made-up sound; on a real film 40–80 %
+of each stretch came out "speech" and only 3 of 8 stretches agreed, so the
+check said "could not tell" on a subtitle 2.5 s late — safely, but uselessly.
+**Do:** find speech by its syllables — energy rising above its own
+half-second average — and take the centre channel where there is one
+(`pan=mono|c0=FC`, retried on the whole mix if the track has none). Tune on
+real sound, not only on made-up signals: the harness is
+`cargo test --lib real_film -- --ignored --nocapture` with
+`SKRIN_TIMING_VIDEO/SUB/DURATION` (libmpv copied to `target/debug/deps/lib`).
+
+### A built-in subtitle's cue times need the video decoded
+
+On a second libmpv handle reading a stretch with `vid=no`, `sub-start` /
+`sub-end` saw 1–2 of 15 cues: subtitles advance with video frames. With
+`vid=auto` and `vo=null` every cue arrives (round 10 D's measurement), at the
+price of decoding the video — so `sub_timing.rs` gives that reference a time
+budget per stretch and falls back to speech.
+
 ## Trakt
 
 ### Trakt counts every play it is sent

@@ -139,7 +139,14 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
     closeChapters,
   } = usePanels();
   const { delayMs, changeDelay } = useAudioDelay(setNotice);
-  const { subDelayMs, changeTiming } = useSubDelay(setNotice);
+  const { subDelayMs, changeTiming, autoTiming, quietCheck } = useSubDelay(setNotice, {
+    video: target.path,
+    tracks,
+    sid,
+    subVisible,
+    aid,
+    duration,
+  });
   const sound = useSoundLevel({ target, tracks, aid, say: setNotice });
 
   const onlinePanel = useOnlineSubtitles({
@@ -150,6 +157,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
     showTracks,
     showFetched,
     duration,
+    onFetched: quietCheck,
   });
 
   const { matchScreen, exit, toggleFullscreen, backOut } = useScreen({
@@ -559,7 +567,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
           subSizes={hasMpv()}
           onSubStyle={(style) => void changeSubStyle(style)}
           delay={hasMpv() ? { ms: delayMs, onChange: changeDelay } : null}
-          timing={hasMpv() ? { ms: subDelayMs, onChange: changeTiming } : null}
+          timing={hasMpv() ? { ms: subDelayMs, onChange: changeTiming, auto: autoTiming } : null}
           level={hasMpv() && sound.level ? { ...sound, level: sound.level } : null}
           sid2={sid2}
           onSecond={hasMpv() ? (track) => void chooseSecond(track) : null}

@@ -63,6 +63,7 @@ mod probe;
 mod procstats;
 mod scanner;
 mod seek_preview;
+mod sub_timing;
 mod selftest;
 mod startup_dialog;
 mod reach;
@@ -608,6 +609,7 @@ pub fn run() {
             seek_preview::seek_preview_close,
             seek_preview::seek_preview_usage,
             seek_preview::delete_seek_previews,
+            sub_timing::sub_timing_check,
             videos::get_video_prefs,
             videos::set_video_prefs,
             videos::dismiss_continue_video,

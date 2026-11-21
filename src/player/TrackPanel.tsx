@@ -15,6 +15,7 @@ import { describeOffer, type Offer } from './onlineSubtitles';
 import { DELAY_STEP_MS, delayLabel } from './audioDelay';
 import { LEVELLINGS, type NotApplied, type SoundLevel } from './soundLevel';
 import { SUB_BIG_STEP_MS, SUB_STEP_MS, subDelayLabel } from './subDelay';
+import type { AutoTiming } from './useSubDelay';
 import { nextSize, sizeLabel, type SubStyle } from './subtitleStyle';
 
 /**
@@ -202,7 +203,12 @@ export default function TrackPanel({
    * The subtitle timing kept for this file (subDelay.ts), and a step of it.
    * None where Media3 plays: it has no subtitle offset.
    */
-  timing?: { ms: number; onChange: (delta: number, reset?: boolean) => void } | null;
+  timing?: {
+    ms: number;
+    onChange: (delta: number, reset?: boolean) => void;
+    /** "Fix timing automatically" (useSubDelay.ts, subTiming.ts); none on Android. */
+    auto?: AutoTiming | null;
+  } | null;
   /**
    * The second subtitles, drawn at the top (mpv's `secondary-sid`), and
    * choosing them. None where Media3 plays: it shows one text track.
@@ -402,6 +408,7 @@ export default function TrackPanel({
             <p className="track-note">
               For this file: earlier if the words come after they are said, later if before.
             </p>
+            {timing.auto && <AutoTimingRows auto={timing.auto} subVisible={subVisible} />}
           </>
         )}
         {subStyle && onSubStyle && (
@@ -464,5 +471,64 @@ export default function TrackPanel({
         {added && <p className="track-note">{added}</p>}
       </aside>
     </FocusProvider>
+  );
+}
+
+/**
+ * "Fix timing automatically" under Earlier / Later (round 10): the button, a
+ * line while it checks, what it found with Undo, and the offer after a
+ * download. Every one a FocusButton: the remote and keyboard reach them.
+ */
+const FIX_TIMING_KEY = 'player-track-panel:fix-timing';
+
+function AutoTimingRows({ auto, subVisible }: { auto: AutoTiming; subVisible: boolean }) {
+  // The offer and Undo go once pressed: the ring is moved onto the button
+  // first (GOTCHAS, focus parked on an unmounted component).
+  const andBack = (act: () => void) => () => {
+    navFocus(FIX_TIMING_KEY);
+    act();
+  };
+  return (
+    <>
+      {auto.offer && (
+        <FocusButton
+          className="track-option track-timing-offer"
+          onSelect={andBack(auto.onAcceptOffer)}
+        >
+          {`${auto.offer} Fix the timing`}
+        </FocusButton>
+      )}
+      {auto.canCheck ? (
+        <FocusButton
+          focusKey={FIX_TIMING_KEY}
+          className="track-option track-timing-fix"
+          onSelect={auto.onFix}
+          label="Fix timing automatically"
+        >
+          {auto.checking ? 'Checking the timing…' : 'Fix timing automatically'}
+        </FocusButton>
+      ) : (
+        subVisible && (
+          <p className="track-note">
+            Automatic timing works on subtitle files, not on subtitles built into the film.
+          </p>
+        )
+      )}
+      {auto.checking && (
+        <p className="track-note track-timing-line" role="status">
+          Reading a few short stretches of the film — seconds, up to half a minute for a big file.
+        </p>
+      )}
+      {auto.line && (
+        <p className="track-note track-timing-line" role="status">
+          {auto.line}
+        </p>
+      )}
+      {auto.canUndo && (
+        <FocusButton className="track-option track-timing-undo" onSelect={andBack(auto.onUndo)}>
+          Undo
+        </FocusButton>
+      )}
+    </>
   );
 }

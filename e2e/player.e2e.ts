@@ -1011,6 +1011,115 @@ test('subtitle lines and timing: formats, the separate file by language, earlier
     .toBe('{}');
 });
 
+/** The timing checks the page asked for (mockBackend's sub_timing_check). */
+const timingChecks = (page: Page) =>
+  page.evaluate(
+    () => (window as unknown as { __subTimingChecks?: Record<string, unknown>[] }).__subTimingChecks ?? []
+  );
+
+test('fix subtitle timing automatically, by remote: said with how many agree, Undo, kept per file', async ({
+  page,
+}) => {
+  await play(page, 'series');
+  const panel = await openTrackPanel(page);
+  // A subtitle inside the film: the panel says the check is for files.
+  await pressInPanel(page, panel.locator('.track-option', { hasText: 'English · SDH · PGS' }));
+  await expect(panel.locator('.track-note', { hasText: 'Automatic timing works on subtitle files' })).toBeVisible();
+  await expect(panel.locator('.track-timing-fix')).toHaveCount(0);
+
+  // The separate file: the button is there, and OK runs the check.
+  await pressInPanel(page, panel.locator('.track-option', { hasText: 'Danish · separate file · SRT' }));
+  const fix = panel.locator('.track-timing-fix');
+  await pressInPanel(page, fix);
+  await expect(panel.locator('.track-timing-line')).toHaveText(
+    'Subtitles 2.34 s earlier — 7 of 8 checks agree, against the speech.'
+  );
+  await expect.poll(() => sets(page)).toContain('sub-delay=-2.340');
+  const [asked] = await timingChecks(page);
+  expect(asked).toMatchObject({ subtitle: 'C:/fixture/Example.Film.Danish.srt', duration: 1500 });
+  await expect(panel.locator('.track-delay-label', { hasText: 'Timing:' })).toHaveText('Timing: −2.34 s');
+  await expect
+    .poll(() => call<string | null>(page, '/src/metadata/api.ts', 'getSetting', 'subtitle_delay'))
+    .toMatch(/":-2340\}$/);
+
+  // Undo puts back what was there, and the ring lands on the button again.
+  const undo = panel.locator('.track-timing-undo');
+  await pressInPanel(page, undo);
+  await expect
+    .poll(async () => (await sets(page)).filter((x) => x.startsWith('sub-delay=')).at(-1))
+    .toBe('sub-delay=0.000');
+  await expect(undo).toHaveCount(0);
+  await expect(panel.locator('.track-timing-line')).toHaveText('Undone: the timing is as it was.');
+  await expect.poll(() => focused(page)).toBe('Fix timing automatically');
+});
+
+test('fix subtitle timing: a 25 fps subtitle is slowed, Reset clears it; unsure moves nothing', async ({
+  page,
+}) => {
+  await play(page, 'series', (p) => p.evaluate(() => localStorage.setItem('kinemaMockSubTiming', 'drift')));
+  let panel = await openTrackPanel(page);
+  await pressInPanel(page, panel.locator('.track-option', { hasText: 'Danish · separate file · SRT' }));
+  await pressInPanel(page, panel.locator('.track-timing-fix'));
+  await expect(panel.locator('.track-timing-line')).toContainText(
+    'Subtitles 1.2 s later, and slowed to match the film (made for 25 fps; the film is 23.976)'
+  );
+  await expect.poll(() => sets(page)).toContain('sub-speed=1.042709');
+  await expect
+    .poll(() => call<string | null>(page, '/src/metadata/api.ts', 'getSetting', 'subtitle_speed'))
+    .toMatch(/":1\.04270/);
+  // 0 puts both back.
+  const reset = panel.getByRole('button', { name: 'Subtitles at their own timing' });
+  const inRow = () => reset.evaluate((el) => !!el.closest('.track-delay')?.querySelector('.focused'));
+  for (let i = 0; i < 25 && !(await inRow()); i++) await press(page, 'ArrowUp');
+  for (let i = 0; i < 6 && !(await reset.evaluate((el) => el.classList.contains('focused'))); i++) {
+    await press(page, 'ArrowRight');
+  }
+  await press(page, 'Enter');
+  await expect
+    .poll(async () => (await sets(page)).filter((x) => x.startsWith('sub-speed=')).at(-1))
+    .toBe('sub-speed=1.000000');
+  await expect
+    .poll(() => call<string | null>(page, '/src/metadata/api.ts', 'getSetting', 'subtitle_speed'))
+    .toBe('{}');
+
+  // Unsure: nothing moves, and it says so.
+  await page.evaluate(() => localStorage.setItem('kinemaMockSubTiming', 'unsure'));
+  await press(page, 'Escape');
+  panel = await openTrackPanel(page);
+  const before = (await sets(page)).length;
+  await pressInPanel(page, panel.locator('.track-timing-fix'));
+  await expect(panel.locator('.track-timing-line')).toHaveText(
+    'Could not tell the timing for sure — nothing changed. Earlier and later still work.'
+  );
+  expect((await sets(page)).slice(before).filter((x) => x.startsWith('sub-'))).toEqual([]);
+  await expect(panel.locator('.track-timing-undo')).toHaveCount(0);
+});
+
+test('after a download not made for this file, a quiet check offers a fix and moves nothing until OK', async ({
+  page,
+}) => {
+  await play(page, 'series');
+  const panel = await openTrackPanel(page);
+  await pressInPanel(page, panel.locator('.track-online'));
+  await expect(panel.locator('.track-note', { hasText: 'Showing' })).toContainText('timed for this file');
+  // Made for this exact file: no check at all.
+  await pause(page, 600, 'a check would have answered by now');
+  expect(await timingChecks(page)).toEqual([]);
+
+  // Another one: checked quietly, offered, nothing moved yet.
+  await pressInPanel(page, panel.locator('.track-offer', { hasText: 'Example.Release.2' }));
+  const offer = panel.locator('.track-timing-offer');
+  await expect(offer).toHaveText('These subtitles look 2.3 s late. Fix the timing');
+  await expect(page.locator('.player-notice')).toHaveText(
+    'These subtitles look 2.3 s late. The subtitle menu can fix it.'
+  );
+  expect((await sets(page)).filter((x) => x.startsWith('sub-delay=')).at(-1)).toBe('sub-delay=0.000');
+  await pressInPanel(page, offer);
+  await expect.poll(() => sets(page)).toContain('sub-delay=-2.340');
+  await expect(offer).toHaveCount(0);
+  await expect(panel.locator('.track-timing-undo')).toBeVisible();
+});
+
 test('the chapter list by remote: the one playing marked, OK jumps there', async ({ page }) => {
   await play(page, 'series', (p) =>
     p.evaluate(() => {

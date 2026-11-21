@@ -42,6 +42,7 @@ import { readProperty, type ScalarFormat, mpvGet } from './engine';
 import { outputCheck, type OutputFacts } from './outputCheck';
 import { readSwitchPolicies, screenIdOf, switchOutcome, switchSettingsFor } from './displaySwitch';
 import { describeDelay } from './audioDelay';
+import { appliedSubDelay, describeSubDelay } from './subDelay';
 import { appliedLevel, describeLevel } from './soundLevel';
 import { startRow } from './startTime';
 import { goesDirect, readAudioSettings, targetDevice } from './audioOutput';
@@ -1056,6 +1057,7 @@ export async function readPlaybackStats(): Promise<StatGroup[]> {
                 }`,
         },
         levellingRow(),
+        subTimingRow(),
       ],
     },
     {
@@ -1090,4 +1092,18 @@ export async function readPlaybackStats(): Promise<StatGroup[]> {
   }
 
   return groups;
+}
+
+/**
+ * The subtitle timing kept for this file (subDelay.ts), and its speed where
+ * "Fix timing automatically" found one — a speed is only ever found, never
+ * set by hand.
+ */
+function subTimingRow(): StatRow {
+  const { ms, speed } = appliedSubDelay();
+  const speedNote =
+    speed === 1
+      ? ''
+      : ` · ${speed > 1 ? 'slowed' : 'sped up'} ×${speed.toFixed(4)} (found automatically)`;
+  return { label: 'Subtitle timing', value: `${describeSubDelay(ms)}${speedNote}` };
 }

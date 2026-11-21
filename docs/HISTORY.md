@@ -4754,6 +4754,57 @@ fetched once more, which is also how the old titles get them.
   each episode); nothing new was needed.
 - `whatLeaves.json` unchanged: the same TMDB request and the same image host.
 
+## Subtitle timing, found automatically (2026-11-21)
+
+Round 10 D2; the design and the owner's pick (option A) are in the round's
+notes. Manual Earlier / Later stayed; beside them a button checks and fixes.
+The plan of 2026-10-18 needed ffmpeg; a measurement showed the bundled libmpv
+gives raw sound by itself (`ao=pcm`, 60 s in ~0.3 s), so it works for
+everyone with nothing to install. No learned speech model and no third-party
+aligner (alass and ffsubsync are GPL and a separate program).
+
+How: eight 40 s stretches over 10–90 % of the film (fewer for an episode,
+none under six minutes), each through a fresh second libmpv handle, as seek
+previews and Videos tiles use one. The reference is a text subtitle built
+into the film where there is one (its cue times; the video has to be decoded
+for them, so a stretch that takes over 6 s hands the rest to speech), else
+speech: voice-band energy rising above its own half-second average (taken
+from the centre channel where the track has one). A fixed threshold over the
+stretch's noise floor passed every made-up test and failed a real film —
+music and effects counted as speech (GOTCHAS). The
+chosen subtitle file's cue times are read by Skrin (SRT, VTT, ASS — times
+only). Each stretch votes, per speed, for the delay that lines the two up:
+coarse over ±90 s at 100 ms by whole lines, then 10 ms by where lines *start*
+against where speech starts — lines linger after the words by differing
+amounts, which left a plateau and a bias of a few tenths when lining up whole
+lines. Lines show a beat before the words and speech is found a little late;
+0.2 s is given back.
+
+Only the known speed pairs are tried (25/24/23.976 both ways), never a
+free-form ratio: a wrong ratio is the most damaging error there is. The
+answer stands only when at least four stretches agree within 0.3 s, they are
+60 % of those that voted and over half of all read, and the rest do not
+agree among themselves on another delay (that is a subtitle for another cut,
+said as such). A stretch abstains when its best delay does not clearly beat
+the next. Tested on 42 made-up films across all seven speeds: never a wrong
+fix, at least nine in ten found; another film's subtitle never moves.
+Under 0.3 s off is "already in time" (a real film's own subtitle measured
+0.3 s from that point in every stretch alike — how early its lines show).
+
+Measured in the real app (a 1080p WEB-DL, 5.1, 1 h 46 over the network
+share; copies of its own SRT in a scratch folder): +2.5 s late → "2.3 s
+earlier, 5 of 8 agree" in 2.2 s; made for 25 fps → "0.2 s later, slowed
+(25 → 23.976)" in 1.1 s, and at 50:00 mpv then showed the line the original
+file has at 49:59.5–50:00.7. Both differ from the original file's own
+measure by the true amount to the hundredth; the 0.2 s is that file's lead. Applied with mpv's own `sub-delay` and
+`sub-speed` (film time = cue × speed + delay), kept per file beside the
+manual amount; Reset clears both, and a step by hand ends the Undo.
+
+After an OpenSubtitles download not marked as made for this file, the check
+runs quietly and offers only when clearly off (≥ 0.3 s or a speed) — never
+moved without a yes, as chosen 2026-10-18. Android has no mpv; the button is
+hidden there and the work is on PLAN.md's Android list.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and
