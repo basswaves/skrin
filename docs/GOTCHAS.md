@@ -1774,6 +1774,21 @@ first screen. **Do:** a card gives `thumbRem` to `Art`, and gets a small copy
 the very picture it should not decode. A new `thumb.localhost` needs the content
 security policy too, and nothing says when it is missing but the fallback.
 
+### Full screen paused the film on every screen, switching off or not
+
+Pressing F (or a double click) in the middle of a film paused it for ~40 ms
+every time, even with display switching off. `mayswitch()` asks whether any of
+the three policies is on, and the resolution one defaults to `auto`, so it is
+true on every desktop; `toggleFullscreen` paused first, then `matchScreen`
+found nothing to change. No error, a short stall in the picture that looked
+like part of the full-screen change itself, and it was taken for #24's pause.
+
+**Do:** pause only when a switch is certain: `matchScreen` takes a
+`beforeSwitch` that `switchForFilm` awaits after it has found a target and
+before it asks the screen (`useScreen.ts`, `displaySwitch.system.test.ts`).
+Proved on the Linux test PC by sampling mpv's `pause` every 50 ms through two
+full-screen toggles (`scripts/proof/linux-click-proof.sh`).
+
 ## Testing and tools
 
 ### Playwright's WebKit on Windows is not Linux's WebKit

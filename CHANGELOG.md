@@ -7,6 +7,8 @@ makes no stability promises.
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-11-22
+
 ### New
 
 - **Send Skrin's lookups through a proxy** (Settings → Privacy, off by default; asked for in Discussion #9). Give an HTTP(S) or SOCKS5 address and every lookup Skrin makes (TMDB, TVmaze, IMDb, OMDb, OpenSubtitles, SIMKL, Trakt, the update check, your own server) and every picture from the internet goes through it. If the proxy cannot be reached the lookup fails and says so; it never goes straight out instead. **Check** tries the address. Two things do not go through it, and the page says so: the YouTube trailer (it plays from YouTube itself) and winget's install of ffmpeg.
