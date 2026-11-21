@@ -983,7 +983,7 @@ fn fallback_titles(conn: &rusqlite::Connection, now: i64, limit: i64) -> rusqlit
                 EXISTS (SELECT 1 FROM media_files m WHERE m.title_id = t.id
                          AND (m.match_reason LIKE 'manual:%' OR m.match_reason LIKE 'nfo:%'))
            FROM titles t
-          WHERE t.provider IN ('wikidata', 'omdb', 'tvmaze')
+          WHERE t.provider IN ('wikidata', 'omdb', 'tvmaze', 'imdb')
             AND EXISTS (SELECT 1 FROM media_files m WHERE m.title_id = t.id)
             AND (t.upgrade_checked_at IS NULL OR t.upgrade_checked_at <= ?1)
           ORDER BY t.upgrade_checked_at IS NOT NULL, t.upgrade_checked_at, t.id
@@ -1526,6 +1526,90 @@ mod tests {
         assert_eq!(rows, vec![(101, 0, 600.0), (102, 0, 300.0)]);
     }
 
+    /// Going back online, on a copy of a real library with real TMDB: every
+    /// title is turned into what matching on this computer leaves (provider
+    /// `imdb`, the IMDb id, no TMDB id), then moved back the way the app does
+    /// it — listed by `fallback_titles` forty at a time, TMDB's `/find` by
+    /// the IMDb id, re-keyed by `adopt` — and checked against the TMDB id it
+    /// had. `BACK_ONLINE_LIBRARY`: a copy of library.db this may change.
+    #[test]
+    #[ignore = "needs a library copy and TMDB"]
+    fn back_online_by_imdb_id_on_a_library_copy() {
+        let path = std::env::var("BACK_ONLINE_LIBRARY").expect("BACK_ONLINE_LIBRARY");
+        let conn = rusqlite::Connection::open(path).unwrap();
+        let key = crate::settings::setting(&conn, "tmdb_api_key")
+            .or_else(|| std::env::var("TMDB_KEY").ok())
+            .expect("a TMDB key in the copy's settings or TMDB_KEY");
+        let mut expected = std::collections::HashMap::new();
+        {
+            let mut stmt = conn
+                .prepare("SELECT id, provider_id FROM titles WHERE provider = 'tmdb' AND imdb_id LIKE 'tt%'
+                           AND EXISTS (SELECT 1 FROM media_files m WHERE m.title_id = titles.id)")
+                .unwrap();
+            for row in stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))).unwrap() {
+                let (id, tmdb) = row.unwrap();
+                expected.insert(id, tmdb);
+            }
+        }
+        conn.execute_batch(
+            "UPDATE titles SET provider = 'imdb', provider_id = imdb_id, tmdb_id = NULL, upgrade_checked_at = NULL
+              WHERE provider = 'tmdb' AND imdb_id LIKE 'tt%'
+                AND EXISTS (SELECT 1 FROM media_files m WHERE m.title_id = titles.id);",
+        )
+        .unwrap();
+        let client = crate::net::builder().build().unwrap();
+        let find = |imdb: &str, series: bool| -> Option<String> {
+            let url = format!(
+                "https://api.themoviedb.org/3/find/{imdb}?external_source=imdb_id&api_key={key}"
+            );
+            let body: serde_json::Value = tauri::async_runtime::block_on(async {
+                serde_json::from_slice(&client.get(&url).send().await.ok()?.bytes().await.ok()?).ok()
+            })?;
+            let hits = body.get(if series { "tv_results" } else { "movie_results" })?;
+            Some(hits.get(0)?.get("id")?.as_i64()?.to_string())
+        };
+        let started = std::time::Instant::now();
+        let (mut right, mut other, mut none, mut refused) = (0, 0, 0, 0);
+        let mut asked = std::collections::HashSet::new();
+        loop {
+            let batch: Vec<_> = fallback_titles(&conn, crate::util::now_secs(), 40)
+                .unwrap()
+                .into_iter()
+                .filter(|t| asked.insert(t.id))
+                .collect();
+            if batch.is_empty() {
+                break;
+            }
+            for t in batch {
+                assert_eq!(t.provider, "imdb");
+                let Some(found) = find(t.imdb_id.as_deref().unwrap(), t.kind == "series") else {
+                    conn.execute("UPDATE titles SET upgrade_checked_at = ?2 WHERE id = ?1", params![t.id, crate::util::now_secs()])
+                        .unwrap();
+                    none += 1;
+                    continue;
+                };
+                if !adopt(&conn, t.id, "tmdb", &found).unwrap() {
+                    refused += 1;
+                } else if expected.get(&t.id) == Some(&found) {
+                    right += 1;
+                } else {
+                    other += 1;
+                    println!("other: title {} now {found}, had {:?}", t.id, expected.get(&t.id));
+                }
+            }
+        }
+        let left: i64 = conn
+            .query_row("SELECT COUNT(*) FROM titles WHERE provider = 'imdb'", [], |r| r.get(0))
+            .unwrap();
+        println!(
+            "{} titles: {right} back on their TMDB entry, {other} on another, {none} not found, {refused} refused; {left} left as matched offline; {:.1}s",
+            expected.len(),
+            started.elapsed().as_secs_f64()
+        );
+        assert_eq!(other, 0);
+        assert_eq!(right + none + refused, expected.len());
+    }
+
     /// Never-asked fallback titles come first; one asked this month waits; a
     /// title with no files, or a TMDB one, is not listed; by hand is said.
     #[test]
@@ -1538,7 +1622,8 @@ mod tests {
                  (21, 'movie', 'omdb', 'tt1', 'Never asked', NULL, 0, NULL),
                  (22, 'series', 'tvmaze', '5', 'Asked today', NULL, 0, 99999990),
                  (23, 'movie', 'wikidata', 'Q2', 'No files', NULL, 0, NULL),
-                 (24, 'movie', 'wikidata', 'Q3', 'By hand', NULL, 0, NULL);
+                 (24, 'movie', 'wikidata', 'Q3', 'By hand', NULL, 0, NULL),
+                 (25, 'movie', 'imdb', 'tt0000025', 'Matched offline', 1999, 0, NULL);
              INSERT INTO media_files (id, root_id, path, parent_dir, file_name, extension,
                      size_bytes, modified_at, first_seen_at, last_seen_at, match_status,
                      title_id, match_reason)
@@ -1546,12 +1631,13 @@ mod tests {
                         (210, 1, 'C:/m/b.mkv', 'C:/m', 'b.mkv', 'mkv', 1, 0, 0, 0, 'matched', 21, NULL),
                         (220, 1, 'C:/m/c.mkv', 'C:/m', 'c.mkv', 'mkv', 1, 0, 0, 0, 'matched', 22, NULL),
                         (240, 1, 'C:/m/d.mkv', 'C:/m', 'd.mkv', 'mkv', 1, 0, 0, 0, 'matched', 24,
-                         'manual: “By hand” via wikidata');",
+                         'manual: “By hand” via wikidata'),
+                        (250, 1, 'C:/m/e.mkv', 'C:/m', 'e.mkv', 'mkv', 1, 0, 0, 0, 'matched', 25, NULL);",
         )
         .unwrap();
         let listed = fallback_titles(&conn, 100_000_000, 10).unwrap();
         let ids: Vec<i64> = listed.iter().map(|t| t.id).collect();
-        assert_eq!(ids, vec![21, 24, 20]);
+        assert_eq!(ids, vec![21, 24, 25, 20], "a title matched offline moves to TMDB too");
         assert!(listed.iter().find(|t| t.id == 24).unwrap().by_hand);
         assert!(!listed.iter().find(|t| t.id == 21).unwrap().by_hand);
         assert_eq!(listed.iter().find(|t| t.id == 20).unwrap().year, Some(2001));

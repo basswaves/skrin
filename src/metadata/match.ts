@@ -574,34 +574,61 @@ async function tmdbIdFor(key: string, target: FallbackTitle): Promise<string | n
  * month later. A few per scan, like the six-month refresh, so a big library is
  * not asked about at once.
  */
-export async function upgradeFallbackTitles(): Promise<FallbackUpgrade> {
+export async function upgradeFallbackTitles({
+  all = false,
+}: {
+  /**
+   * Every one, not a few: "Keep everything on this computer" was just
+   * switched off, and the library moves to TMDB in one background run (the
+   * owner's choice 4a) rather than forty titles a scan.
+   */
+  all?: boolean;
+} = {}): Promise<FallbackUpgrade> {
   const result: FallbackUpgrade = { films: 0, shows: 0, left: 0, errors: [] };
   const keys = await loadProviderKeys();
-  if (!keys.tmdb) return result;
+  if (!keys.tmdb || keys.offline) return result;
 
-  for (const target of await listFallbackTitles(REFRESH_PER_SCAN)) {
-    await yieldToPlayback();
-    const kind = target.kind === 'series' ? 'series' : 'movie';
-    try {
-      const tmdbId = await tmdbIdFor(keys.tmdb, target);
-      const metadata = tmdbId ? await tmdbGetTitle(keys.tmdb, tmdbId, kind) : null;
-      const episodes = tmdbId && kind === 'series' ? await tmdbGetEpisodes(keys.tmdb, tmdbId) : [];
-      if (!tmdbId || !metadata || !(await adoptProvider(target.id, 'tmdb', tmdbId))) {
-        await markUpgradeChecked(target.id);
-        result.left++;
-        continue;
-      }
-      const titleId = await saveTitle(metadata);
-      if (episodes.length > 0) await saveEpisodes(titleId, episodes);
-      if (kind === 'series') result.shows++;
-      else result.films++;
-    } catch (e) {
-      result.errors.push(`${target.title}: ${e instanceof Error ? e.message : String(e)}`);
-      // A refused key will be refused for every other title too.
-      if (e instanceof TmdbKeyRejected) break;
+  // A title that failed is listed again: each is asked once a run.
+  const asked = new Set<number>();
+  const next = async () =>
+    (await listFallbackTitles(REFRESH_PER_SCAN)).filter((t) => !asked.has(t.id));
+  for (let batch = await next(); batch.length > 0; batch = all ? await next() : []) {
+    for (const target of batch) {
+      asked.add(target.id);
+      if (!(await upgradeOne(keys.tmdb, target, result))) return result;
     }
   }
   return result;
+}
+
+/** One fallback title to TMDB; false when the rest should wait. */
+async function upgradeOne(
+  key: string,
+  target: FallbackTitle,
+  result: FallbackUpgrade
+): Promise<boolean> {
+  await yieldToPlayback();
+  const kind = target.kind === 'series' ? 'series' : 'movie';
+  try {
+    const tmdbId = await tmdbIdFor(key, target);
+    const metadata = tmdbId ? await tmdbGetTitle(key, tmdbId, kind) : null;
+    const episodes = tmdbId && kind === 'series' ? await tmdbGetEpisodes(key, tmdbId) : [];
+    if (!tmdbId || !metadata || !(await adoptProvider(target.id, 'tmdb', tmdbId))) {
+      await markUpgradeChecked(target.id);
+      result.left++;
+      return true;
+    }
+    const titleId = await saveTitle(metadata);
+    if (episodes.length > 0) await saveEpisodes(titleId, episodes);
+    if (kind === 'series') result.shows++;
+    else result.films++;
+  } catch (e) {
+    result.errors.push(`${target.title}: ${e instanceof Error ? e.message : String(e)}`);
+    // A refused key will be refused for every other title too, and with no
+    // answer from TMDB the rest waits for a scan that has one.
+    if (e instanceof TmdbKeyRejected || e instanceof Unreachable) return false;
+  }
+  return true;
 }
 
 /**
