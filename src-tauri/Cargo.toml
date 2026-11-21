@@ -50,6 +50,8 @@ rusty-chromaprint = "0.3.0"
 # Decompresses IMDb's ratings file (imdb.rs). Already compiled in through the
 # PNG decoder Tauri uses, so naming it adds no new code to the build.
 flate2 = "1"
+# The chunks of a download as reqwest hands them over (imdb_titles.rs).
+bytes = "1"
 # The QR code on the SIMKL sign-in screen (simkl.rs), so a phone can scan it
 # from the sofa. Pure Rust, no image library: it writes SVG text.
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }

@@ -38,10 +38,10 @@
     },
     {
       "id": "imdb",
-      "name": "IMDb ratings file",
+      "name": "IMDb ratings file and list of titles",
       "hosts": ["datasets.imdbws.com"],
-      "sends": "Nothing about your library: Skrin downloads the ratings file IMDb publishes for everyone and keeps only the rows for your titles.",
-      "when": "The first time, then when the file is over 30 days old, or a week after a new title joined the library.",
+      "sends": "Nothing about your library: Skrin downloads files IMDb publishes for everyone. From the ratings file (about 9 MB) it keeps only the rows for your titles. The list of titles (about 230 MB to download, 76 MB kept) is downloaded only to match names on this computer, with Keep everything on this computer.",
+      "when": "Ratings: the first time, then when the file is over 30 days old, or a week after a new title joined the library. List of titles: only while its own setting allows it, then at most once a month.",
       "stop": "No switch: nothing of yours is sent."
     },
     {

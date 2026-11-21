@@ -64,6 +64,7 @@ import { explainUnreachable } from './reach';
 import { wikidataGetMovie, wikidataSearch } from './wikidata';
 import { idsInName, nfoForGroup, resolveIds, resolveNfoIds, sourceName, type NfoIds } from './nfo';
 import { yieldToPlayback } from '../library/playback';
+import { chooseImdb, fileMinutes, imdbGet, imdbMetadata, imdbSearch, OFFLINE_KEY } from './imdbOffline';
 
 export interface MatchProgress {
   groupsTotal: number;
@@ -244,9 +245,14 @@ export interface ProviderKeys {
   /** Whose TMDB key that is: one entered in Settings, or the app's own. */
   tmdbSource: TmdbKeySource | null;
   omdb: string | null;
+  /**
+   * "Keep everything on this computer" is on: names are matched against
+   * IMDb's list on this computer (imdbOffline.ts) and no key is used.
+   */
+  offline?: boolean;
 }
 
-export type Provider = 'tmdb' | 'tvmaze' | 'omdb' | 'wikidata';
+export type Provider = 'tmdb' | 'tvmaze' | 'omdb' | 'wikidata' | 'imdb';
 
 /**
  * Read the provider keys from the database, at the moment they are needed.
@@ -257,11 +263,15 @@ export type Provider = 'tmdb' | 'tvmaze' | 'omdb' | 'wikidata';
  * input boxes, and only what was saved should be used.
  */
 export async function loadProviderKeys(): Promise<ProviderKeys> {
-  const [own, omdb, rejected] = await Promise.all([
+  const [own, omdb, rejected, offline] = await Promise.all([
     getSetting('tmdb_api_key'),
     getSetting('omdb_api_key'),
     getSetting(BUILTIN_REJECTED_KEY),
+    getSetting(OFFLINE_KEY),
   ]);
+  // Offline, no key is handed out at all: everything that asks a service
+  // with one finds none, as when no key works.
+  if (offline === '1') return { tmdb: null, tmdbSource: null, omdb: null, offline: true };
   const tmdb = chooseTmdbKey(own, usableBuiltinKey(BUILTIN_TMDB_KEY, rejected));
   return { tmdb: tmdb?.key ?? null, tmdbSource: tmdb?.source ?? null, omdb: omdb?.trim() || null };
 }
@@ -277,6 +287,7 @@ export async function loadProviderKeys(): Promise<ProviderKeys> {
  * Wikidata (everything but pictures).
  */
 export function providerForKind(isSeries: boolean, keys: ProviderKeys): Provider {
+  if (keys.offline) return 'imdb';
   if (keys.tmdb) return 'tmdb';
   if (isSeries) return 'tvmaze';
   return keys.omdb ? 'omdb' : 'wikidata';
@@ -299,6 +310,7 @@ export function searchProvider(
   }
   if (provider === 'tvmaze') return tvmazeSearch(title);
   if (provider === 'wikidata') return wikidataSearch(title);
+  if (provider === 'imdb') return imdbSearch([title], isSeries);
   return omdbSearch(keys.omdb as string, title, year);
 }
 
@@ -356,6 +368,14 @@ export async function prepareTitle(
   }
   if (isSeries && provider === 'wikidata') {
     throw new Error('Skrin reads only movies from Wikidata. Use TMDB or TVmaze for a series.');
+  }
+
+  if (provider === 'imdb') {
+    // IMDb's list has names and numbers only: no episodes (they keep the
+    // numbers from their file names), no pictures, no plot.
+    const found = await imdbGet(providerId);
+    if (!found) throw new Error(`${providerId} is not in IMDb's list on this computer.`);
+    return saveTitle(imdbMetadata(found));
   }
 
   const metadata =
@@ -747,6 +767,23 @@ async function resolveGroup(
   };
 
   const provider = providerFor(group, keys);
+
+  if (provider === 'imdb') {
+    // One lookup for both names, then the scorer with the offline rules.
+    const names = shorter ? [searchTitle, shorter] : [searchTitle];
+    const found = await imdbSearch(names, group.isSeries);
+    const minutes = group.isSeries
+      ? null
+      : await fileMinutes(group.files.map((f) => f.id)).catch(() => null);
+    const { best, matched } = chooseImdb(found, ctx, minutes);
+    return {
+      provider,
+      providerId: best?.providerId ?? null,
+      confidence: best?.confidence ?? 0,
+      reason: `${best?.reason ?? "no candidates in IMDb's list"}${nfoNote}`,
+      matched: matched && best !== null,
+    };
+  }
 
   let candidates = await searchProvider(provider, keys, searchTitle, searchYear, group.isSeries);
   if (shorter) {

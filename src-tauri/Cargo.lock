@@ -4746,6 +4746,7 @@ name = "skrin"
 version = "0.20.0"
 dependencies = [
  "alsa",
+ "bytes",
  "flate2",
  "gtk",
  "image",

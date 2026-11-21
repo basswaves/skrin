@@ -2380,6 +2380,8 @@ const handlers: Record<string, Handler> = {
   probe_library: () => ({ read: 0, failed: 0, unavailable: true }),
   measure_pictures: () => ({ measured: 0, unavailable: true }),
   refresh_imdb_ratings: () => ({ fetched: false, rated: 0 }),
+  refresh_imdb_titles: () => ({ built: false, rows: 0, skipped: 'not allowed' }),
+  imdb_titles_status: () => ({ allowed: false, present: false, rows: 0, builtAt: null, bytes: 0, progress: null }),
   list_titles_needing_scores: () => [],
   save_omdb_scores: () => null,
   // Asking the sound server to let go of a card (Linux, audio_reserve.rs):

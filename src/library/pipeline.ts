@@ -55,6 +55,7 @@ import {
   upgradeFallbackTitles,
 } from '../metadata/match';
 import { syncBuiltinKey } from '../metadata/builtinKey';
+import { refreshImdbTitles } from '../metadata/imdbOffline';
 import { refreshTomatometer } from '../metadata/scores';
 import { applyMovedMatches } from '../metadata/moving';
 import { runWorthALook } from './worthALook';
@@ -379,6 +380,13 @@ export async function runScanPipeline(): Promise<ScanOutcome> {
     // re-opens the refusals it could change, and they belong in this list.
     await yieldToPlayback();
     await syncBuiltinKey();
+    // IMDb's list for matching on this computer: only while its setting is
+    // on, and at most monthly (imdb_titles.rs). Usually nothing.
+    try {
+      await refreshImdbTitles();
+    } catch (e) {
+      errors.push(String(e));
+    }
     // In batches, until none is left that this scan has not tried. It used to
     // take the first 2,000 and stop: a bigger folder added at once had the
     // rest wait for the next launch. A file whose provider did not answer is

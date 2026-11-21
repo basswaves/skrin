@@ -21,6 +21,7 @@ mod ffmpeg_install;
 mod files;
 mod history;
 mod imdb;
+mod imdb_titles;
 mod introdb;
 mod introdb_app;
 mod jobs;
@@ -638,6 +639,11 @@ pub fn run() {
             disc::disc_failure,
             file_state::file_state,
             imdb::refresh_imdb_ratings,
+            imdb_titles::refresh_imdb_titles,
+            imdb_titles::imdb_titles_status,
+            imdb_titles::imdb_titles_search,
+            imdb_titles::imdb_titles_get,
+            imdb_titles::imdb_file_minutes,
             omdb::list_titles_needing_scores,
             omdb::save_omdb_scores,
             probe::file_facts,

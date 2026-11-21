@@ -14,6 +14,8 @@ first, once:
 | Extras play, Back returns | `windows-details-and-timing.kinema-run.json` | extra's label in the player, page heading after Esc |
 | Theme music on / off / stops | same plan (needs the page `Audio` hook it installs) | no audio off; time advances on; paused after leaving |
 | Seek preview by mouse (hover) | `windows-seek-preview.kinema-run.json` (hover events inside the page) · Linux: `linux-proof.sh` (mpv `mouse` commands) | 320 px picture, nearest-ten-seconds time, memory flat |
+| Matching on this computer (IMDb's list) | `offline-match-dryrun.sh SCRATCH` on a copy of a real library (report stays in SCRATCH: it names films) | 0 wrong; right and Needs attention against the last run (round 11: 384 / 17 of 401) |
+| Back online by IMDb id | `BACK_ONLINE_LIBRARY=<copy> cargo test --lib back_online_by_imdb_id -- --ignored` | every title on its own TMDB entry, none on another (round 11: 401 of 401) |
 
 Windows: `npm run app:build:test`, `kinema_app start fresh`, paste the plan's
 `steps` into one `kinema_run` (replace `{CLIPS}` with the scratch folder).

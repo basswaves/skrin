@@ -32,7 +32,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::time::Duration;
 use tauri::Manager;
 
-const RATINGS_URL: &str = "https://datasets.imdbws.com/title.ratings.tsv.gz";
+pub const RATINGS_URL: &str = "https://datasets.imdbws.com/title.ratings.tsv.gz";
 
 /// Setting key: when the file was last read, in seconds since the epoch.
 const FETCHED_AT_KEY: &str = "imdb_ratings_fetched_at";
