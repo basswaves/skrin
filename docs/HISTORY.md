@@ -4858,6 +4858,35 @@ direct. "Check" asks TMDB through the typed address and says what happened.
 winget (Windows' own settings). Both said in Settings and on the What leaves
 page.
 
+## Keep everything on this computer (2026-11-21)
+
+**Why.** The same tester (Discussion #9) wanted Skrin with nothing about their
+library leaving the computer. A proxy hides who asks, not what is asked.
+
+**What.** A quiet line on the first run and a switch at the top of Settings →
+Privacy. Names are matched against IMDb's public list of titles kept on the
+computer (the matcher: offline catalogue, round 11 P2a); every other service
+stops, the update check too (it shows the address to GitHub every start).
+IMDb's list and ratings each keep their own switch: they are files IMDb
+publishes for everyone, from the host Skrin already used, and say nothing
+about the library. The own media server stays possible (the address is the
+user's). The owner chose every recommended option (notes: PRIVATE-MODE §2).
+
+**One gate, not fourteen checks.** `net::client(Service)` is the only way to a
+Rust HTTP client (`builder()` became private, so a new caller cannot skip it),
+and the page's every request already went through `fetchPolitely`. Pictures
+already cached are shown; a remote address is never handed to the webview.
+Buttons that only reach a service (Trailer from YouTube, Find subtitles
+online, Install ffmpeg, More like this, Update) are hidden rather than left to
+fail. SIMKL and Trakt must be disconnected first: a mode that silently stopped
+them would make them think nothing more was watched.
+
+**What was fetched stays** until "Remove pictures and details fetched online"
+is pressed (asks first): it keeps names, years, ids and watch history, and
+marks every title as never fetched, so going back online fetches it again.
+Switching off moves every title matched here to TMDB by its IMDb number in one
+run (choice 4a), and removes the list, which is only for the mode.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and

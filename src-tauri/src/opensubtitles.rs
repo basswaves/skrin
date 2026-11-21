@@ -128,7 +128,8 @@ fn os_languages(code: &str) -> String {
 }
 
 fn http() -> Option<tauri_plugin_http::reqwest::Client> {
-    crate::net::builder()
+    crate::net::client(crate::net::Service::OpenSubtitles)
+        .ok()?
         .timeout(TIMEOUT)
         .build()
         .ok()
@@ -497,7 +498,8 @@ pub fn opensubtitles_status(db: tauri::State<Db>) -> Result<SubtitleStatus, Stri
         // no grant to cut off (a second sign-in is simply a second token), and
         // a copy of the library keeps what it fetches in its own folder. It is
         // how the real search and download are tested end to end.
-        available: api_key(&conn).is_some(),
+        // "Find subtitles online" is not offered in Keep everything on this computer.
+        available: api_key(&conn).is_some() && !crate::net::offline(),
         user: setting(&conn, USERNAME_KEY),
         remaining: setting(&conn, REMAINING_KEY).and_then(|s| s.parse().ok()),
         reset: setting(&conn, RESET_KEY),

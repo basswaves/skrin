@@ -305,6 +305,19 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   // Privacy
   {
     section: 'privacy',
+    label: 'Keep everything on this computer',
+    about:
+      'offline private mode no internet no lookups nothing sent local only IMDb list of titles match names here',
+    values: ['On', 'Off'],
+  },
+  {
+    section: 'privacy',
+    label: 'Remove pictures and details fetched online',
+    find: 'Keep everything on this computer',
+    about: 'delete posters plots cast downloaded internet privacy',
+  },
+  {
+    section: 'privacy',
     label: 'Send Skrin’s lookups through a proxy',
     find: 'Proxy',
     about: 'proxy VPN Tor SOCKS5 HTTP address hide IP private',

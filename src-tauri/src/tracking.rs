@@ -37,8 +37,11 @@ pub fn user_agent() -> String {
     format!("skrin/{}", env!("CARGO_PKG_VERSION"))
 }
 
-pub fn http() -> Option<tauri_plugin_http::reqwest::Client> {
-    crate::net::builder()
+/// A client for SIMKL, Trakt or the user's own server; None when it cannot
+/// be made or Keep everything on this computer keeps the service off.
+pub fn http(service: crate::net::Service) -> Option<tauri_plugin_http::reqwest::Client> {
+    crate::net::client(service)
+        .ok()?
         .timeout(Duration::from_secs(20))
         .build()
         .ok()

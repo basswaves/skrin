@@ -211,7 +211,8 @@ fn files_for<'a>(release: &'a GithubRelease, kind: &str, testing: bool) -> Optio
 }
 
 fn client() -> Option<tauri_plugin_http::reqwest::Client> {
-    crate::net::builder()
+    crate::net::client(crate::net::Service::Github)
+        .ok()?
         .connect_timeout(TIMEOUT)
         // GitHub refuses API requests without one.
         .user_agent(concat!("Skrin/", env!("CARGO_PKG_VERSION")))

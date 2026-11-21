@@ -32,6 +32,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
 import { isRemote, proxyNow, remoteImage } from '../net/proxy';
+import { offlineNow } from '../net/offline';
 
 /** Bins for the brightness histogram. */
 const BINS = 64;
@@ -236,6 +237,8 @@ function load(src: string): Promise<HTMLImageElement> {
 async function lookAt(sources: string[]): Promise<string | null> {
   for (const src of sources) {
     try {
+      // In Keep everything on this computer, never one from the internet.
+      if (isRemote(src) && (await offlineNow())) continue;
       // With the proxy on, a logo from the internet is fetched through it.
       const shown = isRemote(src) && (await proxyNow()).enabled ? await remoteImage(src) : src;
       const img = await load(shown);

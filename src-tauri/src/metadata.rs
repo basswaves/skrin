@@ -1557,7 +1557,7 @@ mod tests {
                 AND EXISTS (SELECT 1 FROM media_files m WHERE m.title_id = titles.id);",
         )
         .unwrap();
-        let client = crate::net::builder().build().unwrap();
+        let client = crate::net::client(crate::net::Service::Tmdb).unwrap().build().unwrap();
         let find = |imdb: &str, series: bool| -> Option<String> {
             let url = format!(
                 "https://api.themoviedb.org/3/find/{imdb}?external_source=imdb_id&api_key={key}"

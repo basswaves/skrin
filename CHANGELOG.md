@@ -7,6 +7,23 @@ makes no stability promises.
 
 ## [Unreleased]
 
+### New
+
+- **Keep everything on this computer** (asked for in Discussion #9). A quiet
+  line on the first run, or a switch at the top of Settings → Privacy: Skrin
+  then looks nothing up online. Names are matched on this computer against
+  the list of films and shows IMDb publishes for everyone (about 240 MB to
+  download, 76 MB kept, again once a month); nothing about your library is
+  sent. Every other service stops, the check for new versions too; Trailer
+  (from YouTube), Find subtitles online, Install ffmpeg and More like this are
+  not shown, and pictures already on this device are shown, no new ones
+  fetched. IMDb's list and IMDb's ratings each have their own switch; with
+  both off nothing is downloaded at all and names come from the files.
+  "Remove pictures and details fetched online" (asks first) clears what came
+  from the internet before. SIMKL and Trakt are disconnected first. Switching
+  it off moves every title to TMDB by its IMDb number in one run, with its
+  pictures and details. Mouse, keyboard and remote; Settings search finds it.
+
 ## [0.20.0] — 2026-11-21
 
 ### New

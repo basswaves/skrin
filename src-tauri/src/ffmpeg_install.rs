@@ -88,6 +88,7 @@ pub async fn install_ffmpeg(
     if crate::jobs::playing() {
         return Err("Not while a film is playing.".into());
     }
+    crate::net::allowed(crate::net::Service::Winget)?;
     if RUNNING.swap(true, Ordering::SeqCst) {
         return Err("ffmpeg is being installed already.".into());
     }

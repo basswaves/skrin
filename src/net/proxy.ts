@@ -11,6 +11,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
 import { setSetting } from '../metadata/api';
+import { useOffline } from './offline';
 
 export const PROXY_ENABLED_KEY = 'proxy_enabled';
 export const PROXY_ADDRESS_KEY = 'proxy_address';
@@ -101,10 +102,15 @@ export const isRemote = (src: string) => REMOTE.test(src);
  * `src` as the page may show it: as it is when the proxy is off or the picture
  * is local; with the proxy on, a remote picture is fetched through it first
  * (null while that is under way, and when it fails — never the direct address).
+ * In Keep everything on this computer a remote picture is never asked for:
+ * null, so the drawn poster stands in (cache only — `local` comes first).
  */
 export function useProxiedSrc(src: string | null): string | null {
-  const on = useProxyOn();
+  const proxyOn = useProxyOn();
+  const offline = useOffline();
   const remote = src !== null && isRemote(src);
+  // Asked through the proxy only outside the mode; until both are known, nothing.
+  const on = offline === false ? proxyOn : null;
   const [loaded, setLoaded] = useState<{ src: string; url: string | null } | null>(null);
   useEffect(() => {
     if (!on || !remote || src === null) return;
@@ -118,6 +124,7 @@ export function useProxiedSrc(src: string | null): string | null {
     };
   }, [on, remote, src]);
   if (src === null || !remote) return src;
+  if (offline !== false) return null;
   if (on === null) return null; // not known yet: not asked directly meanwhile
   if (!on) return src;
   return loaded?.src === src ? loaded.url : null;

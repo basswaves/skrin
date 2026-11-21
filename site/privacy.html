@@ -39,10 +39,11 @@
 <div class="wrap page">
   <h1>Privacy policy</h1>
   <p>Skrin is a free, open-source media library and video player, made by one maintainer (<a href="https://github.com/basswaves">basswaves on GitHub</a>). It has no account, no server of its own and no telemetry: it collects no usage statistics, crash reports or anything else about you, and nobody behind Skrin receives your data. This page covers the apps for Windows, Linux and Android, and this website.</p>
-  <p class="line"><b>Last updated:</b> 25 October 2026. Every change to this page is in its <a href="https://github.com/basswaves/skrin/commits/master/site/privacy.html">history on GitHub</a>.</p>
+  <p class="line"><b>Last updated:</b> 21 November 2026. Every change to this page is in its <a href="https://github.com/basswaves/skrin/commits/master/site/privacy.html">history on GitHub</a>.</p>
 
   <h2 id="title">What leaves your computer</h2>
   <p id="intro"></p>
+  <p id="keep"></p>
   <div id="services"></div>
   <div id="links"></div>
   <p id="local"></p>
@@ -119,6 +120,7 @@
   fetch("whatLeaves.json").then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
     document.getElementById("title").textContent=d.title;
     document.getElementById("intro").textContent=d.intro;
+    if(d.keep)document.getElementById("keep").textContent=d.keep;
     var box=document.getElementById("services");
     d.services.forEach(function(s){
       box.appendChild(el("h3",s.name));

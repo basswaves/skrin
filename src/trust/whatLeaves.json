@@ -1,6 +1,7 @@
 {
   "title": "What leaves your computer",
   "intro": "Skrin keeps your library, your settings and what you have watched on this device. It has no account and no server of its own, and it sends no usage statistics. These are every service it can talk to, what it sends, when, and what stops it. If you set a proxy (Settings, Privacy), they all go through it instead of straight out, the pictures too, and fail rather than go direct if the proxy cannot be reached; the one thing that does not is YouTube, below.",
+  "keep": "Keep everything on this computer (Settings, Privacy; also offered at the first run) stops every service below but two: IMDb's list of titles and IMDb's ratings, files IMDb publishes for everyone, each with its own switch, and your own media server, whose address is yours. Names are then matched on this computer, against IMDb's list; nothing about your library is sent. With both IMDb files off, nothing is downloaded at all, and names come from the files only. What was fetched before stays until you remove it there.",
   "services": [
     {
       "id": "tmdb",
@@ -8,7 +9,7 @@
       "hosts": ["api.themoviedb.org", "api.tmdb.org", "image.tmdb.org"],
       "sends": "The title and year read from a file or folder name (or an IMDb number written in one, or in an NFO beside the file), the TMDB number of a close candidate when asking for its other names, then the TMDB number of each match, and of an actor whose page you open or a title whose posters you list, with Skrin's key or yours. With film and show details in another language than English, that language's code (such as pl-PL) too. Pictures are asked for by their address.",
       "when": "When a scan finds a film or show that has not been matched yet, when a title's details are over six months old (TMDB's terms) or a running show's next episode has aired, when you open an actor's page (once a month at most) or a title's poster list, when you change the language of film and show details (every title once more, in the background), and when a poster or backdrop is first shown.",
-      "stop": "No switch: TMDB is how Skrin knows what your films and shows are. A folder you remove is no longer looked up."
+      "stop": "Keep everything on this computer, in Settings, Privacy: names are then matched on this computer instead, without pictures or plots. A folder you remove is no longer looked up."
     },
     {
       "id": "tvmaze",
@@ -16,7 +17,7 @@
       "hosts": ["api.tvmaze.com", "static.tvmaze.com"],
       "sends": "A show's name read from its folder, or its IMDb or TheTVDB number, then that show's number to get its episodes and pictures.",
       "when": "When a scan finds a TV show that has not been matched yet, or new episodes of one.",
-      "stop": "No switch: it is used for TV shows only, and a TV folder you remove is no longer looked up."
+      "stop": "Keep everything on this computer, in Settings, Privacy. A TV folder you remove is no longer looked up."
     },
     {
       "id": "wikidata",
@@ -24,7 +25,7 @@
       "hosts": ["www.wikidata.org", "en.wikipedia.org"],
       "sends": "A film's title and year read from its file name.",
       "when": "Only for films, and only when no TMDB key works, as a fallback. Never pictures.",
-      "stop": "Stops by itself as soon as a TMDB key works."
+      "stop": "Stops by itself as soon as a TMDB key works, and with Keep everything on this computer."
     },
     {
       "id": "omdb",
@@ -41,8 +42,9 @@
       "name": "IMDb ratings file and list of titles",
       "hosts": ["datasets.imdbws.com"],
       "sends": "Nothing about your library: Skrin downloads files IMDb publishes for everyone. From the ratings file (about 9 MB) it keeps only the rows for your titles. The list of titles (about 230 MB to download, 76 MB kept) is downloaded only to match names on this computer, with Keep everything on this computer.",
-      "when": "Ratings: the first time, then when the file is over 30 days old, or a week after a new title joined the library. List of titles: only while its own setting allows it, then at most once a month.",
-      "stop": "No switch: nothing of yours is sent."
+      "when": "Ratings: the first time, then when the file is over 30 days old, or a week after a new title joined the library. List of titles: only with Keep everything on this computer on and its own switch on, then at most once a month.",
+      "stop": "Nothing of yours is sent. With Keep everything on this computer on, each file has its own switch there, in Settings, Privacy; the list of titles is not downloaded without it.",
+      "offline": "imdb"
     },
     {
       "id": "theintrodb",
@@ -100,8 +102,9 @@
       "hosts": [],
       "sends": "The key or token you type, to the address you type, asking for your watched films and episodes and their ids. The server is yours; nothing goes anywhere else, and the key is not kept.",
       "when": "Only when you press Bring it in.",
-      "stop": "Do not press Bring it in, in Settings, Keep track of what I watch.",
-      "section": "tracking"
+      "stop": "Do not press Bring it in, in Settings, Keep track of what I watch. Keep everything on this computer leaves it possible: the server is yours.",
+      "section": "tracking",
+      "offline": "stays"
     },
     {
       "id": "winget",

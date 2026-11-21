@@ -58,6 +58,8 @@ import MergeOffer, { type MergeOfferState } from './MergeOffer';
 import MovedOffer, { type MovedOfferState } from './MovedOffer';
 import EquipmentSection from './EquipmentSection';
 import WhatLeavesSection from './WhatLeavesSection';
+import KeepOnDeviceSection from './KeepOnDeviceSection';
+import { useOffline } from '../net/offline';
 import { makeReport as packReport, openReportForm, REPORT_WORDS, reportSaved, showReport } from './report';
 import SoundSection from './SoundSection';
 import ScreenSection from './ScreenSection';
@@ -480,6 +482,7 @@ export default function Settings({
   const [update, setUpdate] = useState<Release | null>(null);
   const [version, setVersion] = useState<string | null>(null);
   const [checkUpdates, setCheckUpdates] = useState(true);
+  const offline = useOffline() === true;
   useEffect(() => {
     let live = true;
     void availableUpdate().then((r) => live && setUpdate(r));
@@ -1755,6 +1758,7 @@ export default function Settings({
 
             {shown === 'privacy' && (
               <>
+                <KeepOnDeviceSection onGo={(id) => goToSection(id as SectionId)} />
                 <ProxySection />
                 <WhatLeavesSection
                   sectionNames={SECTION_NAMES}
@@ -1768,7 +1772,13 @@ export default function Settings({
                 <section className="settings-section">
                   <h2>Updates</h2>
                   {version && <p className="settings-intro">This is Skrin {version} (formerly Kinema).</p>}
-                  {update && <UpdateNotice update={update} />}
+                  {update && !offline && <UpdateNotice update={update} />}
+                  {offline ? (
+                    <p className="settings-intro">
+                      Look for new versions: Off: Keep everything on this computer is on (Settings,
+                      Privacy). New versions are on skrin.org.
+                    </p>
+                  ) : (
                   <ChoiceRow
                     label="Look for new versions"
                     choices={[
@@ -1782,6 +1792,7 @@ export default function Settings({
                     }}
                     note="When Skrin starts, it asks GitHub for the number of the latest version and says here if there is a newer one. Nothing is downloaded until you press Update."
                   />
+                  )}
                 </section>
 
                 <section className="settings-section">

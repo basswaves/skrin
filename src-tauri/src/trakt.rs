@@ -32,10 +32,14 @@
 use crate::library::Db;
 use crate::settings::setting;
 use crate::tracking::{
-    self, clear, http, qr_svg, read_tokens, save_tokens, store, user_agent, DeviceCode, PollOutcome,
+    self, clear, qr_svg, read_tokens, save_tokens, store, user_agent, DeviceCode, PollOutcome,
     Sent, Status, Tokens, Waiting, TRAKT,
 };
 use crate::util::{now_secs, to_string_err};
+
+fn http() -> Option<tauri_plugin_http::reqwest::Client> {
+    tracking::http(crate::net::Service::Trakt)
+}
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::collections::HashSet;

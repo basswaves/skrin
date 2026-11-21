@@ -2380,8 +2380,30 @@ const handlers: Record<string, Handler> = {
   probe_library: () => ({ read: 0, failed: 0, unavailable: true }),
   measure_pictures: () => ({ measured: 0, unavailable: true }),
   refresh_imdb_ratings: () => ({ fetched: false, rated: 0 }),
-  refresh_imdb_titles: () => ({ built: false, rows: 0, skipped: 'not allowed' }),
-  imdb_titles_status: () => ({ allowed: false, present: false, rows: 0, builtAt: null, bytes: 0, progress: null }),
+  // IMDb's list of titles (imdb_titles.rs): "built" at once when allowed, in the mode.
+  refresh_imdb_titles: () => {
+    if (settings.get('keep_on_device') !== '1' || settings.get('imdb_titles_allowed') !== '1')
+      return { built: false, rows: 0, skipped: 'not allowed' };
+    settings.set('mock_imdb_titles_built', String(Math.floor(Date.now() / 1000)));
+    return { built: true, rows: 504143, skipped: null };
+  },
+  imdb_titles_status: () => {
+    const built = Number(settings.get('mock_imdb_titles_built') ?? 0) || null;
+    return {
+      allowed: settings.get('imdb_titles_allowed') === '1',
+      present: built !== null,
+      rows: built ? 504143 : 0,
+      builtAt: built,
+      bytes: built ? 76 * 1024 * 1024 : 0,
+      progress: null,
+    };
+  },
+  imdb_titles_remove: () => {
+    const had = settings.get('mock_imdb_titles_built');
+    settings.delete('mock_imdb_titles_built');
+    return had ? 76 * 1024 * 1024 : 0;
+  },
+  remove_fetched_online: () => ({ titles: 12, pictures: 30, bytes: 4_200_000 }),
   list_titles_needing_scores: () => [],
   save_omdb_scores: () => null,
   // Asking the sound server to let go of a card (Linux, audio_reserve.rs):
@@ -2426,6 +2448,12 @@ const handlers: Record<string, Handler> = {
     settings.set(String(a.key), String(a.value));
     return null;
   },
+  // Keep everything on this computer (net.rs): the gate's state, from the settings.
+  offline_current: () => ({
+    offline: settings.get('keep_on_device') === '1',
+    imdbRatings: settings.get('imdb_ratings_allowed') !== '0',
+    imdbTitles: settings.get('imdb_titles_allowed') === '1',
+  }),
   // The proxy setting (net.rs): the same words, a fixed answer for "Check".
   proxy_current: () => ({
     enabled: settings.get('proxy_enabled') === 'on',

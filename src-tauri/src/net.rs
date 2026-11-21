@@ -15,12 +15,121 @@
 //! which has no proxy of its own. What slips past is the YouTube trailer
 //! (an iframe in the webview) — the Settings text says so.
 
+//!
+//! It is also the one gate of "Keep everything on this computer" (Settings →
+//! Privacy; PRIVATE-MODE.md §2): every client is made by `client(service)`,
+//! which names the service it is for (the ids of `src/trust/whatLeaves.json`)
+//! and is refused while the mode is on, except IMDb's two files, each while
+//! its own setting allows it, and the user's own media server. The page asks
+//! the same question (`offline_current`, `src/net/offline.ts`) before its own
+//! requests and before loading a picture from the internet.
+
 use std::sync::RwLock;
 use tauri_plugin_http::reqwest::{ClientBuilder, NoProxy, Proxy, Url};
 
 /// The two settings, in the `settings` table.
 pub const ENABLED_KEY: &str = "proxy_enabled";
 pub const ADDRESS_KEY: &str = "proxy_address";
+
+/// "Keep everything on this computer": "1" = on (imdbOffline.ts `OFFLINE_KEY`).
+pub const OFFLINE_KEY: &str = "keep_on_device";
+/// In the mode, IMDb's ratings file: "0" = off. On by default.
+pub const IMDB_RATINGS_KEY: &str = "imdb_ratings_allowed";
+
+/// Every service Skrin can talk to, as `whatLeaves.json` names them.
+/// Wikidata and OMDb are asked by the page only (`src/net/offline.ts` gates
+/// them there); they are named here so the list is whole.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum Service {
+    Tmdb,
+    Tvmaze,
+    Wikidata,
+    Omdb,
+    ImdbRatings,
+    ImdbTitles,
+    TheIntroDb,
+    IntroDbApp,
+    OpenSubtitles,
+    Simkl,
+    Trakt,
+    /// The user's own Jellyfin, Emby or Plex: the address is theirs.
+    OwnServer,
+    Winget,
+    Youtube,
+    Github,
+}
+
+/// What a refused request says (and what `userError` shows).
+pub const KEPT_HERE: &str =
+    "Keep everything on this computer is on, so Skrin does not ask the internet for this.";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Privacy {
+    offline: bool,
+    imdb_ratings: bool,
+    imdb_titles: bool,
+}
+
+static PRIVACY: RwLock<Privacy> =
+    RwLock::new(Privacy { offline: false, imdb_ratings: true, imdb_titles: false });
+
+fn privacy() -> Privacy {
+    PRIVACY.read().map(|p| *p).unwrap_or_default()
+}
+
+/// The settings `reload` reads; a change to one of them is applied at once.
+pub fn is_network_setting(key: &str) -> bool {
+    [ENABLED_KEY, ADDRESS_KEY, OFFLINE_KEY, IMDB_RATINGS_KEY, crate::imdb_titles::ALLOWED_KEY]
+        .contains(&key)
+}
+
+/// Whether "Keep everything on this computer" is on.
+pub fn offline() -> bool {
+    privacy().offline
+}
+
+/// The gate: may Skrin talk to `service` now? In the mode, only IMDb's two
+/// files (each by its own setting) and the user's own server. Outside it,
+/// everything as before, but IMDb's list of titles, which is only for the
+/// mode.
+pub fn allowed(service: Service) -> Result<(), String> {
+    let p = privacy();
+    let ok = match service {
+        Service::ImdbTitles => p.offline && p.imdb_titles,
+        Service::ImdbRatings => !p.offline || p.imdb_ratings,
+        Service::OwnServer => true,
+        _ => !p.offline,
+    };
+    if ok {
+        Ok(())
+    } else {
+        crate::log!("network: {service:?} not asked (Keep everything on this computer)");
+        Err(KEPT_HERE.into())
+    }
+}
+
+/// A client builder for `service`, through the proxy when it is on; refused
+/// while the mode keeps that service off. The only way to a client.
+pub fn client(service: Service) -> Result<ClientBuilder, String> {
+    allowed(service)?;
+    Ok(builder())
+}
+
+/// What the page needs of the gate.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Offline {
+    pub offline: bool,
+    pub imdb_ratings: bool,
+    pub imdb_titles: bool,
+}
+
+#[tauri::command]
+pub fn offline_current() -> Offline {
+    let p = privacy();
+    Offline { offline: p.offline, imdb_ratings: p.imdb_ratings, imdb_titles: p.imdb_titles }
+}
 
 /// Not sent through the proxy: this computer and the home network.
 const LOCAL: &str =
@@ -68,8 +177,32 @@ pub fn normalise(text: &str) -> Result<String, String> {
     Ok(url.to_string().trim_end_matches('/').to_string())
 }
 
-/// Read the two settings and use them from now on.
+/// Read the settings and use them from now on.
 pub fn reload(conn: &rusqlite::Connection) {
+    let get = |key| crate::settings::setting(conn, key);
+    let privacy = Privacy {
+        offline: get(OFFLINE_KEY).as_deref() == Some("1"),
+        imdb_ratings: get(IMDB_RATINGS_KEY).as_deref() != Some("0"),
+        imdb_titles: get(crate::imdb_titles::ALLOWED_KEY).as_deref() == Some("1"),
+    };
+    if privacy != self::privacy() {
+        crate::log!(
+            "network: keep everything on this computer {}{}",
+            if privacy.offline { "on" } else { "off" },
+            if privacy.offline {
+                format!(
+                    " (IMDb ratings {}, list of titles {})",
+                    if privacy.imdb_ratings { "on" } else { "off" },
+                    if privacy.imdb_titles { "on" } else { "off" }
+                )
+            } else {
+                String::new()
+            }
+        );
+    }
+    if let Ok(mut now) = PRIVACY.write() {
+        *now = privacy;
+    }
     let on = crate::settings::setting(conn, ENABLED_KEY).is_some_and(|v| v == "on");
     let state = if !on {
         State::Off
@@ -97,7 +230,8 @@ fn state() -> State {
 }
 
 /// A client builder: through the proxy when it is on, as before when it is not.
-pub fn builder() -> ClientBuilder {
+/// Private: callers go through `client(service)`, which asks the gate first.
+fn builder() -> ClientBuilder {
     let builder = tauri_plugin_http::reqwest::Client::builder();
     match state() {
         State::Off => builder,
@@ -139,6 +273,7 @@ pub fn proxy_current() -> Current {
 /// cannot be built through the address says so.
 #[tauri::command]
 pub async fn check_proxy(address: String) -> Result<String, String> {
+    allowed(Service::Tmdb)?;
     let address = normalise(&address)?;
     let client = through(tauri_plugin_http::reqwest::Client::builder(), &address)
         .timeout(std::time::Duration::from_secs(15))
@@ -195,7 +330,13 @@ pub async fn fetch_remote_image(url: String) -> Result<tauri::ipc::Response, Str
     if parsed.scheme() != "https" {
         return Err("only https pictures".into());
     }
-    let client = builder()
+    // Pictures come from TMDB or TVmaze; in the mode, neither is asked.
+    let service = if parsed.host_str().is_some_and(|h| h.contains(".tvmaze.")) {
+        Service::Tvmaze
+    } else {
+        Service::Tmdb
+    };
+    let client = client(service)?
         .timeout(std::time::Duration::from_secs(30))
         .user_agent(concat!("Skrin/", env!("CARGO_PKG_VERSION")))
         .build()
@@ -224,6 +365,46 @@ mod tests {
         assert!(normalise("127.0.0.1").unwrap_err().contains("port"));
         assert!(normalise("ftp://host:21").unwrap_err().contains("starts with"));
         assert!(normalise("not an address").is_err());
+    }
+
+    #[test]
+    fn the_mode_lets_only_imdb_and_the_own_server_through() {
+        let all = [
+            Service::Tmdb,
+            Service::Tvmaze,
+            Service::Wikidata,
+            Service::Omdb,
+            Service::TheIntroDb,
+            Service::IntroDbApp,
+            Service::OpenSubtitles,
+            Service::Simkl,
+            Service::Trakt,
+            Service::Winget,
+            Service::Youtube,
+            Service::Github,
+        ];
+        let set = |p: Privacy| *PRIVACY.write().unwrap() = p;
+        set(Privacy { offline: true, imdb_ratings: true, imdb_titles: true });
+        for s in all {
+            assert_eq!(allowed(s).unwrap_err(), KEPT_HERE, "{s:?}");
+            assert!(client(s).is_err());
+        }
+        assert!(allowed(Service::ImdbRatings).is_ok());
+        assert!(allowed(Service::ImdbTitles).is_ok());
+        assert!(allowed(Service::OwnServer).is_ok());
+        // Each IMDb file has its own off; both off is fully offline.
+        set(Privacy { offline: true, imdb_ratings: false, imdb_titles: false });
+        assert!(allowed(Service::ImdbRatings).is_err());
+        assert!(allowed(Service::ImdbTitles).is_err());
+        // Outside the mode: everything as before, but the list (mode only),
+        // and the ratings file's off means nothing there.
+        set(Privacy { offline: false, imdb_ratings: false, imdb_titles: true });
+        for s in all {
+            assert!(allowed(s).is_ok(), "{s:?}");
+        }
+        assert!(allowed(Service::ImdbRatings).is_ok());
+        assert!(allowed(Service::ImdbTitles).is_err());
+        set(Privacy { offline: false, imdb_ratings: true, imdb_titles: false });
     }
 
     #[test]

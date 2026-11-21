@@ -58,7 +58,8 @@ pub async fn check_reach(host: String) -> Result<Reach, String> {
     if !HOSTS.contains(&host.as_str()) {
         return Err(format!("not a host Skrin checks: {host}"));
     }
-    let client = crate::net::builder()
+    // Asked only when a lookup failed; in the mode there are none to explain.
+    let client = crate::net::client(crate::net::Service::Tmdb)?
         .timeout(TIMEOUT)
         .build()
         .map_err(|e| e.to_string())?;

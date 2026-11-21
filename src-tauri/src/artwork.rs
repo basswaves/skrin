@@ -519,7 +519,7 @@ pub async fn cache_artwork(app: tauri::AppHandle) -> Result<CacheResult, String>
         return Ok(result);
     }
 
-    let client = crate::net::builder().build().map_err(to_string_err)?;
+    let client = crate::net::client(crate::net::Service::Tmdb)?.build().map_err(to_string_err)?;
     let window = std::thread::available_parallelism().map_or(2, |n| n.get());
     let slots = Arc::new(Semaphore::new(window_for(window)));
     let (finished, mut outcomes) = mpsc::unbounded_channel::<Option<Stored>>();

@@ -42,10 +42,14 @@
 use crate::library::Db;
 use crate::settings::setting;
 use crate::tracking::{
-    self, http, qr_svg, read_tokens, save_tokens, user_agent, DeviceCode, PollOutcome, Sent, Status,
+    self, qr_svg, read_tokens, save_tokens, user_agent, DeviceCode, PollOutcome, Sent, Status,
     Tokens, Waiting, SIMKL,
 };
 use crate::util::{now_secs, to_string_err};
+
+fn http() -> Option<tauri_plugin_http::reqwest::Client> {
+    tracking::http(crate::net::Service::Simkl)
+}
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -717,6 +717,14 @@ reasoning is in [docs/DESIGN.md](docs/DESIGN.md) and [docs/HISTORY.md](docs/HIST
   never falls back to a direct connection. A new Rust client starts from
   `net::builder()`, a new `fetch` in the page takes `proxyFetchOptions()`, and a
   new picture from the internet goes through `useProxiedSrc`.
+- **Keep everything on this computer is one gate.** With it on, Skrin asks
+  nothing online but IMDb's two public files (each with its own switch) and
+  the user's own media server. Every Rust client is made by
+  `net::client(Service::…)`, which asks the gate (`net::builder()` is private);
+  the page's requests go through `fetchPolitely`, which refuses them; a picture
+  from the internet is shown from the cache only. A new service gets a
+  `Service` and a `whatLeaves.json` entry; a button that only reaches a
+  service hides with `useOffline()`.
 - **Sidecars are read, never written** by default. The reader stays so other
   producers of the format keep working.
 - **Android is for TV devices.** Boxes, sticks and TVs running Android TV or

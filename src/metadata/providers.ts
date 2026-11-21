@@ -18,6 +18,7 @@ import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting, setSetting } from './api';
 import { noteTmdbRejection } from './builtinKey';
 import { proxyFetchOptions } from '../net/proxy';
+import { refuseOffline } from '../net/offline';
 import {
   detailsLanguage,
   episodeKey,
@@ -498,6 +499,9 @@ function limitBody(
  * and backs off exponentially when it does not. Every request has a time limit
  * for the whole answer. Everything else — 404, 401, a dead network — is handed
  * straight back to the caller, which already knows what to do with it.
+ *
+ * Every request of the page's own goes through here, so this is where
+ * "Keep everything on this computer" refuses them (`KeptOnDevice`).
  */
 export async function fetchPolitely(
   url: string,
@@ -505,6 +509,7 @@ export async function fetchPolitely(
   headers?: Record<string, string>,
   connectTimeout?: number
 ): Promise<Response> {
+  await refuseOffline();
   for (let attempt = 0; ; attempt++) {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;

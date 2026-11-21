@@ -60,6 +60,11 @@ keeps your library and settings.*
 
 - **Posters, backdrops, cast and episode stills** arrive by themselves and are
   kept locally, so browsing works offline.
+- **Or nothing online at all**: *Keep everything on this computer* (at the
+  first run, or Settings → Privacy) matches names on your device against a
+  list IMDb publishes for everyone, and sends nothing about your library
+  anywhere. Settings → Privacy lists every service Skrin can contact, what it
+  sends and what stops it.
 - **Continue watching and the next episode**, remembered per file.
 - **Skips intros, recaps and credits**, from two community databases, chapter
   markers, or the episodes' own audio.

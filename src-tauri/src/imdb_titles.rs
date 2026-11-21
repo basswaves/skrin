@@ -307,7 +307,7 @@ async fn stream(
     phase: u8,
 ) -> Result<Arriving, String> {
     use tauri::Emitter;
-    let client = crate::net::builder()
+    let client = crate::net::client(crate::net::Service::ImdbTitles)?
         .timeout(TIMEOUT)
         .user_agent(concat!("Skrin/", env!("CARGO_PKG_VERSION")))
         .build()
@@ -418,6 +418,23 @@ pub struct RefreshReport {
     pub rows: usize,
     /// Why nothing was done: "not allowed", "not due", "already running".
     pub skipped: Option<&'static str>,
+}
+
+/// The list deleted from this computer: its switch went off, or the mode
+/// did. Bytes freed; 0 when there was none, or a download is under way (it
+/// finds the switch off at its next start and builds nothing).
+#[tauri::command]
+pub fn imdb_titles_remove(app: tauri::AppHandle) -> Result<u64, String> {
+    if BUILDING.load(Ordering::SeqCst) {
+        return Ok(0);
+    }
+    let path = path(&app)?;
+    let bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+    if bytes > 0 {
+        std::fs::remove_file(&path).map_err(to_string_err)?;
+        crate::log!("imdb titles: list removed ({bytes} bytes)");
+    }
+    Ok(bytes)
 }
 
 /// Download and build the list, if allowed and over a month old (or never

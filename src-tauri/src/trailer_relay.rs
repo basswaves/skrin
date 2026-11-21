@@ -84,6 +84,7 @@ fn answer(mut conn: TcpStream) -> std::io::Result<()> {
 /// The address of the page, starting it if it is not running.
 #[tauri::command]
 pub async fn trailer_page_address() -> Result<String, String> {
+    crate::net::allowed(crate::net::Service::Youtube)?;
     port()
         .map(|p| format!("http://127.0.0.1:{p}/"))
         .map_err(|e| format!("could not start the trailer page: {e}"))

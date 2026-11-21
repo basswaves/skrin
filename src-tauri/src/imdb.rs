@@ -180,7 +180,7 @@ pub async fn refresh_imdb_ratings(app: tauri::AppHandle) -> Result<ImdbReport, S
     // A nine-megabyte download and a few seconds of unpacking: neither is
     // started while a film plays (the lock above is already let go).
     crate::jobs::wait_for_turn_async().await;
-    let client = crate::net::builder()
+    let client = crate::net::client(crate::net::Service::ImdbRatings)?
         .timeout(TIMEOUT)
         .user_agent(concat!("Skrin/", env!("CARGO_PKG_VERSION")))
         .build()

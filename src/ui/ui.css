@@ -2223,6 +2223,35 @@ button.cast-member {
   font-weight: 800;
 }
 
+/* "Keep everything on this computer": a quiet line under the lede, not a
+   step. Text, not a button's block, until it is focused. */
+.first-run-keep {
+  margin: -1.75rem 0 2.25rem;
+}
+
+.first-run-keep .btn-link {
+  padding: 0.25rem 0.125rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: max(var(--fs-floor), 0.875rem);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.first-run-keep .btn-link:hover,
+.first-run-keep .btn-link.focused {
+  opacity: 1;
+}
+
+.first-run-keep .btn-link.focused {
+  outline: var(--focus-ring) solid #fff;
+  outline-offset: 3px;
+}
+
 .first-run-optional {
   padding: 0.125rem 0.5rem;
   border-radius: 999px;

@@ -1,5 +1,6 @@
 mod analyse;
 mod applog;
+mod fetched_online;
 mod aspect;
 mod collections;
 mod audio_reserve;
@@ -498,6 +499,7 @@ pub fn run() {
             settings::open_log_folder,
             reach::check_reach,
             net::proxy_current,
+            net::offline_current,
             net::proxy_normalise,
             net::check_proxy,
             net::fetch_remote_image,
@@ -644,6 +646,8 @@ pub fn run() {
             imdb_titles::imdb_titles_search,
             imdb_titles::imdb_titles_get,
             imdb_titles::imdb_file_minutes,
+            imdb_titles::imdb_titles_remove,
+            fetched_online::remove_fetched_online,
             omdb::list_titles_needing_scores,
             omdb::save_omdb_scores,
             probe::file_facts,

@@ -19,6 +19,7 @@ import FocusButton from './FocusButton';
 import FocusGroup from './FocusGroup';
 import { openLink } from './links';
 import { useCapabilities } from '../capabilities';
+import { useOffline } from '../net/offline';
 import { ffmpegLacks } from '../library/api';
 import { ffmpegLacksWords } from './ffmpegNotice';
 import {
@@ -37,12 +38,15 @@ interface ButtonProps {
 export function FfmpegInstallButton({ focusKey, className = 'btn-primary' }: ButtonProps) {
   const can = useCapabilities();
   const install = useFfmpegInstall();
+  // In Keep everything on this computer, winget is not asked: the page to
+  // download it by hand opens in the browser instead.
+  const offline = useOffline() !== false;
   const noWinget = install.report?.outcome === 'no_winget';
-  if (!can?.installs_ffmpeg || noWinget) {
+  if (!can?.installs_ffmpeg || noWinget || offline) {
     return (
       <FocusButton
         focusKey={focusKey}
-        className={noWinget ? className : 'btn-secondary'}
+        className={noWinget || offline ? className : 'btn-secondary'}
         onSelect={() => void openLink(FFMPEG_DOWNLOAD_URL)}
       >
         Open the ffmpeg download page ↗

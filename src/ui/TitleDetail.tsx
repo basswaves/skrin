@@ -8,6 +8,7 @@
 import { userError } from './errors';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { playTrailer } from './trailer';
+import { useOffline } from '../net/offline';
 import Art from './Art';
 import DrawnPoster from './DrawnPoster';
 import { drawnStyle } from './drawnColour';
@@ -198,6 +199,9 @@ export default function TitleDetailView({
   // (it is the largest file), so the series branch was unreachable.
   const oneSeason = new Set(detail?.episodes.map((e) => e.season)).size <= 1;
   const { ref, focusKey } = useNavGroup({ kind: 'column' }, { focusKey: DETAIL_FOCUS_KEY });
+  // Keep everything on this computer: nothing here reaches YouTube, and
+  // TMDB's "More like this" is not shown.
+  const offline = useOffline() !== false;
 
   // Back until the page is read, then Play — again for as long as the person
   // has not pressed anything (focusStore.ts `useLanding`). For a series it
@@ -846,7 +850,7 @@ export default function TitleDetailView({
                 {/* YouTube's own player: the YouTube app on Android, the
                     embed in Skrin's overlay on Windows, the browser elsewhere
                     and whenever YouTube refuses (trailer.ts). */}
-                {!trailerPath && shown.trailer_key && (
+                {!trailerPath && shown.trailer_key && !offline && (
                   <FocusButton
                     className="btn-secondary"
                     onSelect={() => void playTrailer(shown.trailer_key as string, title.title)}
@@ -1125,7 +1129,7 @@ export default function TitleDetailView({
 
           {/* TMDB's recommendations that the library holds, in TMDB's order;
               nothing at all when there are none. */}
-          {detail && detail.about.similar.length > 0 && (
+          {detail && detail.about.similar.length > 0 && !offline && (
             <section className="detail-similar">
               <h2 className="cast-heading">More like this</h2>
               <FocusGroup kind="row" focusKey={DETAIL_SIMILAR_KEY} className="rail-track">

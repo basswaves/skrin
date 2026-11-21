@@ -27,7 +27,8 @@ async function openProxy(page: Page): Promise<void> {
   await expect(page.locator('.settings-search-result').first()).toContainText('Send Skrin’s lookups through a proxy');
   await press(page, 'Enter');
   await press(page, 'Enter');
-  await expect(page.locator('.settings-section h2').first()).toHaveText('Proxy');
+  // Below Keep everything on this computer, at the top of Privacy.
+  await expect(page.locator('.proxy-section h2')).toHaveText('Proxy');
 }
 
 /** Down from where the search landed until `want` has the ring. */

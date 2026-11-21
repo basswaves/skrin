@@ -56,6 +56,7 @@ import {
 } from '../metadata/match';
 import { syncBuiltinKey } from '../metadata/builtinKey';
 import { refreshImdbTitles } from '../metadata/imdbOffline';
+import { offlineState } from '../net/offline';
 import { refreshTomatometer } from '../metadata/scores';
 import { applyMovedMatches } from '../metadata/moving';
 import { runWorthALook } from './worthALook';
@@ -415,23 +416,30 @@ export async function runScanPipeline(): Promise<ScanOutcome> {
     // library. Usually nothing to do; a failure is only logged.
     await refreshQueryStatistics().catch(() => undefined);
 
+    // Keep everything on this computer: the passes below that ask a service
+    // online are not run at all (net.rs refuses them anyway; skipped here so
+    // a scan does not report a refusal as a failure). Pictures beside the
+    // files are still found, and IMDb's ratings come while their switch is on.
+    const privacy = await offlineState();
+    const online = !privacy.offline;
+
     // Details before artwork. The details pass is what finds logos and cast
     // photos for titles matched before those were stored, and it used to run
     // *after* the artwork download — so everything it found waited for the
     // next launch to be cached, and the UI fetched it from TMDB meanwhile.
     await yieldToPlayback();
     setStatus({ stage: 'details', detail: '' });
-    const details = await backfillTitleDetails();
+    const details = online ? await backfillTitleDetails() : { found: 0, none: 0, errors: [] };
     errors.push(...details.errors);
     // TMDB's data may be kept six months; anything older is fetched again,
     // a few titles per scan. Before artwork, so new image URLs are cached.
     await yieldToPlayback();
-    const refreshed = await refreshStaleTitles();
+    const refreshed = online ? await refreshStaleTitles() : { errors: [] as string[] };
     errors.push(...refreshed.errors);
     // Titles matched through a fallback get TMDB's pictures once a key works.
     // Before artwork, so their pictures are cached on this scan.
     await yieldToPlayback();
-    const upgraded = await upgradeFallbackTitles();
+    const upgraded = online ? await upgradeFallbackTitles() : { films: 0, shows: 0, left: 0, errors: [] };
     errors.push(...upgraded.errors);
     // Matches made by hand on another computer (Move to a new computer),
     // for files this scan found. Usually nothing.
@@ -440,7 +448,7 @@ export async function runScanPipeline(): Promise<ScanOutcome> {
     // Usually nothing: the file is fetched weekly at most.
     await yieldToPlayback();
     try {
-      await refreshImdbRatings();
+      if (online || privacy.imdbRatings) await refreshImdbRatings();
     } catch (e) {
       errors.push(String(e));
     }
@@ -448,7 +456,7 @@ export async function runScanPipeline(): Promise<ScanOutcome> {
     // daily budget of that key's lookups. A wrong key is worth saying; the
     // day's allowance running out is not a problem, only a pause.
     await yieldToPlayback();
-    const scores = await refreshTomatometer();
+    const scores = online ? await refreshTomatometer() : { stopped: null };
     if (scores.stopped && !/limit/i.test(scores.stopped)) errors.push(scores.stopped);
 
     // After matching and details: every artwork URL is known now, and
@@ -458,7 +466,7 @@ export async function runScanPipeline(): Promise<ScanOutcome> {
     // Pictures beside the files first: TMDB's are fetched only where none is.
     // Its failure costs only those pictures, never the run.
     await findLocalPictures().catch((e: unknown) => console.warn('local pictures:', e));
-    const art = await cacheArtwork();
+    const art = online ? await cacheArtwork() : { stored: 0, failed: 0 };
     if (art.failed > 0) errors.push(`${count(art.failed, 'artwork download')} failed`);
 
     // Once after an update that changed the matching rules: matches the old
