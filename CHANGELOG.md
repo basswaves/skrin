@@ -23,6 +23,16 @@ makes no stability promises.
   from the internet before. SIMKL and Trakt are disconnected first. Switching
   it off moves every title to TMDB by its IMDb number in one run, with its
   pictures and details. Mouse, keyboard and remote; Settings search finds it.
+- **Seek previews on Android.** The picture above the seek bar where a held
+  or tapped Left/Right, a drag or the mouse points, as on a computer, filled
+  in while watching (never while the film drops frames; a film on a network
+  share gets the live picture only, so its bandwidth stays the film's). Made
+  with a software decoder, never the one the film plays on, and HDR films get
+  ordinary colours rather than washed-out ones. A box has little room, so they
+  are kept in up to a tenth of its free space (256 MB at most): the pictures of
+  the films watched longest ago go first. Settings → Advanced → Seek previews
+  says the space and deletes them. A file no software decoder on the device
+  takes gets no pictures, and plays as before.
 
 ## [0.20.0] — 2026-11-21
 

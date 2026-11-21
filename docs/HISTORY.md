@@ -4739,6 +4739,42 @@ watching makes. Decisions and why:
   computer. Android: gated off with the pictures themselves
   (`capabilities.seek_previews`), on PLAN.md's Android list.
 
+### Seek previews on Android (2026-11-21, round 11 A1)
+
+The owner's rule: Android comes close to every desktop feature. Same worker
+as the desktop (`seek_preview.rs`: one request at a time, newest wins, same
+folder and steps), with `PreviewPlugin.kt` in place of the second mpv.
+
+- **A software decoder, never the hardware one, and not
+  `MediaMetadataRetriever`** (which the plan named): the retriever picks the
+  hardware decoder itself, and a box may have a single one that Android takes
+  from the app behind (GOTCHAS). `MediaExtractor` seeks to the keyframe,
+  a decoder Android lists as software-only (and that lists the file's size
+  and profile) gives one frame, and the colours are converted in Kotlin —
+  so HDR (PQ, HLG) is mapped to ordinary colours the same way on every
+  Android version, instead of whatever each version's retriever does. A
+  file no software decoder takes gets no pictures; the film is untouched.
+- **A cap** (boxes have little room): a tenth of the free space plus what
+  the pictures take, at most 256 MB, read from the system (`statvfs`), never
+  a size for one test box. Over it, other files' least recently filled
+  folders go first; a film larger than the cap alone keeps no more.
+  Computers keep no cap (unchanged).
+- **Filling in while watching** runs on Android too, guarded the same way
+  (Media3's dropped frames), and rests as long as each picture took — twice
+  on two cores or fewer — as the whole-library job does. Measured on the
+  emulator (Kit clip, 35 s windows at 24 fps): forced on past the guard,
+  13 dropped of 816 rendered; off, 8 of 824; another pair 1 vs 0 — the
+  emulator drops frames by itself, and in the real flow the guard kept
+  filling off. A box's figure needs the box.
+- **A film on a network share gets live pictures only** (read over the
+  same local link as the player); filling would take the share's bandwidth.
+  Proved on the emulator from Samba: playback went on, ≥36 s buffered.
+- **The whole-library job stays the desktop's**: under a cap it would only
+  push out the pictures of films watched (PLAN.md's Android list).
+
+Measured on the emulator: first picture 1.2 s with the file's open (~0.1–0.3 s),
+then 0.2–0.8 s at 1080p; 720p VP9 10-bit HDR first 4.5 s, then 0.8 s.
+
 ## The details page's later items (2026-11-21)
 
 Round 10 B. One TMDB request per title as before (`recommendations` joins the

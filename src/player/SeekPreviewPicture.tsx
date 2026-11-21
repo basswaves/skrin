@@ -2,8 +2,8 @@
  * The picture above the seek bar (round 10): where the mouse points on the
  * bar, or where a held Left/Right or a drag is taking the film. The picture is
  * the nearest one made (seekPreview.ts); until the first arrives, the time
- * alone. Nothing is drawn where pictures are not made (Android) except the
- * time, which the bar already shows beside it — so nothing at all there.
+ * alone. Nothing is drawn where pictures are not made (no capability) except
+ * the time, which the bar already shows beside it — so nothing at all there.
  */
 import type { CSSProperties } from 'react';
 import { formatTime } from '../ui/format';

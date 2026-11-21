@@ -4,9 +4,10 @@
  * deletes them. They are kept until their file leaves the library; deleting
  * them is safe, they are made again while watching.
  *
- * Not drawn on Android, which makes none yet (no second mpv there): a line
- * about a feature a device does not have tells its owner nothing they can
- * use (owner, 2026-11-21). Android's own previews are on the plan.
+ * Drawn where pictures are made (`capabilities.seek_previews`): a computer,
+ * and Android since round 11. On Android they are kept within a cap (a tenth
+ * of the device's room, said here), and the whole-library job is not offered:
+ * it would only fill the cap and push out the films watched (PLAN.md).
  */
 import { useCallback, useEffect, useState } from 'react';
 import ChoiceRow from './ChoiceRow';
@@ -14,6 +15,7 @@ import FocusButton from './FocusButton';
 import { userError } from './errors';
 import { count, formatBytes } from './format';
 import { useCapabilities } from '../capabilities';
+import { hasMpv } from '../player/engine';
 import {
   deleteSeekPreviews,
   previewJobStatus,
@@ -53,6 +55,8 @@ export default function SeekPreviewSection() {
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<PreviewJobStatus | null>(null);
   const here = !!can?.seek_previews;
+  // The whole-library job: computers (preview_job.rs).
+  const jobHere = here && hasMpv();
 
   const read = useCallback(() => {
     seekPreviewUsage()
@@ -65,7 +69,7 @@ export default function SeekPreviewSection() {
   // While the job is on: its progress, and the space, kept up to date.
   const on = job?.enabled ?? false;
   useEffect(() => {
-    if (!here) return;
+    if (!jobHere) return;
     let cancelled = false;
     const look = () =>
       previewJobStatus()
@@ -81,20 +85,32 @@ export default function SeekPreviewSection() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [here, on, read]);
+  }, [jobHere, on, read]);
   if (!here) return null;
 
   return (
     <section className="settings-section">
       <h2>Seek previews</h2>
       <p className="settings-intro">
-        The seek bar shows a small picture of where it points. Skrin makes them while you watch, one
-        every ten seconds of the film, and keeps them on this computer until the file leaves the
-        library
-        {usage ? ` (${count(usage.files, 'picture')}, ${formatBytes(usage.bytes)})` : ''}. Deleting
-        them is safe: they are made again.
+        {usage?.limit != null ? (
+          <>
+            The seek bar shows a small picture of where it points. Skrin makes them while you watch,
+            one every ten seconds of the film, and keeps them on this device in up to{' '}
+            {formatBytes(usage.limit)}, set from its free space; when that is full, the pictures of
+            the films watched longest ago go first ({count(usage.files, 'picture')},{' '}
+            {formatBytes(usage.bytes)} now). Deleting them is safe: they are made again.
+          </>
+        ) : (
+          <>
+            The seek bar shows a small picture of where it points. Skrin makes them while you watch,
+            one every ten seconds of the film, and keeps them on this computer until the file leaves
+            the library
+            {usage ? ` (${count(usage.files, 'picture')}, ${formatBytes(usage.bytes)})` : ''}. Deleting
+            them is safe: they are made again.
+          </>
+        )}
       </p>
-      <ChoiceRow
+      {jobHere && <ChoiceRow
         label="Make previews for the whole library"
         choices={[
           { value: 'off', label: 'Off' },
@@ -114,7 +130,7 @@ export default function SeekPreviewSection() {
             {jobLine(job, usage?.bytes ?? null)}
           </p>
         )}
-      </ChoiceRow>
+      </ChoiceRow>}
       <FocusButton
         className="btn-secondary"
         onSelect={() =>

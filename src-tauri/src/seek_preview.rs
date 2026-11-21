@@ -23,8 +23,14 @@
 //!   picture every [`FILL_GAP`], from the play head on, at low priority. A
 //!   live request always goes first.
 //!
-//! Android has no mpv: nothing is made there yet, and Settings shows nothing
-//! about them (`capabilities.seek_previews`).
+//! Android (round 11, A1) has no mpv: the same worker asks `PreviewPlugin.kt`,
+//! which decodes the keyframe with a software decoder (never the film's own)
+//! and converts HDR itself. A box has little room, so there the pictures are
+//! kept within a cap ([`cap`]): other files' oldest pictures go first, and a
+//! film larger than the cap alone keeps no more. Filling in while watching
+//! runs there too (`useSeekPreviewFill`, Media3's dropped frames); a film on a
+//! network share gets live pictures only, so the share's bandwidth stays the
+//! film's. The whole-library job is the desktop's (`preview_job.rs`).
 
 use std::path::{Path, PathBuf};
 
@@ -85,8 +91,7 @@ pub(crate) fn file_row(conn: &Connection, file_id: i64) -> Result<Option<(String
 }
 
 /// Make a file's folder ready: emptied first when it was made from another file.
-/// Only the desktop worker makes pictures; Android's build has no caller.
-#[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
+#[cfg_attr(target_os = "ios", allow(dead_code))]
 pub(crate) fn prepare(root: &Path, file_id: i64, path: &str, size: i64) -> std::io::Result<()> {
     let dir = file_folder(root, file_id);
     let source = source_of(path, size);
@@ -147,6 +152,95 @@ pub fn sweep_soon(app: &tauri::AppHandle) {
 pub struct Usage {
     pub files: u64,
     pub bytes: u64,
+    /// The most they may take here ([`cap`]), or none: kept until the file leaves.
+    pub limit: Option<u64>,
+}
+
+/// The most space a device's pictures may take, however much room it has.
+pub const CAP_MAX: u64 = 256 * 1024 * 1024;
+
+/// A tenth of `room` (free space plus what the pictures take now), at most
+/// [`CAP_MAX`]: what the device reports, never a test box's size.
+#[cfg_attr(not(any(target_os = "android", test)), allow(dead_code))]
+pub fn cap_for(room: u64) -> u64 {
+    (room / 10).min(CAP_MAX)
+}
+
+/// The most space the pictures may take on this device, or none (computers:
+/// they stay until their file leaves the library, as before).
+pub fn cap(root: &Path) -> Option<u64> {
+    #[cfg(target_os = "android")]
+    {
+        free_space(root).map(|free| cap_for(free + usage_in(root).bytes))
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = root;
+        None
+    }
+}
+
+/// Free space where the pictures are kept, as the system reports it.
+#[cfg(target_os = "android")]
+fn free_space(root: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let mut at = root;
+    while !at.exists() {
+        at = at.parent()?;
+    }
+    let path = std::ffi::CString::new(at.as_os_str().as_bytes()).ok()?;
+    // SAFETY: statvfs reads a C string and fills the struct it is given.
+    unsafe {
+        let mut stat: libc::statvfs = std::mem::zeroed();
+        if libc::statvfs(path.as_ptr(), &mut stat) != 0 {
+            return None;
+        }
+        #[allow(clippy::unnecessary_cast, clippy::useless_conversion)]
+        Some(u64::from(stat.f_bavail) * u64::from(stat.f_frsize))
+    }
+}
+
+/// Make room under `limit`: other files' folders go, the least recently added
+/// to first; `keep` (the film being watched) stays. Returns the bytes left.
+#[cfg_attr(not(any(target_os = "android", test)), allow(dead_code))]
+pub fn trim(root: &Path, keep: i64, limit: u64) -> u64 {
+    let Ok(dirs) = std::fs::read_dir(root) else { return 0 };
+    let keep = keep.to_string();
+    let mut folders: Vec<(std::time::SystemTime, PathBuf, u64)> = Vec::new();
+    let mut total = 0;
+    for dir in dirs.flatten() {
+        let path = dir.path();
+        let Ok(files) = std::fs::read_dir(&path) else { continue };
+        let mut bytes = 0;
+        let mut newest = std::time::SystemTime::UNIX_EPOCH;
+        for file in files.flatten() {
+            if file.path().extension().is_some_and(|e| e == "jpg") {
+                if let Ok(meta) = file.metadata() {
+                    bytes += meta.len();
+                    newest = newest.max(meta.modified().unwrap_or(newest));
+                }
+            }
+        }
+        total += bytes;
+        if path.file_name().and_then(|n| n.to_str()) != Some(keep.as_str()) {
+            folders.push((newest, path, bytes));
+        }
+    }
+    folders.sort_by_key(|(time, _, _)| *time);
+    let mut removed = 0;
+    for (_, path, bytes) in folders {
+        if total <= limit {
+            break;
+        }
+        if std::fs::remove_dir_all(&path).is_ok() {
+            total -= bytes;
+            removed += 1;
+        }
+    }
+    if removed > 0 {
+        crate::log!("seek previews: made room, the pictures of {removed} other file(s) removed");
+    }
+    total
 }
 
 pub fn usage_in(root: &Path) -> Usage {
@@ -168,7 +262,7 @@ pub fn usage_in(root: &Path) -> Usage {
 #[tauri::command]
 pub async fn seek_preview_usage(app: tauri::AppHandle) -> Result<Usage, String> {
     let root = folder(&app)?;
-    crate::jobs::off_main(move || Ok(usage_in(&root))).await
+    crate::jobs::off_main(move || Ok(Usage { limit: cap(&root), ..usage_in(&root) })).await
 }
 
 /// Settings → Advanced → Storage → Delete: every picture, for every file. The
@@ -236,6 +330,10 @@ pub async fn seek_preview_fill(
     }) else {
         return Ok(());
     };
+    // Android: a film on a share keeps the share's bandwidth to itself.
+    if cfg!(target_os = "android") && crate::netshare::is_share_path(&path) {
+        return Ok(());
+    }
     worker::start(root, file_id, path, size);
     worker::fill(file_id, Some(step_for(from_secs)));
     Ok(())
@@ -247,9 +345,9 @@ pub fn seek_preview_close() {
     worker::stop();
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(target_os = "ios"))]
 mod worker {
-    use super::{picture, prepare, STEP_SECS};
+    use super::{picture, prepare, Frames, STEP_SECS};
     use std::path::PathBuf;
     use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -332,7 +430,7 @@ mod worker {
         let started = Instant::now();
         let handle = prepare(root, file_id, path, size)
             .ok()
-            .and_then(|()| super::mpv::Handle::open(path));
+            .and_then(|()| Frames::open(path));
         let Some(mut handle) = handle else {
             crate::log!("seek previews: could not open the file for pictures");
             // Answer what came, and anything else, with none until stopped.
@@ -346,6 +444,8 @@ mod worker {
         };
         crate::log!("seek previews: file open in {} ms", started.elapsed().as_millis());
         let duration = handle.duration();
+        let mut room = Room::new(root);
+        let cores = std::thread::available_parallelism().map_or(2, std::num::NonZeroUsize::get);
         let mut filling: Option<u32> = None;
         let mut next_fill = Instant::now();
         loop {
@@ -383,7 +483,7 @@ mod worker {
             }
             if let Some((at, reply)) = newest {
                 let asked = Instant::now();
-                let bytes = take(&mut handle, root, file_id, at);
+                let bytes = take(&mut handle, root, file_id, at, &mut room);
                 crate::log!(
                     "seek previews: live picture at {at} s in {} ms{}",
                     asked.elapsed().as_millis(),
@@ -396,17 +496,24 @@ mod worker {
                 if Instant::now() < next_fill {
                     continue;
                 }
+                let mut rest = FILL_GAP;
                 match next_missing(root, file_id, from, duration) {
+                    Some(_) if room.full => {
+                        crate::log!("seek previews: this film alone fills the space for pictures; filling in stops");
+                        filling = None;
+                    }
                     Some(at) => {
-                        let _ = take(&mut handle, root, file_id, at);
+                        let took = Instant::now();
+                        let _ = take(&mut handle, root, file_id, at, &mut room);
                         filling = Some(at + STEP_SECS);
+                        rest = rest.max(super::fill_rest(took.elapsed(), cores));
                     }
                     None => {
                         crate::log!("seek previews: every picture of this file is made");
                         filling = None;
                     }
                 }
-                next_fill = Instant::now() + FILL_GAP;
+                next_fill = Instant::now() + rest;
             }
         }
         drop(handle);
@@ -434,7 +541,7 @@ mod worker {
     }
 
     /// Make the picture at `at` (or read it, made meanwhile) and return its bytes.
-    fn take(handle: &mut super::mpv::Handle, root: &std::path::Path, file_id: i64, at: u32) -> Option<Vec<u8>> {
+    fn take(handle: &mut Frames, root: &std::path::Path, file_id: i64, at: u32, room: &mut Room) -> Option<Vec<u8>> {
         let target = picture(root, file_id, at);
         if let Ok(bytes) = std::fs::read(&target) {
             return Some(bytes);
@@ -442,11 +549,44 @@ mod worker {
         let part = target.with_extension("part.jpg");
         handle.picture_at(at, &part)?;
         std::fs::rename(&part, &target).ok()?;
-        std::fs::read(&target).ok()
+        let bytes = std::fs::read(&target).ok()?;
+        room.kept(root, file_id, &target, bytes.len() as u64);
+        Some(bytes)
+    }
+
+    /// The space the pictures may take ([`super::cap`]), and take now.
+    struct Room {
+        cap: Option<u64>,
+        used: u64,
+        /// This film alone fills the cap: no more of it are kept.
+        full: bool,
+    }
+
+    impl Room {
+        fn new(root: &std::path::Path) -> Self {
+            let cap = super::cap(root);
+            let used = if cap.is_some() { super::usage_in(root).bytes } else { 0 };
+            Room { cap, used, full: false }
+        }
+
+        /// A picture of `len` bytes was kept: room is made for it, or it goes again.
+        fn kept(&mut self, root: &std::path::Path, file_id: i64, target: &std::path::Path, len: u64) {
+            let Some(cap) = self.cap else { return };
+            self.used += len;
+            if self.used <= cap {
+                return;
+            }
+            self.used = super::trim(root, file_id, cap / 10 * 9);
+            if self.used > cap {
+                let _ = std::fs::remove_file(target);
+                self.used = self.used.saturating_sub(len);
+                self.full = true;
+            }
+        }
     }
 }
 
-#[cfg(any(target_os = "android", target_os = "ios"))]
+#[cfg(target_os = "ios")]
 mod worker {
     use std::path::PathBuf;
     pub fn start(_root: PathBuf, _file_id: i64, _path: String, _size: i64) {}
@@ -455,6 +595,121 @@ mod worker {
     }
     pub fn fill(_file_id: i64, _from: Option<u32>) {}
     pub fn stop() {}
+}
+
+/// After a picture filled in while watching, the rest before the next: as
+/// long as it took, twice that where the system reports two cores or fewer
+/// (a TV box), so the share of the CPU it takes is fixed whatever the
+/// picture costs (as `preview_job.rs` rests). Never less than the worker's gap.
+#[cfg_attr(target_os = "ios", allow(dead_code))]
+fn fill_rest(took: std::time::Duration, cores: usize) -> std::time::Duration {
+    if cores <= 2 {
+        took * 2
+    } else {
+        took
+    }
+}
+
+/// What makes the pictures: a second libmpv handle on a computer, the
+/// software decoder of `PreviewPlugin.kt` on Android.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+use mpv::Handle as Frames;
+#[cfg(target_os = "android")]
+use android::Handle as Frames;
+
+#[cfg(target_os = "android")]
+static PLUGIN: std::sync::OnceLock<tauri::plugin::PluginHandle<tauri::Wry>> = std::sync::OnceLock::new();
+
+/// The Android half (PreviewPlugin.kt), called from Rust alone. Nothing on a computer.
+pub fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    #[cfg(desktop)]
+    return builder;
+    #[cfg(mobile)]
+    builder.plugin(
+        tauri::plugin::Builder::<tauri::Wry>::new("preview")
+            .setup(|_app, api| {
+                #[cfg(target_os = "android")]
+                {
+                    let handle = api.register_android_plugin("com.kinema.app", "PreviewPlugin")?;
+                    let _ = PLUGIN.set(handle);
+                }
+                #[cfg(not(target_os = "android"))]
+                let _ = api;
+                Ok(())
+            })
+            .build(),
+    )
+}
+
+/// Pictures on Android: one file open in `PreviewPlugin.kt` at a time, as the
+/// worker holds one handle.
+#[cfg(target_os = "android")]
+mod android {
+    use std::path::Path;
+
+    /// Each picture this wide, as on the desktop (`scale=320:-2`).
+    const WIDTH: u32 = 320;
+
+    pub struct Handle {
+        /// The session in the plugin: closing an older one leaves a newer one open.
+        id: u64,
+        duration: Option<f64>,
+    }
+
+    fn call<T: serde::de::DeserializeOwned>(command: &str, args: serde_json::Value) -> Result<T, String> {
+        let plugin = super::PLUGIN.get().ok_or("the picture maker is not ready")?;
+        plugin.run_mobile_plugin::<T>(command, args).map_err(|e| e.to_string())
+    }
+
+    impl Handle {
+        pub fn open(video: &str) -> Option<Self> {
+            #[derive(serde::Deserialize)]
+            struct Opened {
+                id: u64,
+                duration: Option<f64>,
+                decoder: String,
+                transfer: String,
+            }
+            // A film on a share is read over this device's own link (stream.rs), as the player reads it.
+            let source = if crate::netshare::is_share_path(video) {
+                crate::stream::address_for(video).ok()?
+            } else {
+                video.to_string()
+            };
+            match call::<Opened>("previewOpen", serde_json::json!({ "source": source, "width": WIDTH })) {
+                Ok(o) => {
+                    crate::log!("seek previews: {} makes them ({} picture)", o.decoder, o.transfer);
+                    Some(Handle { id: o.id, duration: o.duration })
+                }
+                Err(e) => {
+                    crate::log!("seek previews: none for this file: {e}");
+                    None
+                }
+            }
+        }
+
+        pub fn duration(&self) -> Option<f64> {
+            self.duration
+        }
+
+        /// The keyframe at or before `at` seconds, written as a JPEG to `out`.
+        pub fn picture_at(&mut self, at: u32, out: &Path) -> Option<()> {
+            let args = serde_json::json!({ "id": self.id, "atMs": u64::from(at) * 1000, "out": out.to_str()? });
+            match call::<serde_json::Value>("previewFrame", args) {
+                Ok(_) => out.is_file().then_some(()),
+                Err(e) => {
+                    crate::log!("seek previews: no picture at {at} s: {e}");
+                    None
+                }
+            }
+        }
+    }
+
+    impl Drop for Handle {
+        fn drop(&mut self) {
+            let _ = call::<serde_json::Value>("previewClose", serde_json::json!({ "id": self.id }));
+        }
+    }
 }
 
 /// The second libmpv handle: the client API through the library the player
@@ -680,11 +935,49 @@ mod tests {
         assert!(picture(&root, 1, 10).is_file());
         assert!(picture(&root, 2, 10).is_file());
         assert!(!file_folder(&root, 3).exists());
-        assert_eq!(usage_in(&root), Usage { files: 2, bytes: 6 });
+        assert_eq!(usage_in(&root), Usage { files: 2, bytes: 6, limit: None });
         // The id now names another file: its pictures go too.
         conn.execute("UPDATE media_files SET path = 'other.mkv' WHERE id = 2", []).unwrap();
         assert_eq!(sweep(&conn, &root), 1);
         assert!(!file_folder(&root, 2).exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn filling_in_rests_as_long_as_a_picture_took_twice_on_two_cores() {
+        let took = std::time::Duration::from_millis(700);
+        assert_eq!(fill_rest(took, 8), took);
+        assert_eq!(fill_rest(took, 2), took * 2);
+        assert_eq!(fill_rest(took, 1), took * 2);
+    }
+
+    #[test]
+    fn a_device_keeps_a_tenth_of_its_room_at_most_256_mb() {
+        assert_eq!(cap_for(500 * 1024 * 1024), 50 * 1024 * 1024);
+        assert_eq!(cap_for(64 * 1024 * 1024 * 1024), CAP_MAX);
+        assert_eq!(cap_for(0), 0);
+    }
+
+    #[test]
+    fn making_room_removes_other_files_oldest_first_and_keeps_the_film() {
+        let root = std::env::temp_dir().join("kinema-seek-preview-trim");
+        let _ = std::fs::remove_dir_all(&root);
+        for id in 1..=3 {
+            prepare(&root, id, "x.mkv", id).unwrap();
+            for i in 0..3 {
+                std::fs::write(picture(&root, id, i * 10), [0u8; 100]).unwrap();
+            }
+            // Filled at different times: 1 first, 3 last.
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        // 900 bytes, room for 600; the film being watched is 1, the oldest.
+        assert_eq!(trim(&root, 1, 600), 600);
+        assert!(file_folder(&root, 1).exists(), "the film being watched stays");
+        assert!(!file_folder(&root, 2).exists(), "the oldest other file goes first");
+        assert!(file_folder(&root, 3).exists(), "no more than needed goes");
+        // Under the limit already: nothing goes.
+        assert_eq!(trim(&root, 9, 1000), 600);
+        assert!(file_folder(&root, 3).exists());
         let _ = std::fs::remove_dir_all(&root);
     }
 

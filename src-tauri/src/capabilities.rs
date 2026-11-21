@@ -78,7 +78,7 @@ pub struct Capabilities {
     /// there first; elsewhere it plays in Skrin's overlay or the browser.
     pub video_apps: bool,
     /// Pictures above the seek bar are made here (seek_preview.rs): a second
-    /// libmpv handle, so computers only for now; Android's are planned.
+    /// libmpv handle on a computer, a software decoder on Android.
     pub seek_previews: bool,
     /// How much memory the computer has, in bytes; 0 where it could not be
     /// read. The player sizes its read-ahead from it (src/player/mpvOptions.ts,
@@ -149,7 +149,7 @@ fn work_out() -> Capabilities {
         network_shares: cfg!(target_os = "android"),
         back_button: cfg!(mobile),
         video_apps: cfg!(target_os = "android"),
-        seek_previews: cfg!(desktop),
+        seek_previews: cfg!(desktop) || cfg!(target_os = "android"),
         memory_bytes: memory_bytes(),
         sleep: crate::power::can_sleep(),
         shut_down: crate::power::can_shut_down(),

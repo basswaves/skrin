@@ -346,7 +346,7 @@ pub fn run() {
         }));
     }
 
-    updates::register(share_logins::register(places::register(engine::register(builder))))
+    seek_preview::register(updates::register(share_logins::register(places::register(engine::register(builder)))))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())

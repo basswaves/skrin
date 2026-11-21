@@ -58,7 +58,7 @@ export interface Capabilities {
    * YouTube app): a trailer goes there first (ui/trailer.ts). */
   video_apps: boolean;
   /** Pictures above the seek bar are made here (player/seekPreview.ts): a
-   * second mpv, so computers only for now (Android's are planned). */
+   * second mpv on a computer, a software decoder on Android. */
   seek_previews: boolean;
   /** The computer's memory in bytes; 0 when it could not be read. The mpv
    * read-ahead is sized from it (player/mpvOptions.ts `cacheOptions`). */

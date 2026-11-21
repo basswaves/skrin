@@ -10,7 +10,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { capabilitiesNow } from '../capabilities';
-import { hasMpv, readProperty } from './engine';
+import { hasMpv, playerFacts, readProperty } from './engine';
 import type { Session } from './session';
 
 /** Seconds between two pictures (`STEP_SECS` in seek_preview.rs). */
@@ -19,8 +19,17 @@ export const STEP_SECS = 10;
 export const stepFor = (secs: number): number =>
   Number.isFinite(secs) && secs > 0 ? Math.round(secs / STEP_SECS) * STEP_SECS : 0;
 
-/** Whether pictures are made here: a computer with mpv, not Android. */
-export const previewsHere = (): boolean => !!capabilitiesNow()?.seek_previews && hasMpv();
+/** Whether pictures are made here: mpv on a computer, a software decoder on Android. */
+export const previewsHere = (): boolean => !!capabilitiesNow()?.seek_previews;
+
+/** Frames the player has dropped since the film opened: mpv's counts, or Media3's. */
+async function droppedFrames(): Promise<number> {
+  if (!hasMpv()) return (await playerFacts()).frames?.dropped ?? 0;
+  return (
+    ((await readProperty<number>('frame-drop-count', 'int64')) ?? 0) +
+    ((await readProperty<number>('decoder-frame-drop-count', 'int64')) ?? 0)
+  );
+}
 
 export async function seekPreviewPicture(fileId: number, secs: number): Promise<Blob | null> {
   const bytes = await invoke<ArrayBuffer | Uint8Array | number[]>('seek_preview', { fileId, secs });
@@ -37,6 +46,8 @@ export const seekPreviewClose = () => invoke<void>('seek_preview_close');
 export interface SeekPreviewUsage {
   files: number;
   bytes: number;
+  /** The most they may take on this device (Android: a tenth of its room), or none. */
+  limit: number | null;
 }
 export const seekPreviewUsage = () => invoke<SeekPreviewUsage>('seek_preview_usage');
 export const deleteSeekPreviews = () => invoke<number>('delete_seek_previews');
@@ -140,8 +151,8 @@ const FILL_STRIKES = 2;
 
 /**
  * Filling in the pictures while watching, in the background: from the play
- * head on, about one a second (seek_preview.rs), never while the film drops
- * frames — it stops at the first drop and goes on after a clean minute. The
+ * head on, about one a second (seek_preview.rs; not for a film on a network
+ * share on Android), never while the film drops frames — it stops at the first drop and goes on after a clean minute. The
  * second handle goes when the player closes.
  */
 export function useSeekPreviewFill({
@@ -161,12 +172,8 @@ export function useSeekPreviewFill({
     let lastDrops: number | null = null;
     let strikes = 0;
     let stopped = false;
-    const drops = async () =>
-      ((await readProperty<number>('frame-drop-count', 'int64')) ?? 0) +
-      ((await readProperty<number>('decoder-frame-drop-count', 'int64')) ?? 0);
     const tick = async () => {
-      const now = drops();
-      const count = await now;
+      const count = await droppedFrames().catch(() => lastDrops ?? 0);
       if (stopped) return;
       const s = sessionRef.current;
       const dropped = lastDrops !== null && count > lastDrops && !s.paused && !s.scrubbing;

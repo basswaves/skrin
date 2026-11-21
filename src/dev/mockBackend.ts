@@ -1872,7 +1872,12 @@ const handlers: Record<string, Handler> = {
   seek_preview: (a) => mockSeekPreview(num(a, 'secs')),
   seek_preview_fill: () => null,
   seek_preview_close: () => null,
-  seek_preview_usage: () => ({ files: mockPreviewFiles, bytes: mockPreviewFiles * 9800 }),
+  // Android keeps them within a cap (seek_preview.rs `cap`); a computer has none.
+  seek_preview_usage: () => ({
+    files: mockPreviewFiles,
+    bytes: mockPreviewFiles * 9800,
+    limit: ON_ANDROID ? 64 * 1024 * 1024 : null,
+  }),
   preview_job_status: () => mockPreviewJobStatus(),
   preview_job_set: (a) => {
     mockPreviewJobOn = !!a.enabled;
@@ -2287,7 +2292,7 @@ const handlers: Record<string, Handler> = {
         network_shares: true,
         back_button: true,
         video_apps: true,
-        seek_previews: false,
+        seek_previews: true,
         memory_bytes: 4 * 1024 ** 3,
         sleep: false,
         shut_down: false,

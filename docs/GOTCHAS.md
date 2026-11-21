@@ -3283,6 +3283,20 @@ the next app is in front, Android takes it back from the one behind
 player when Skrin leaves the screen, `prepare()` it again, paused, when it
 returns (`Media3Plugin.kt`, `suspended`).
 
+### A software decoder that takes the type may not take the profile
+
+Seek previews on Android (`PreviewPlugin.kt`) pick a software decoder by
+type and size. Android TV 16's own `c2.android.hevc.decoder` takes HEVC at
+1080p and 4K but not Main10: `configure` and `start` succeed, the first
+picture fails with "work failed to complete: 14", and the codec is then
+released — the next call says "flush() is valid only at Executing states".
+And a file states its HDR profile ("VP9 Profile 2 HDR", 4096; "HEVC Main10
+HDR10"), which no decoder lists, though the plain profile decodes it.
+**Do:** match `KEY_PROFILE` against the decoder's `profileLevels`, with an
+HDR profile counted as its plain one (`base`). Also: one Kotlin session
+shared by successive Rust handles needs an id, or the old file's handle,
+dropped after the next file opened, closes the new session.
+
 ### smb-rs, the SMB library, needed two fixes to stream at all
 
 Without `TCP_NODELAY` every request waited ~40 ms for a delayed

@@ -2,7 +2,8 @@
  * Seek preview pictures (round 10): the picture above the seek bar where a
  * held Left/Right takes the film — by keyboard and remote alone, the mouse
  * untouched — and its own line in Settings → Advanced, with the space used
- * and a Delete reached by keys. Android makes none yet, and shows no line.
+ * and a Delete reached by keys. Android (round 11) makes them too, keeps them
+ * within a cap Settings states, and has no whole-library job.
  *
  * The mock draws each picture with its second on it (mockBackend.ts), so the
  * test reads which one is shown from `data-at`.
@@ -16,11 +17,22 @@ interface FakeMpv {
 }
 
 const position = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __fakeMpv: FakeMpv }).__fakeMpv.position);
+  page.evaluate(() => {
+    const w = window as unknown as { __fakeMpv?: FakeMpv; __fakeMedia3?: { position: number } };
+    const android = localStorage.getItem('kinemaMockSystem') === 'android';
+    return (android ? w.__fakeMedia3 : w.__fakeMpv)?.position ?? 0;
+  });
 
-async function play(page: Page): Promise<void> {
+async function openAndroid(page: Page): Promise<void> {
+  await page.addInitScript(() => localStorage.setItem('kinemaMockSystem', 'android'));
+  await page.goto('/');
+  await expect.poll(() => focused(page), { timeout: 30_000 }).toContain('Play');
+}
+
+async function play(page: Page, android = false): Promise<void> {
   await page.clock.setFixedTime(new Date('2026-10-02T12:00:00'));
-  await open(page, 'windows');
+  if (android) await openAndroid(page);
+  else await open(page, 'windows');
   await press(page, 'Enter');
   await expect(page.locator('.player')).toBeAttached();
   await page.clock.setSystemTime(new Date('2026-10-02T12:00:00'));
@@ -33,10 +45,11 @@ const ringOn = (page: Page) =>
 
 const preview = (page: Page) => page.locator('.seek-preview');
 
-test('a held key shows the picture where the seek will land, and it goes when the seek is sent', async ({
+for (const android of [false, true]) {
+test(`a held key shows the picture where the seek will land, and it goes when the seek is sent${android ? ' (Android)' : ''}`, async ({
   page,
 }) => {
-  await play(page);
+  await play(page, android);
   await expect(preview(page)).toHaveCount(0);
 
   // Watching: Right held steers a seek; the picture follows the target.
@@ -61,12 +74,13 @@ test('a held key shows the picture where the seek will land, and it goes when th
   await press(page, 'ArrowDown');
   await press(page, 'ArrowUp');
   await expect.poll(() => ringOn(page)).toBe('Position');
-  // Three taps back, well clear of where the film has played on to.
-  await press(page, 'ArrowLeft', 3);
+  // Five taps back, well clear of where the film has played on to (a slow runner plays on).
+  await press(page, 'ArrowLeft', 5);
   await expect(preview(page)).toBeVisible();
   await expect.poll(async () => Number(await preview(page).getAttribute('data-at'))).toBeLessThan(at);
   expect(await ringOn(page)).toBe('Position');
 });
+}
 
 async function advancedSettings(page: Page) {
   await page.getByRole('button', { name: 'Settings' }).first().click();
@@ -89,13 +103,19 @@ test('Settings shows the space seek previews take, and deletes them by keys', as
   await expect(section).toContainText('0 pictures');
 });
 
-test('Android makes no seek previews yet, and Settings has no line about them', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('kinemaMockSystem', 'android'));
-  await page.goto('/');
-  await expect.poll(() => focused(page), { timeout: 30_000 }).toContain('Play');
+test('Android: Settings states the cap, has no whole-library job, and deletes by keys', async ({ page }) => {
+  await openAndroid(page);
   const section = await advancedSettings(page);
-  await expect(page.locator('.settings-section', { hasText: 'Storage' })).toBeVisible();
-  await expect(section).toHaveCount(0);
+  await expect(section).toContainText('up to 64.0 MB');
+  await expect(section).toContainText('1440 pictures');
+  await expect(section).not.toContainText('Make previews for the whole library');
+  await press(page, 'ArrowRight');
+  for (let i = 0; i < 20 && (await focused(page)) !== 'Delete seek previews'; i++) {
+    await press(page, 'ArrowDown');
+  }
+  expect(await focused(page)).toBe('Delete seek previews');
+  await press(page, 'Enter');
+  await expect(section).toContainText('Deleted 1440 pictures.');
 });
 
 test('the whole-library job: switched on by keys, shows progress, and Off stops it', async ({ page }) => {
