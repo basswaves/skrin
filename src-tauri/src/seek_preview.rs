@@ -85,6 +85,8 @@ fn file_row(conn: &Connection, file_id: i64) -> Result<Option<(String, i64)>, St
 }
 
 /// Make a file's folder ready: emptied first when it was made from another file.
+/// Only the desktop worker makes pictures; Android's build has no caller.
+#[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
 fn prepare(root: &Path, file_id: i64, path: &str, size: i64) -> std::io::Result<()> {
     let dir = file_folder(root, file_id);
     let source = source_of(path, size);
