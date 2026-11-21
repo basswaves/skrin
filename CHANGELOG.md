@@ -34,6 +34,10 @@ makes no stability promises.
   says the space and deletes them. A file no software decoder on the device
   takes gets no pictures, and plays as before.
 
+### Fixed
+
+- **Double click for full screen no longer pauses the film for a moment** (GitHub #24). A click on the picture now waits a quarter of a second for a second click before pausing; a double click only switches full screen.
+
 ## [0.20.0] — 2026-11-21
 
 ### New

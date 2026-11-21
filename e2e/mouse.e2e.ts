@@ -67,7 +67,8 @@ test('the player by mouse: controls, pause, full screen, seek bar, volume and Ba
   await page.mouse.move(film.x, film.y);
   await expect(page.locator('.player.osd-hidden')).toHaveCount(0);
 
-  // A click on the film pauses, and another plays.
+  // A click on the film pauses (after a short wait for a second click, so
+  // not at once), and another plays.
   await page.mouse.click(film.x, film.y);
   await expect.poll(async () => (await mpv(page)).paused).toBe(true);
   await page.mouse.click(film.x, film.y);
@@ -85,13 +86,33 @@ test('the player by mouse: controls, pause, full screen, seek bar, volume and Ba
       'container-fps': 23.976,
     });
   });
+  // GitHub #24: a double click only switches full screen, and never pauses,
+  // not even for a moment. Sample the pause state through each double click
+  // and past the single-click wait.
+  const watchPause = () =>
+    page.evaluate(() => {
+      const f = (window as unknown as { __fakeMpv: { paused: boolean } }).__fakeMpv;
+      const w = window as unknown as { __everPaused: boolean; __pauseWatch?: number };
+      w.__everPaused = false;
+      window.clearInterval(w.__pauseWatch);
+      w.__pauseWatch = window.setInterval(() => {
+        if (f.paused) w.__everPaused = true;
+      }, 5);
+    });
+  const everPaused = () =>
+    page.evaluate(() => (window as unknown as { __everPaused: boolean }).__everPaused);
   const before = await fullscreen(page);
+  await watchPause();
   await page.mouse.dblclick(film.x, film.y);
   await expect.poll(() => fullscreen(page)).toBe(!before);
+  await pause(page, 600, 'past the single-click wait');
+  expect(await everPaused()).toBe(false);
+  await watchPause();
   await page.mouse.dblclick(film.x, film.y);
   await expect.poll(() => fullscreen(page)).toBe(before);
-  // Its two clicks paused and played again: still playing.
-  await expect.poll(async () => (await mpv(page)).paused).toBe(false);
+  await pause(page, 600, 'past the single-click wait');
+  expect(await everPaused()).toBe(false);
+  expect((await mpv(page)).paused).toBe(false);
 
   // The Pause button, by its name.
   await page.getByRole('button', { name: 'Pause' }).click();

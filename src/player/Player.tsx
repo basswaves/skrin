@@ -33,6 +33,7 @@ import type { Arrow } from '../ui/focusModel';
 import { endsAtLabel } from '../ui/format';
 import { useTvMode } from '../ui/tv';
 import { episodeRefName, type EpisodeRef, type PlaybackTarget } from './api';
+import { createClickPause } from './clickPause';
 import { hasMpv, isPaused, seekBy, seekTo, setPaused, type Chapter } from './engine';
 import { PLAYER_PLAY_KEY, PLAYER_SHELL_KEY } from './focusKeys';
 import PlayerControls from './PlayerControls';
@@ -283,6 +284,14 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
     }
   }, [showOsd, fail]);
 
+  // A click on the picture pauses after a short wait for a second click; a
+  // double click is full screen only (clickPause.ts, GitHub #24).
+  const clickPause = useMemo(() => createClickPause(), []);
+  useEffect(() => {
+    clickPause.setAction(() => void togglePause());
+  }, [clickPause, togglePause]);
+  useEffect(() => () => clickPause.cancel(), [clickPause]);
+
   /**
    * Pause or play from a key or the remote. Pausing puts the ring on
    * Play/Pause, so the next OK plays again and the arrows are already on the
@@ -465,7 +474,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
           )
         )
           return;
-        void togglePause();
+        clickPause.click(e.detail);
       }}
       onWheel={onWheel}
       onDoubleClick={(e) => {
@@ -475,6 +484,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
           )
         )
           return;
+        clickPause.cancel();
         void toggleFullscreen();
       }}
     >
