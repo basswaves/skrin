@@ -28,9 +28,11 @@ export function useScreen({
   /**
    * Switch the screen for the file that is open, if the settings call for it,
    * with a word on screen while it happens. Never throws: a screen that will not
-   * switch is a film that plays in the mode it is in.
+   * switch is a film that plays in the mode it is in. `beforeSwitch` runs only
+   * once a switch is certain, just before it (F pauses the film there, so a
+   * film whose screen already fits is not paused at all).
    */
-  const matchScreen = useCallback(async () => {
+  const matchScreen = useCallback(async (beforeSwitch?: () => Promise<void>) => {
     const film = await filmNow(sessionRef.current.path).catch(() => 'timeout' as const);
     /** The word the matching one stood in front of, put back after. */
     let covered: string | null = null;
@@ -49,12 +51,13 @@ export function useScreen({
       // Said only once there is something to change: a screen already in
       // the film's mode, or one that offers no other (many TV boxes), is
       // not being matched to anything.
-      const switched = await switchForFilm(film, () =>
+      const switched = await switchForFilm(film, async () => {
         setNotice((n) => {
           covered = n;
           return MATCHING;
-        })
-      );
+        });
+        await beforeSwitch?.();
+      });
       if (switched) await matchHdrToDisplay();
     } catch (e) {
       console.warn('display: switch failed', e);
@@ -93,12 +96,22 @@ export function useScreen({
       return;
     }
     await setPictureFullscreen(true);
-    // Going fullscreen mid-film: pause, switch, and carry on as it was.
+    // Going fullscreen mid-film: switch, and carry on as it was. The film is
+    // paused only when the screen is really about to change mode, not for the
+    // look at a screen that already fits (it was, ~40 ms, with the default
+    // settings: resolution "auto" makes mayswitch true on every screen).
     if (!(await mayswitch().catch(() => false))) return;
     const wasPaused = sessionRef.current.paused;
-    await setPaused(true);
-    await matchScreen();
-    if (!wasPaused) await setPaused(false);
+    let pausedByUs = false;
+    try {
+      await matchScreen(async () => {
+        if (wasPaused) return;
+        await setPaused(true);
+        pausedByUs = true;
+      });
+    } finally {
+      if (pausedByUs) await setPaused(false);
+    }
   }, [matchScreen, sessionRef]);
 
   /**

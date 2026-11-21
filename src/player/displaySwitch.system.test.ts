@@ -64,4 +64,19 @@ describe('matching the screen through the system', () => {
     expect(said).toHaveBeenCalledTimes(1);
     expect(asked).toEqual([23.976]);
   });
+
+  it('waits for what runs before a switch (F pauses the film there) and not at all when nothing switches', async () => {
+    const now = mode(3840, 2160, 50);
+    const cinema = mode(3840, 2160, 23.976);
+    screen.now = { ...now, gdi_name: 'display 0', hdr: 'unknown', modes: [now, cinema] };
+    const order: string[] = [];
+    const done = switchForFilm(film, async () => {
+      await Promise.resolve();
+      order.push(`before(${asked.length} asked)`);
+    });
+    await vi.runAllTimersAsync();
+    await expect(done).resolves.toBe(true);
+    expect(order).toEqual(['before(0 asked)']);
+    expect(asked).toEqual([23.976]);
+  });
 });

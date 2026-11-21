@@ -9,6 +9,7 @@ makes no stability promises.
 
 ### New
 
+- **Send Skrin's lookups through a proxy** (Settings → Privacy, off by default; asked for in Discussion #9). Give an HTTP(S) or SOCKS5 address and every lookup Skrin makes (TMDB, TVmaze, IMDb, OMDb, OpenSubtitles, SIMKL, Trakt, the update check, your own server) and every picture from the internet goes through it. If the proxy cannot be reached the lookup fails and says so; it never goes straight out instead. **Check** tries the address. Two things do not go through it, and the page says so: the YouTube trailer (it plays from YouTube itself) and winget's install of ffmpeg.
 - **Keep everything on this computer** (asked for in Discussion #9). A quiet
   line on the first run, or a switch at the top of Settings → Privacy: Skrin
   then looks nothing up online. Names are matched on this computer against
@@ -36,6 +37,7 @@ makes no stability promises.
 
 ### Fixed
 
+- **Full screen no longer pauses the film when the screen already fits it.** Pressing F (or double clicking) used to pause the film for a moment every time, even when the screen did not need to change mode; it now pauses only when the screen is really about to be switched.
 - **Double click for full screen no longer pauses the film for a moment** (GitHub #24). A click on the picture now waits a quarter of a second for a second click before pausing; a double click only switches full screen.
 
 ## [0.20.0] — 2026-11-21
