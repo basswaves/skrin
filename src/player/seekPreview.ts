@@ -135,6 +135,8 @@ const FILL_AFTER_MS = 20_000;
 const FILL_POLL_MS = 5_000;
 /** After a drop, how long the film plays clean before filling goes on. */
 const FILL_REST_MS = 60_000;
+/** Drops filling itself caused, after which it leaves this film alone (a weak PC: 1 core, 4K). */
+const FILL_STRIKES = 2;
 
 /**
  * Filling in the pictures while watching, in the background: from the play
@@ -157,6 +159,7 @@ export function useSeekPreviewFill({
     let on = false;
     let restUntil = performance.now() + FILL_AFTER_MS;
     let lastDrops: number | null = null;
+    let strikes = 0;
     let stopped = false;
     const drops = async () =>
       ((await readProperty<number>('frame-drop-count', 'int64')) ?? 0) +
@@ -172,6 +175,8 @@ export function useSeekPreviewFill({
         restUntil = performance.now() + FILL_REST_MS;
         if (on) {
           on = false;
+          // Filling is what the film dropped under: twice, and it stays off.
+          if (++strikes >= FILL_STRIKES) restUntil = Number.POSITIVE_INFINITY;
           console.info('seek preview: frames dropped; filling in rests');
           void seekPreviewFill(fileId, false, 0).catch(() => {});
         }

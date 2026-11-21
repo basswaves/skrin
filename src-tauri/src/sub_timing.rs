@@ -97,6 +97,9 @@ pub fn speed_of(pair: (f64, f64)) -> f64 {
 pub struct Window {
     pub start: f64,
     pub on: Vec<bool>,
+    /// How much a line shows ahead of this reference: [`LEAD`] for speech,
+    /// 0 for a subtitle built into the film (timed like the lines).
+    pub lead: f64,
 }
 
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -262,7 +265,7 @@ pub fn vote(cues: &[(f64, f64)], w: &Window, speed: f64) -> Option<(f64, f64)> {
         .map(|d| (d, fine(d)))
         .max_by(|a, b| a.1.total_cmp(&b.1).then_with(|| b.0.abs().total_cmp(&a.0.abs())))
         .filter(|(_, score)| *score > 0.0)
-        .map_or(coarse_delay, |(d, _)| d - LEAD);
+        .map_or(coarse_delay, |(d, _)| d - w.lead);
     // A stretch with hardly any lines in it under that delay has no say.
     let end = w.start + as_f64(n) * RES;
     let inside = cues.iter().filter(|c| c.1 + delay > w.start && c.0 + delay < end).count();
@@ -525,7 +528,7 @@ fn check(
                     use_subs = false;
                 }
                 if let Some(found) = found.filter(|c| c.len() >= 3) {
-                    windows.push(Window { start, on: cue_signal(&found, start, WINDOW_SECS) });
+                    windows.push(Window { start, on: cue_signal(&found, start, WINDOW_SECS), lead: 0.0 });
                     by_subs += 1;
                     continue;
                 }
@@ -536,7 +539,7 @@ fn check(
                 pcm = read::pcm(video, aid, false, start, WINDOW_SECS, &pcm_file);
             }
             if let Some(pcm) = pcm {
-                windows.push(Window { start, on: speech(&pcm, read::RATE) });
+                windows.push(Window { start, on: speech(&pcm, read::RATE), lead: LEAD });
                 by_speech += 1;
             }
         }
@@ -879,7 +882,7 @@ mod tests {
                     }
                     i += 1;
                 }
-                Window { start, on }
+                Window { start, on, lead: LEAD }
             })
             .collect()
     }
@@ -895,6 +898,22 @@ mod tests {
         assert!((f.delay_secs - 2.5).abs() < 0.1, "{f:?}");
         assert!((f.speed - 1.0).abs() < 1e-9);
         assert!(f.agree >= 6, "{f:?}");
+    }
+
+    #[test]
+    fn a_built_in_subtitle_as_reference_gives_the_exact_shift_without_speech_lead() {
+        // Real-app finding (round 10 proof): with the film's own subtitle as the
+        // reference the answer was 0.195 s off, because LEAD (for speech) was given back.
+        let speech = speech_of(FILM, 41);
+        let built_in = subtitle_for(&speech, 0.0, 1.0, 42);
+        let late: Vec<(f64, f64)> = built_in.iter().map(|&(a, b)| (a + 2.5, b + 2.5)).collect();
+        let windows: Vec<Window> = window_starts(FILM)
+            .into_iter()
+            .map(|start| Window { start, on: cue_signal(&built_in, start, WINDOW_SECS), lead: 0.0 })
+            .collect();
+        let f = fit(&late, &windows);
+        assert_eq!(f.outcome, Outcome::Fixed, "{f:?}");
+        assert!((f.delay_secs + 2.5).abs() < 0.03, "{f:?}");
     }
 
     #[test]
@@ -984,7 +1003,7 @@ mod tests {
         let sub = subtitle_for(&speech, 3.0, 1.0, 62);
         let windows: Vec<Window> = window_starts(FILM)
             .into_iter()
-            .map(|start| Window { start, on: vec![true; 4000] })
+            .map(|start| Window { start, on: vec![true; 4000], lead: LEAD })
             .collect();
         assert_eq!(fit(&sub, &windows).outcome, Outcome::Unsure);
     }
@@ -1057,7 +1076,7 @@ mod tests {
                 }
                 let on = speech(&pcm, super::read::RATE);
                 eprintln!("window {start:.0}: {} frames, {:.0} % speech", on.len(), 100.0 * as_f64(on.iter().filter(|&&b| b).count()) / as_f64(on.len()));
-                Some(Window { start, on })
+                Some(Window { start, on, lead: LEAD })
             })
             .collect();
         for &pair in &SPEEDS {
@@ -1125,7 +1144,7 @@ mod tests {
                     .filter(|l| l.1 > start && l.0 < start + WINDOW_SECS)
                     .map(|&(a, b)| (a - start, b - start))
                     .collect();
-                Window { start, on: speech(&sound(WINDOW_SECS, &local), read_rate()) }
+                Window { start, on: speech(&sound(WINDOW_SECS, &local), read_rate()), lead: LEAD }
             })
             .collect();
         let f = fit(&sub, &windows);

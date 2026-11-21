@@ -50,6 +50,7 @@ import { setTvMode } from './ui/tv';
 import { offerAsPlayer, playerOffer, removeAsPlayer } from './ui/api';
 import { simklStatus, traktStatus } from './metadata/tracking';
 import { findSubtitles } from './player/onlineSubtitles';
+import { checkSubTiming } from './player/subTiming';
 import {
   addLibraryRoot,
   listLibraryRoots,
@@ -285,6 +286,8 @@ const CALLABLE: Record<string, (...args: never[]) => Promise<unknown>> = {
   },
   showSubtitles,
   addSubtitle,
+  // "Fix timing" on one file (sub_timing.rs): the finding, as the panel gets it.
+  subTimingCheck: (args: Parameters<typeof checkSubTiming>[0]) => checkSubTiming(args),
   setVolume,
   // What the process and the page hold (see above); one sample, on demand.
   leakSample,
