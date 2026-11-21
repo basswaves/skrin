@@ -2424,6 +2424,24 @@ const handlers: Record<string, Handler> = {
     settings.set(String(a.key), String(a.value));
     return null;
   },
+  // The proxy setting (net.rs): the same words, a fixed answer for "Check".
+  proxy_current: () => ({
+    enabled: settings.get('proxy_enabled') === 'on',
+    address: settings.get('proxy_address') ?? '',
+    noProxy: 'localhost',
+  }),
+  proxy_normalise: (a) => {
+    const text = String(a.address).trim();
+    if (!text) throw new Error("Type the proxy's address first, such as 127.0.0.1:9050 or socks5://127.0.0.1:9050.");
+    if (!/:\d+$/.test(text)) throw new Error("The proxy's address needs a host and a port, such as 127.0.0.1:8080.");
+    return /^[a-z0-9]+:\/\//i.test(text) ? text : `http://${text}`;
+  },
+  check_proxy: (a) => {
+    if (!/:\d+$/.test(String(a.address).trim())) throw new Error("The proxy's address needs a host and a port, such as 127.0.0.1:8080.");
+    if (String(a.address).includes('dead')) throw new Error('The proxy did not accept the connection. Is it running, at that address and port?');
+    return 'The proxy works: TMDB answered through it.';
+  },
+  fetch_remote_image: () => new Uint8Array([137, 80, 78, 71]).buffer,
   provider_status: () => [['tvmaze', true], ['omdb', false], ['tmdb', true]],
   // Deliberately silent: devlog forwards console.* here, so logging from this
   // handler would recurse.

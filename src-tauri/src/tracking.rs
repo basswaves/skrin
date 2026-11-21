@@ -38,7 +38,7 @@ pub fn user_agent() -> String {
 }
 
 pub fn http() -> Option<tauri_plugin_http::reqwest::Client> {
-    tauri_plugin_http::reqwest::Client::builder()
+    crate::net::builder()
         .timeout(Duration::from_secs(20))
         .build()
         .ok()

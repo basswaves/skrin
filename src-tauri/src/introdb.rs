@@ -175,7 +175,7 @@ fn build_url(query: &Query) -> String {
 /// lookups for a month; doing that on a failure would mean one moment of being
 /// offline caches "this show has no credits" until September.
 pub async fn lookup(query: &Query) -> Option<Lookup> {
-    let client = tauri_plugin_http::reqwest::Client::builder()
+    let client = crate::net::builder()
         .timeout(TIMEOUT)
         .build()
         .ok()?;

@@ -452,8 +452,12 @@
       "Remove #4": { "U": "Garden", "D": "·", "L": "↓ #4", "R": "·" }
     },
     "settings-privacy": {
-      "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)" },
-      "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)": { "U": "Settings", "D": "Go to Skipping intros, for TheIntroDB", "L": "Privacy", "R": "·" },
+      "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "✓Off" },
+      "✓Off": { "U": "Settings", "D": "127.0.0.1:8080", "L": "Privacy", "R": "On" },
+      "On": { "U": "Settings", "D": "127.0.0.1:8080", "L": "✓Off", "R": "·" },
+      "127.0.0.1:8080": { "U": "✓Off", "D": "Check", "L": "Privacy", "R": "·" },
+      "Check": { "U": "127.0.0.1:8080", "D": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)", "L": "Privacy", "R": "·" },
+      "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)": { "U": "Check", "D": "Go to Skipping intros, for TheIntroDB", "L": "Privacy", "R": "·" },
       "Go to Skipping intros, for TheIntroDB": { "U": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)", "D": "Go to Skipping intros, for IntroDB", "L": "Privacy", "R": "·" },
       "Go to Skipping intros, for IntroDB": { "U": "Go to Skipping intros, for TheIntroDB", "D": "Go to Language & subtitles, for OpenSubtitles", "L": "Privacy", "R": "·" },
       "Go to Language & subtitles, for OpenSubtitles": { "U": "Go to Skipping intros, for IntroDB", "D": "Go to Keep track of what I watch, for SIMKL", "L": "Privacy", "R": "·" },
@@ -974,8 +978,12 @@
       "Remove #4": { "U": "Garden", "D": "·", "L": "↓ #4", "R": "·" }
     },
     "settings-privacy": {
-      "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)" },
-      "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)": { "U": "Settings", "D": "Go to Skipping intros, for TheIntroDB", "L": "Privacy", "R": "·" },
+      "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "✓Off" },
+      "✓Off": { "U": "Settings", "D": "127.0.0.1:8080", "L": "Privacy", "R": "On" },
+      "On": { "U": "Settings", "D": "127.0.0.1:8080", "L": "✓Off", "R": "·" },
+      "127.0.0.1:8080": { "U": "✓Off", "D": "Check", "L": "Privacy", "R": "·" },
+      "Check": { "U": "127.0.0.1:8080", "D": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)", "L": "Privacy", "R": "·" },
+      "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)": { "U": "Check", "D": "Go to Skipping intros, for TheIntroDB", "L": "Privacy", "R": "·" },
       "Go to Skipping intros, for TheIntroDB": { "U": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)", "D": "Go to Skipping intros, for IntroDB", "L": "Privacy", "R": "·" },
       "Go to Skipping intros, for IntroDB": { "U": "Go to Skipping intros, for TheIntroDB", "D": "Go to Language & subtitles, for OpenSubtitles", "L": "Privacy", "R": "·" },
       "Go to Language & subtitles, for OpenSubtitles": { "U": "Go to Skipping intros, for IntroDB", "D": "Go to Keep track of what I watch, for SIMKL", "L": "Privacy", "R": "·" },
@@ -1452,8 +1460,12 @@
       "Paste your OMDb key": { "U": "Paste your TMDB key", "D": "·", "L": "Posters & ratings", "R": "·" }
     },
     "settings-privacy": {
-      "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)" },
-      "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)": { "U": "Settings", "D": "Go to Skipping intros, for TheIntroDB", "L": "Privacy", "R": "·" },
+      "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "✓Off" },
+      "✓Off": { "U": "Settings", "D": "127.0.0.1:8080", "L": "Privacy", "R": "On" },
+      "On": { "U": "Settings", "D": "127.0.0.1:8080", "L": "✓Off", "R": "·" },
+      "127.0.0.1:8080": { "U": "✓Off", "D": "Check", "L": "Privacy", "R": "·" },
+      "Check": { "U": "127.0.0.1:8080", "D": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)", "L": "Privacy", "R": "·" },
+      "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)": { "U": "Check", "D": "Go to Skipping intros, for TheIntroDB", "L": "Privacy", "R": "·" },
       "Go to Skipping intros, for TheIntroDB": { "U": "Go to Posters & ratings, for OMDb (Rotten Tomatoes scores)", "D": "Go to Skipping intros, for IntroDB", "L": "Privacy", "R": "·" },
       "Go to Skipping intros, for IntroDB": { "U": "Go to Skipping intros, for TheIntroDB", "D": "Go to Language & subtitles, for OpenSubtitles", "L": "Privacy", "R": "·" },
       "Go to Language & subtitles, for OpenSubtitles": { "U": "Go to Skipping intros, for IntroDB", "D": "Go to Keep track of what I watch, for SIMKL", "L": "Privacy", "R": "·" },

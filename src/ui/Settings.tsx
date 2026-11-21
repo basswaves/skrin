@@ -39,6 +39,7 @@ import { FfmpegInstallButton, FfmpegInstallStatus, FfmpegLacks } from './FfmpegI
 import { FFMPEG_DOWNLOAD_URL, FFMPEG_INSTALL_WORDS, ffmpegFoundWords, useFfmpegInstall } from './ffmpegInstallState';
 import { count, formatBytes } from './format';
 import FocusInput from './FocusInput';
+import ProxySection from './ProxySection';
 import BackupSection from './BackupSection';
 import ImportWatchedSection from './ImportWatchedSection';
 import MoveSection from './MoveSection';
@@ -1753,10 +1754,13 @@ export default function Settings({
             )}
 
             {shown === 'privacy' && (
-              <WhatLeavesSection
-                sectionNames={SECTION_NAMES}
-                onGo={(id) => goToSection(id as SectionId)}
-              />
+              <>
+                <ProxySection />
+                <WhatLeavesSection
+                  sectionNames={SECTION_NAMES}
+                  onGo={(id) => goToSection(id as SectionId)}
+                />
+              </>
             )}
 
             {shown === 'advanced' && (

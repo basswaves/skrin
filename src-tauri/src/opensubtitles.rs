@@ -128,7 +128,7 @@ fn os_languages(code: &str) -> String {
 }
 
 fn http() -> Option<tauri_plugin_http::reqwest::Client> {
-    tauri_plugin_http::reqwest::Client::builder()
+    crate::net::builder()
         .timeout(TIMEOUT)
         .build()
         .ok()

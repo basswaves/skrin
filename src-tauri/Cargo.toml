@@ -35,6 +35,10 @@ walkdir = "2.5.0"
 quick-xml = "0.42"
 tauri-plugin-dialog = "2"
 tauri-plugin-http = "2"
+# The same crate tauri-plugin-http re-exports, named here only to switch on
+# `socks`: the proxy setting (net.rs) takes socks5:// addresses, Tor's among
+# them, which the plugin's build does not enable.
+reqwest = { version = "0.12", default-features = false, features = ["socks"] }
 # The update button checks a downloaded installer against the release's own
 # .sha256 (updates.rs). Already compiled in through other crates.
 sha2 = "0.10"

@@ -67,6 +67,7 @@ mod seek_preview;
 mod sub_timing;
 mod selftest;
 mod startup_dialog;
+mod net;
 mod reach;
 mod report;
 mod secrets;
@@ -224,6 +225,8 @@ fn open_library(app: &tauri::AppHandle) -> Result<(), String> {
         )
     })?;
 
+    // Before anything can ask the internet for something.
+    net::reload(&primary);
     app.manage(Db(Mutex::new(primary)));
     app.manage(ScanDb(Mutex::new(scanner)));
     app.manage(jobs::Jobs::default());
@@ -493,6 +496,10 @@ pub fn run() {
             settings::log_paths,
             settings::open_log_folder,
             reach::check_reach,
+            net::proxy_current,
+            net::proxy_normalise,
+            net::check_proxy,
+            net::fetch_remote_image,
             report::make_report,
             report::show_report,
             tracking::link_qr,

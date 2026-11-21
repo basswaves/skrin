@@ -4834,6 +4834,30 @@ runs quietly and offers only when clearly off (≥ 0.3 s or a speed) — never
 moved without a yes, as chosen 2026-10-18. Android has no mpv; the button is
 hidden there and the work is on PLAN.md's Android list.
 
+## A proxy for Skrin's lookups (2026-11-21)
+
+**Why.** A privacy-minded tester (Discussion #9) pointed out that every online
+lookup carries their own address. Settings → Privacy → "Send Skrin's lookups
+through a proxy": an HTTP(S) or SOCKS5 address (a VPN's or Tor's local proxy),
+off by default.
+
+**How.** Every Rust client starts from `net::builder()` (net.rs); the page's
+`fetch` (tauri-plugin-http) is given the same address (`src/net/proxy.ts`).
+The webview has no proxy of its own on all three platforms, so a picture from
+the internet is fetched by Rust (`fetch_remote_image`) and handed over as a
+blob; with the proxy on, `Art`, Fix match and the logo cut-out never let the
+webview ask for a remote address. mpv opens no network address (local files,
+shares, 127.0.0.1 relay), so its `http-proxy` is not set. Addresses on this
+computer and the home network are left out (a proxy cannot reach a NAS).
+
+**Fail safe.** A bad address is refused when typed; one that cannot be used
+(or hand-edited) points at a dead end, so requests fail and are said to — never
+direct. "Check" asks TMDB through the typed address and says what happened.
+
+**Does not slip, except:** the YouTube trailer (an iframe in the webview) and
+winget (Windows' own settings). Both said in Settings and on the What leaves
+page.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and

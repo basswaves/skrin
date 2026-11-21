@@ -17,6 +17,7 @@ import { count } from '../ui/format';
 import { describeFailure } from '../metadata/reach';
 import { userError, withoutQueries } from '../ui/errors';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import RemoteImg from '../ui/RemoteImg';
 import FocusButton from '../ui/FocusButton';
 import FocusInput from '../ui/FocusInput';
 import FocusGroup from '../ui/FocusGroup';
@@ -784,7 +785,7 @@ export function MatchSearch({
             {results.map((candidate) => (
               <div key={candidate.providerId} className="fixmatch-candidate">
                 {candidate.posterUrl ? (
-                  <img src={candidate.posterUrl} alt="" loading="lazy" />
+                  <RemoteImg src={candidate.posterUrl} />
                 ) : (
                   <div className="poster-placeholder">no poster</div>
                 )}

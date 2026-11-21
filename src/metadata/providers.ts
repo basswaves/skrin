@@ -17,6 +17,7 @@
 import { fetch } from '@tauri-apps/plugin-http';
 import { getSetting, setSetting } from './api';
 import { noteTmdbRejection } from './builtinKey';
+import { proxyFetchOptions } from '../net/proxy';
 import {
   detailsLanguage,
   episodeKey,
@@ -516,7 +517,9 @@ export async function fetchPolitely(
     let response: Response;
     const startedAt = Date.now();
     try {
-      const request = fetch(url, { method: 'GET', headers, connectTimeout, signal: controller.signal });
+      const request = proxyFetchOptions().then((proxy) =>
+        fetch(url, { method: 'GET', headers, connectTimeout, signal: controller.signal, ...proxy })
+      );
       request.catch(() => undefined); // a request lost to the limit must not end unhandled
       response = await Promise.race([request, limit]);
     } finally {

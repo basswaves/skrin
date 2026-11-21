@@ -712,6 +712,11 @@ reasoning is in [docs/DESIGN.md](docs/DESIGN.md) and [docs/HISTORY.md](docs/HIST
   the code (Rust, TypeScript, Kotlin or the Tauri config) names a host the
   file does not list; a host that is only text, never contacted, goes in the
   test's own list with the reason.
+- **A proxy setting covers Skrin's own requests.** Settings → Privacy can send every lookup,
+  picture, the update check and download through an HTTP(S) or SOCKS5 proxy, and
+  never falls back to a direct connection. A new Rust client starts from
+  `net::builder()`, a new `fetch` in the page takes `proxyFetchOptions()`, and a
+  new picture from the internet goes through `useProxiedSrc`.
 - **Sidecars are read, never written** by default. The reader stays so other
   producers of the format keep working.
 - **Android is for TV devices.** Boxes, sticks and TVs running Android TV or

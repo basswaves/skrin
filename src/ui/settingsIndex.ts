@@ -305,6 +305,13 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   // Privacy
   {
     section: 'privacy',
+    label: 'Send Skrin’s lookups through a proxy',
+    find: 'Proxy',
+    about: 'proxy VPN Tor SOCKS5 HTTP address hide IP private',
+    values: ['On', 'Off'],
+  },
+  {
+    section: 'privacy',
     label: 'What leaves your computer',
     about: 'privacy data sent services internet hosts',
   },

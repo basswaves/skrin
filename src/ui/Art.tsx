@@ -14,6 +14,7 @@
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useState, type ReactNode } from 'react';
+import { useProxiedSrc } from '../net/proxy';
 import { detailThumbSize, fileName, remPx, thumbSize } from './thumbSize';
 
 interface Props {
@@ -88,7 +89,10 @@ export default function Art({
   // full size froze a 4 GB computer (round 8 part I). Its place is the remote
   // picture, or the drawn poster.
   const sources = (small ? [small, remote] : [localSrc, remote]).filter((s): s is string => Boolean(s));
-  const src = sources.find((candidate) => !failed.has(candidate)) ?? null;
+  const chosen = sources.find((candidate) => !failed.has(candidate)) ?? null;
+  // With the proxy on, a picture from the internet comes through it (net.rs),
+  // never straight from the webview.
+  const src = useProxiedSrc(chosen);
 
   if (!src) return <>{fallback}</>;
 
@@ -105,12 +109,12 @@ export default function Art({
         // like a working one — the images still appear, just fetched over the
         // network again. devlog puts this in app.log, so the difference is
         // visible from outside the webview.
-        if (src === localSrc) console.warn(`artwork: cached copy failed, using ${remote}`, local);
+        if (chosen === localSrc) console.warn(`artwork: cached copy failed, using ${remote}`, local);
         // Each source is marked failed exactly once, so this terminates. The
         // previous version tracked a single failed source and flipped between
         // the two forever when *both* were broken — offline with a half-built
         // cache, which is precisely when it mattered.
-        setFailed((previous) => new Set(previous).add(src));
+        if (chosen) setFailed((previous) => new Set(previous).add(chosen));
       }}
     />
   );

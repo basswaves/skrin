@@ -74,6 +74,9 @@ pub(crate) fn store(conn: &rusqlite::Connection, key: &str, value: &str) -> Resu
     // thing that can change it (a group refused as "no provider for movies",
     // or searched through TVmaze before a TMDB key existed), so it re-opens
     // them for the next scan. Files held by hand stay held.
+    if key == crate::net::ENABLED_KEY || key == crate::net::ADDRESS_KEY {
+        crate::net::reload(conn);
+    }
     let after = setting(conn, key);
     if PROVIDER_KEYS.contains(&key) && after.is_some() && after != before {
         let reopened = crate::lifecycle::reopen_refusals(conn).map_err(to_string_err)?;

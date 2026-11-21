@@ -30,7 +30,7 @@ pub struct Reach {
 }
 
 /// Which kind of failure a chain of error texts describes.
-fn classify(chain: &str, timeout: bool) -> &'static str {
+pub(crate) fn classify(chain: &str, timeout: bool) -> &'static str {
     let text = chain.to_lowercase();
     if timeout || text.contains("timed out") || text.contains("os error 10060") {
         "timeout"
@@ -58,7 +58,7 @@ pub async fn check_reach(host: String) -> Result<Reach, String> {
     if !HOSTS.contains(&host.as_str()) {
         return Err(format!("not a host Skrin checks: {host}"));
     }
-    let client = tauri_plugin_http::reqwest::Client::builder()
+    let client = crate::net::builder()
         .timeout(TIMEOUT)
         .build()
         .map_err(|e| e.to_string())?;
