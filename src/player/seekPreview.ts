@@ -41,6 +41,20 @@ export interface SeekPreviewUsage {
 export const seekPreviewUsage = () => invoke<SeekPreviewUsage>('seek_preview_usage');
 export const deleteSeekPreviews = () => invoke<number>('delete_seek_previews');
 
+/** The whole-library job (`preview_job.rs`): its switch and how far it is. */
+export interface PreviewJobStatus {
+  enabled: boolean;
+  /** off · idle (on, not started) · running · waiting (a film plays) · finished */
+  state: 'off' | 'idle' | 'running' | 'waiting' | 'finished';
+  /** Files with every picture made, and files in the library. */
+  done: number;
+  total: number;
+  /** Files left for the next start: their folder did not answer. */
+  unreachable: number;
+}
+export const previewJobStatus = () => invoke<PreviewJobStatus>('preview_job_status');
+export const setPreviewJob = (enabled: boolean) => invoke<PreviewJobStatus>('preview_job_set', { enabled });
+
 /** Pictures of this film already shown, so going back over the bar is instant. */
 const KEPT = 240;
 

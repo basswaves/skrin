@@ -62,6 +62,7 @@ mod power;
 mod probe;
 mod procstats;
 mod scanner;
+mod preview_job;
 mod seek_preview;
 mod sub_timing;
 mod selftest;
@@ -405,6 +406,8 @@ pub fn run() {
             default_player::refresh();
             // Seek preview pictures of files that left the library while Skrin was closed.
             seek_preview::sweep_soon(app.handle());
+            // The whole-library preview job, if the owner switched it on.
+            preview_job::kick(app.handle());
 
             // Network sign-ins kept from before, unlocked for the shares
             // Skrin opens itself.
@@ -609,6 +612,8 @@ pub fn run() {
             seek_preview::seek_preview_close,
             seek_preview::seek_preview_usage,
             seek_preview::delete_seek_previews,
+            preview_job::preview_job_status,
+            preview_job::preview_job_set,
             sub_timing::sub_timing_check,
             videos::get_video_prefs,
             videos::set_video_prefs,

@@ -52,6 +52,15 @@ makes no stability promises.
 
 ### New
 
+- **Make previews for the whole library** (Windows and Linux; Settings →
+  Advanced → Seek previews, off by default). Skrin makes the seek-bar pictures
+  of every film and episode in the background, one file at a time, so they are
+  there before you watch. It stops for any film you play and carries on when it
+  ends, rests between pictures so the computer is never busy with it (one
+  decoding thread, longer rests, on a computer with two cores or fewer), picks
+  up where it stopped after a restart, shows "n of N files" and the space used,
+  and Off stops it. A share that does not answer is left for the next start.
+  The pictures are the same as watching makes, kept the same way.
 - **The volume goes to 200%**, as VLC's does, on Windows and Linux (#22, thanks
   to Rengoku30). Above 100% the sound is made louder and held just below full
   scale, so it never clips, with volume levelling on or off. Turning it up

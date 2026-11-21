@@ -45,11 +45,11 @@ fn folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(folder_in(&crate::data_dir(app)?))
 }
 
-fn file_folder(root: &Path, file_id: i64) -> PathBuf {
+pub(crate) fn file_folder(root: &Path, file_id: i64) -> PathBuf {
     root.join(file_id.to_string())
 }
 
-fn picture(root: &Path, file_id: i64, at: u32) -> PathBuf {
+pub(crate) fn picture(root: &Path, file_id: i64, at: u32) -> PathBuf {
     file_folder(root, file_id).join(format!("{at}.jpg"))
 }
 
@@ -67,14 +67,14 @@ pub fn step_for(secs: f64) -> u32 {
 
 /// What a file's folder was made from, so a file id used again by a different
 /// file (or the file replaced in place) never shows the old one's pictures.
-const SOURCE: &str = "source";
+pub(crate) const SOURCE: &str = "source";
 
-fn source_of(path: &str, size: i64) -> String {
+pub(crate) fn source_of(path: &str, size: i64) -> String {
     format!("{path}\n{size}")
 }
 
 /// The path and size of a file in the library, if it is in it.
-fn file_row(conn: &Connection, file_id: i64) -> Result<Option<(String, i64)>, String> {
+pub(crate) fn file_row(conn: &Connection, file_id: i64) -> Result<Option<(String, i64)>, String> {
     conn.query_row(
         "SELECT path, COALESCE(size_bytes, 0) FROM media_files WHERE id = ?1",
         params![file_id],
@@ -87,7 +87,7 @@ fn file_row(conn: &Connection, file_id: i64) -> Result<Option<(String, i64)>, St
 /// Make a file's folder ready: emptied first when it was made from another file.
 /// Only the desktop worker makes pictures; Android's build has no caller.
 #[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
-fn prepare(root: &Path, file_id: i64, path: &str, size: i64) -> std::io::Result<()> {
+pub(crate) fn prepare(root: &Path, file_id: i64, path: &str, size: i64) -> std::io::Result<()> {
     let dir = file_folder(root, file_id);
     let source = source_of(path, size);
     let stored = std::fs::read_to_string(dir.join(SOURCE)).ok();
@@ -177,6 +177,8 @@ pub async fn seek_preview_usage(app: tauri::AppHandle) -> Result<Usage, String> 
 pub async fn delete_seek_previews(app: tauri::AppHandle) -> Result<u64, String> {
     let root = folder(&app)?;
     worker::stop();
+    // The whole-library job would make them all again at once: it goes off.
+    crate::preview_job::disable(&app);
     crate::jobs::off_main(move || {
         let files = usage_in(&root).files;
         if root.exists() {
@@ -458,7 +460,7 @@ mod worker {
 /// The second libmpv handle: the client API through the library the player
 /// itself loads (videos.rs finds it).
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-mod mpv {
+pub(crate) mod mpv {
     use std::ffi::{c_char, c_int, c_void, CStr, CString};
     use std::path::Path;
     use std::time::{Duration, Instant};
@@ -500,6 +502,13 @@ mod mpv {
 
     impl Handle {
         pub fn open(video: &str) -> Option<Self> {
+            Self::open_with(video, 2)
+        }
+
+        /// As [`Handle::open`], decoding on `threads` threads (the whole-library
+        /// job uses fewer on a computer that reports few cores).
+        pub fn open_with(video: &str, threads: usize) -> Option<Self> {
+            let threads = threads.clamp(1, 4).to_string();
             let lib = crate::videos::mpv_frame::library()?;
             // SAFETY: libmpv's client API (client.h), stable across 2.x. The
             // handle is used by the one worker thread that made it, and
@@ -535,7 +544,7 @@ mod mpv {
                     // Software, on two threads: never a fight with the
                     // player's own decoder for the graphics card.
                     ("hwdec", "no"),
-                    ("vd-lavc-threads", "2"),
+                    ("vd-lavc-threads", threads.as_str()),
                     ("vf", "scale=320:-2"),
                     ("hr-seek", "no"),
                     ("cache", "no"),

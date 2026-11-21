@@ -9,17 +9,49 @@
  * use (owner, 2026-11-21). Android's own previews are on the plan.
  */
 import { useCallback, useEffect, useState } from 'react';
+import ChoiceRow from './ChoiceRow';
 import FocusButton from './FocusButton';
 import { userError } from './errors';
 import { count, formatBytes } from './format';
 import { useCapabilities } from '../capabilities';
-import { deleteSeekPreviews, seekPreviewUsage, type SeekPreviewUsage } from '../player/seekPreview';
+import {
+  deleteSeekPreviews,
+  previewJobStatus,
+  seekPreviewUsage,
+  setPreviewJob,
+  type PreviewJobStatus,
+  type SeekPreviewUsage,
+} from '../player/seekPreview';
+
+/** How often the job's progress is read while it is on. */
+const JOB_POLL_MS = 3000;
+
+/** The line under the switch: where the job is, in words. */
+export function jobLine(job: PreviewJobStatus, bytes: number | null): string {
+  const of = `${job.done} of ${count(job.total, 'file')}`;
+  const space = bytes === null ? '' : `, ${formatBytes(bytes)} used`;
+  switch (job.state) {
+    case 'running':
+      return `Making pictures: ${of} done${space}.`;
+    case 'waiting':
+      return `Waiting for the film to end: ${of} done${space}.`;
+    case 'finished':
+      return job.unreachable > 0
+        ? `${of} done${space}. ${count(job.unreachable, 'file')} could not be reached; they are tried again when Skrin starts.`
+        : `Every file has its pictures: ${of}${space}.`;
+    case 'idle':
+      return `Starting soon: ${of} done${space}.`;
+    default:
+      return job.done > 0 ? `Stopped: ${of} done${space}. It carries on where it stopped.` : '';
+  }
+}
 
 export default function SeekPreviewSection() {
   const can = useCapabilities();
   const [usage, setUsage] = useState<SeekPreviewUsage | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [job, setJob] = useState<PreviewJobStatus | null>(null);
   const here = !!can?.seek_previews;
 
   const read = useCallback(() => {
@@ -30,6 +62,26 @@ export default function SeekPreviewSection() {
   useEffect(() => {
     if (here) read();
   }, [here, read]);
+  // While the job is on: its progress, and the space, kept up to date.
+  const on = job?.enabled ?? false;
+  useEffect(() => {
+    if (!here) return;
+    let cancelled = false;
+    const look = () =>
+      previewJobStatus()
+        .then((s) => !cancelled && setJob(s))
+        .catch(() => undefined);
+    void look();
+    if (!on) return () => void (cancelled = true);
+    const timer = window.setInterval(() => {
+      void look();
+      read();
+    }, JOB_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [here, on, read]);
   if (!here) return null;
 
   return (
@@ -42,6 +94,27 @@ export default function SeekPreviewSection() {
         {usage ? ` (${count(usage.files, 'picture')}, ${formatBytes(usage.bytes)})` : ''}. Deleting
         them is safe: they are made again.
       </p>
+      <ChoiceRow
+        label="Make previews for the whole library"
+        choices={[
+          { value: 'off', label: 'Off' },
+          { value: 'on', label: 'On' },
+        ]}
+        value={on ? 'on' : 'off'}
+        onChange={(v) => {
+          setError(null);
+          setPreviewJob(v === 'on')
+            .then(setJob)
+            .catch((e: unknown) => setError(userError(e)));
+        }}
+        note="Skrin makes the pictures of every film and episode in the background, one file at a time, so the seek bar has them before you watch. It stops for any film you play, rests between pictures, and picks up where it stopped after a restart. Off stops it."
+      >
+        {job && jobLine(job, usage?.bytes ?? null) && (
+          <p className="settings-ok" role="status">
+            {jobLine(job, usage?.bytes ?? null)}
+          </p>
+        )}
+      </ChoiceRow>
       <FocusButton
         className="btn-secondary"
         onSelect={() =>
@@ -49,8 +122,11 @@ export default function SeekPreviewSection() {
             setError(null);
             try {
               const removed = await deleteSeekPreviews();
-              setNote(`Deleted ${count(removed, 'picture')}.`);
+              setNote(
+                `Deleted ${count(removed, 'picture')}.${on ? ' Making them for the whole library is off.' : ''}`,
+              );
               read();
+              void previewJobStatus().then(setJob).catch(() => undefined);
             } catch (e) {
               setError(userError(e));
             }

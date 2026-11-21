@@ -990,6 +990,22 @@ let playerOffered = false;
 /** Seek preview pictures "kept" (Settings → Advanced → Storage). */
 let mockPreviewFiles = 1440;
 
+/** The whole-library preview job's switch; it "makes" a file a second while on. */
+let mockPreviewJobOn = false;
+let mockPreviewJobFrom = 0;
+let mockPreviewJobDone = 0;
+function mockPreviewJobStatus() {
+  const total = 12;
+  if (!mockPreviewJobOn) {
+    // Off keeps what was made, as the files on disk do.
+    return { enabled: false, state: 'off', done: mockPreviewJobDone, total, unreachable: 0 };
+  }
+  if (!mockPreviewJobFrom) mockPreviewJobFrom = Date.now();
+  const done = Math.min(total, Math.max(mockPreviewJobDone, 1 + Math.floor((Date.now() - mockPreviewJobFrom) / 1000)));
+  mockPreviewJobDone = done;
+  return { enabled: true, state: done >= total ? 'finished' : 'running', done, total, unreachable: 0 };
+}
+
 /** A seek preview picture: a drawn frame saying its second (seek_preview.rs). */
 async function mockSeekPreview(secs: number): Promise<ArrayBuffer> {
   const at = Number.isFinite(secs) && secs > 0 ? Math.round(secs / 10) * 10 : 0;
@@ -1857,9 +1873,17 @@ const handlers: Record<string, Handler> = {
   seek_preview_fill: () => null,
   seek_preview_close: () => null,
   seek_preview_usage: () => ({ files: mockPreviewFiles, bytes: mockPreviewFiles * 9800 }),
+  preview_job_status: () => mockPreviewJobStatus(),
+  preview_job_set: (a) => {
+    mockPreviewJobOn = !!a.enabled;
+    mockPreviewJobFrom = 0;
+    return mockPreviewJobStatus();
+  },
   delete_seek_previews: () => {
     const removed = mockPreviewFiles;
     mockPreviewFiles = 0;
+    mockPreviewJobOn = false;
+    mockPreviewJobDone = 0;
     return removed;
   },
   get_video_prefs: (a) =>

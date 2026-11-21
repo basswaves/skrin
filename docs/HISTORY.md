@@ -4710,6 +4710,35 @@ about them there: a line about a feature a device lacks helps nobody (owner).
 Android's own previews (MediaMetadataRetriever, a size-capped cache) are
 planned for when Android work resumes.
 
+### Previews for the whole library (2026-11-21, round 10 A2)
+
+The job the owner asked to keep for its own session: Settings → Advanced →
+Seek previews → "Make previews for the whole library", off by default
+(`preview_job.rs`, setting `preview_job`). One thread, background priority,
+one file at a time, its own libmpv handle, the same pictures and folder as
+watching makes. Decisions and why:
+
+- **Yields by closing, not pausing.** `jobs::playing()` is looked at between
+  two pictures; when a film starts, the handle (and its share connection) is
+  let go, and reopened when the film ends. An idle handle beside a film would
+  still hold memory and a connection.
+- **Rests as long as the work took** after each picture (twice as long, on one
+  decoding thread, where the system reports two cores or fewer): the load is
+  a fixed share of one core whatever the picture costs, 4K HDR or DVD. What
+  the machine reports decides, never one test machine.
+- **State is the folder, not the database.** A `done` marker beside `source`
+  names the file it was made from; a restart lists the library, skips the
+  marked files, and carries on. Replacing a file or Delete in Settings
+  removes the marker with the pictures. Delete also switches the job off
+  (it would make them all again at once).
+- **A root that does not answer is skipped for the pass**: the first file that
+  cannot be opened marks its library folder, the rest wait for the next
+  start, instead of 15 s a file. (Found in the real app: a tool session
+  without the owner's Z: mapping.)
+- Starts 20 s after launch, when switched on, never twice. Nothing leaves the
+  computer. Android: gated off with the pictures themselves
+  (`capabilities.seek_previews`), on PLAN.md's Android list.
+
 ## The details page's later items (2026-11-21)
 
 Round 10 B. One TMDB request per title as before (`recommendations` joins the

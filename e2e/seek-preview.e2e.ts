@@ -97,3 +97,25 @@ test('Android makes no seek previews yet, and Settings has no line about them', 
   await expect(page.locator('.settings-section', { hasText: 'Storage' })).toBeVisible();
   await expect(section).toHaveCount(0);
 });
+
+test('the whole-library job: switched on by keys, shows progress, and Off stops it', async ({ page }) => {
+  await open(page, 'windows');
+  const section = await advancedSettings(page);
+  await expect(section).toContainText('Make previews for the whole library');
+  await press(page, 'ArrowRight');
+  for (let i = 0; i < 20 && !(await focused(page))?.endsWith('Off'); i++) {
+    await press(page, 'ArrowDown');
+  }
+  expect(await focused(page)).toBe('✓Off');
+  await press(page, 'ArrowRight');
+  expect(await focused(page)).toBe('On');
+  await press(page, 'Enter');
+  await expect(section.getByRole('status')).toContainText(/of 12 files/);
+  await expect(section.getByRole('status')).toContainText('Making pictures');
+  // Off stops it: the line says where it stopped, and that it carries on.
+  await press(page, 'ArrowLeft');
+  await expect.poll(() => focused(page)).toBe('Off');
+  await press(page, 'Enter');
+  await expect(section.getByRole('status')).toContainText('Stopped');
+  await expect(section.getByRole('status')).toContainText('carries on where it stopped');
+});
