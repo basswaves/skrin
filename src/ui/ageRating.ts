@@ -3,8 +3,11 @@
  * country (`titles.certifications`, tab-separated `DK=15`), and nothing when
  * it has none for it — never another country's, never a guess.
  *
- * The country is the region of the system's language (`da-DK` → `DK`).
- * A language with no region (`en`) names no country, so it shows nothing.
+ * The country is the region of the system's *first* language (`da-DK` →
+ * `DK`). A first language with no region (`en`, `nb`) names no country, so
+ * it shows nothing: a later language's country is not "here" (a Norwegian
+ * system listing `en-GB` second is not British). Reading the region setting
+ * of Windows and Linux themselves is the way to cover those; not built.
  */
 
 /** The regions the system's languages name, first choice first. */
@@ -28,8 +31,7 @@ export function localRating(
     const [country, rating] = part.split('=');
     if (country && rating) held.set(country, rating);
   }
-  // Only the first region: a second language's country is not "here".
-  const [region] = systemRegions(languages);
+  const region = systemRegions(languages.slice(0, 1))[0];
   return (region && held.get(region)) || null;
 }
 

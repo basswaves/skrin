@@ -4703,7 +4703,10 @@ fetched once more, which is also how the old titles get them.
 - **Age rating: the system's country, else none** (round 10 brief; it replaces
   the US-only rule above, which was the owner's earlier choice — the owner can
   say if they want US kept as a fallback). The country is the region of the
-  first system language (`da-DK` → DK); a language with no region names none.
+  first system language only (`da-DK` → DK); one with no region (`en`, `nb`) names
+  none, and a later language's country is not used (a Norwegian system listing
+  `en-GB` second is not British). Real-app check: such a system shows no rating.
+  Reading Windows' and Linux's own region setting would cover them; not built.
   All countries are stored so changing the system's region needs no refetch.
   Nothing is shown rather than another country's rating. `titles.certification`
   (US) is still written and read by nothing on the page.

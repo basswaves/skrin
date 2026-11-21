@@ -7,6 +7,8 @@ describe('the local age rating', () => {
   it("shows the system's own country's rating", () => {
     expect(localRating(held, ['da-DK', 'en-US'])).toBe('15');
     expect(localRating(held, ['en-GB'])).toBe('12A');
+    // Only the first language: a later one's country is not here.
+    expect(localRating(held, ['nb', 'en-GB', 'en-US'])).toBeNull();
   });
 
   it('says nothing when TMDB has none for that country, rather than another one', () => {
