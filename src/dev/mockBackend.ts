@@ -2096,6 +2096,9 @@ const handlers: Record<string, Handler> = {
   find_local_pictures: () => ({ found: 0, frames: 0 }),
   artwork_stats: () => ({ files: 0, bytes: 0, failed: 0 }),
   find_local_trailer: () => null,
+  // The system's country (region.rs): none unless `kinemaMockRegion` says one, so
+  // the page falls back to the browser's language, as it does on Android.
+  system_region: () => flag('kinemaMockRegion'),
   // Extras beside a film (extras.rs): Part Two has some under `kinemaMockPeople`.
   list_extras: (a) =>
     PEOPLE && String(a.videoPath).includes('Example.Part.Two')

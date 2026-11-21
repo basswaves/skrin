@@ -80,6 +80,7 @@ mod tracking;
 mod trakt;
 mod trakt_resume;
 mod extras;
+mod region;
 mod trailer;
 mod updates;
 mod util;
@@ -640,6 +641,7 @@ pub fn run() {
             trailer::find_local_trailer,
             extras::list_extras,
             extras::read_theme,
+            region::system_region,
             nfo::read_nfo,
             nfo::read_show_nfo,
             nfo::write_nfo,

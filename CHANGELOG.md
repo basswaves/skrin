@@ -17,7 +17,8 @@ makes no stability promises.
   folders, or `name-featurette.mkv`, `-behindthescenes`, `-deleted`,
   `-interview` files), played like a trailer; Skrin only reads them. A show's
   page shows the poster of the season on screen. The **age rating** is now the
-  one for your own country (from the system's language and region), and none
+  one for your own country (Windows' region setting, Linux's locale
+  territory, Android's language region), and none
   when TMDB has none for it, instead of always the US one. **Theme music**,
   off by default (Settings → Playback): a `theme.mp3` (or `theme-music/`,
   `backdrops/theme.mp3`) in a show's or film's folder plays softly while its

@@ -85,12 +85,14 @@ tauri-plugin-single-instance = "2"
 # SystemInformation is capabilities.rs asking how much memory the PC has.
 # UI_Shell and UI_WindowsAndMessaging are display.rs hearing the screen change
 # mode and fitting the full-screen window to its new size.
+# Globalization is region.rs reading the region setting (the age rating's country).
 [target.'cfg(windows)'.dependencies]
 # Hearing WebView2's processes end (page_life.rs). The version Tauri's own
 # webview compiles in, so nothing new is built.
 webview2-com = "0.38"
 windows = { version = "0.61", features = [
   "Win32_Foundation",
+  "Win32_Globalization",
   "Win32_Devices_Display",
   "Win32_Devices_FunctionDiscovery",
   "Win32_Devices_Properties",

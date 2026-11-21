@@ -4702,11 +4702,17 @@ fetched once more, which is also how the old titles get them.
 
 - **Age rating: the system's country, else none** (round 10 brief; it replaces
   the US-only rule above, which was the owner's earlier choice — the owner can
-  say if they want US kept as a fallback). The country is the region of the
-  first system language only (`da-DK` → DK); one with no region (`en`, `nb`) names
-  none, and a later language's country is not used (a Norwegian system listing
-  `en-GB` second is not British). Real-app check: such a system shows no rating.
-  Reading Windows' and Linux's own region setting would cover them; not built.
+  say if they want US kept as a fallback). The country is what the system itself says
+  (`region.rs`, `system_region`; owner 2026-11-21): Windows'
+  `GetUserDefaultGeoName` (the region setting; a UN area number like 150 is no
+  country), Linux's first of LC_ALL / LC_MESSAGES / LANG that is set, its
+  territory (`nb_NO.UTF-8` → NO; `C` or `en` → none, not the next variable's).
+  Where it names none, and on Android (no command; the webview's locale always
+  has a country), the region of the first webview language only (`da-DK` → DK);
+  a first language with no region (`en`, `nb`) shows nothing and a later
+  language's country is never used (a Norwegian system listing `en-GB` second
+  is not British). Real-app check: this PC's region is Norway, and the film
+  page showed Norway's rating (not the US or Danish one).
   All countries are stored so changing the system's region needs no refetch.
   Nothing is shown rather than another country's rating. `titles.certification`
   (US) is still written and read by nothing on the page.

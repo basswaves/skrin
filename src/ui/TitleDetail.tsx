@@ -41,7 +41,7 @@ import {
 import { resumePoint, resumeShare } from '../player/resume';
 import { endsAtLabel, formatTime } from './format';
 import { creditLines, secondsLeft, showStatusLine, todayString } from './aboutTitle';
-import { localRating, systemLanguages } from './ageRating';
+import { localRating, useSystemCountry } from './ageRating';
 import { useThemeMusic } from './themeMusic';
 import FileInfo from './FileInfo';
 import Card from './Card';
@@ -562,7 +562,8 @@ export default function TitleDetailView({
   // filling in.
   const shown = detail?.title ?? title;
   /** The system's own country's age rating, or nothing (ageRating.ts). */
-  const rating = localRating(detail?.about.certifications, systemLanguages());
+  const country = useSystemCountry();
+  const rating = localRating(detail?.about.certifications, country);
   /** The poster of the season on screen, when TMDB has one. */
   const seasonPoster =
     title.kind === 'series' && season !== null
