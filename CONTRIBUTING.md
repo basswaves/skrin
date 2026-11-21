@@ -627,8 +627,9 @@ reasoning is in [docs/DESIGN.md](docs/DESIGN.md) and [docs/HISTORY.md](docs/HIST
   this ground. YouTube's own embedded player, ads and all, is accepted
   (2026-10-18) because it fails safe: when YouTube refuses to play, the
   trailer opens in the browser, as it always has. Skrin drives it by
-  messages to its frame and never loads YouTube's script into its own page;
-  ads are never blocked. A read-only metadata service behind a stable API, used on its
+  messages to its frame and never loads YouTube's script into its own page
+  (on Linux the frame is a page the core serves on `127.0.0.1` only, which holds
+  the embed and passes messages through); ads are never blocked. A read-only metadata service behind a stable API, used on its
   own terms — TMDB, TVmaze, TheIntroDB, IntroDB, Wikidata, IMDb's published
   ratings file — passes it. Keeping dependencies current when Skrin itself is
   updated (Android's player library and build tools, a patched library in

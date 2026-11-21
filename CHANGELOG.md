@@ -9,6 +9,7 @@ makes no stability promises.
 
 ### New
 
+- **Trailers play inside Skrin on Linux too.** YouTube's embedded player refused Skrin's own page there ("Error 153"), so the trailer always opened in the browser. Skrin now serves one small page on this computer only (`127.0.0.1`) that holds YouTube's official player, and the same trailer window shows it, with the same keys and mouse as on Windows. Any error from YouTube still opens the browser. Nothing new leaves the computer.
 - **Film and show pages, the later items.** *More like this*: TMDB's
   recommendations that are in your library, in TMDB's order — and nothing at
   all when none are. *Extras*: what is kept beside the files, the way Plex,

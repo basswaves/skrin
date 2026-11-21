@@ -82,6 +82,7 @@ mod trakt_resume;
 mod extras;
 mod region;
 mod trailer;
+mod trailer_relay;
 mod updates;
 mod util;
 mod videos;
@@ -639,6 +640,7 @@ pub fn run() {
             display::restore_screen,
             display::player_window,
             trailer::find_local_trailer,
+            trailer_relay::trailer_page_address,
             extras::list_extras,
             extras::read_theme,
             region::system_region,

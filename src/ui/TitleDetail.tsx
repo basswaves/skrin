@@ -7,8 +7,7 @@
  */
 import { userError } from './errors';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { pageCanEmbed, playTrailer } from './trailer';
-import { useCapabilities } from '../capabilities';
+import { playTrailer } from './trailer';
 import Art from './Art';
 import DrawnPoster from './DrawnPoster';
 import { drawnStyle } from './drawnColour';
@@ -185,7 +184,6 @@ export default function TitleDetailView({
   /** Extras kept beside the files (extras.rs), read from disk. */
   const [extras, setExtras] = useState<Extra[]>([]);
   /** A YouTube trailer plays in Skrin (or the YouTube app), not the browser. */
-  const trailerInApp = useCapabilities()?.video_apps === true || pageCanEmbed();
   /** For a series: the episode the Play button will actually start. */
   const [nextUp, setNextUp] = useState<EpisodeRef | null>(null);
   /** For a series: whether that has been asked yet — see the landing below. */
@@ -853,7 +851,7 @@ export default function TitleDetailView({
                     className="btn-secondary"
                     onSelect={() => void playTrailer(shown.trailer_key as string, title.title)}
                   >
-                    {trailerInApp ? '▶ Trailer' : 'Trailer · opens in your browser ↗'}
+                    ▶ Trailer
                   </FocusButton>
                 )}
 

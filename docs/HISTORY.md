@@ -3584,6 +3584,24 @@ served over http(s) (Windows' `http://tauri.localhost`), which is what the page
 itself can tell, not the system's name; an error there still lands in the
 browser.
 
+**Linux gets it too (2026-11-21).** The reason Linux had to keep the browser was
+the page's address, not WebKitGTK. Tried first, with one real trailer: a page
+served from `http://127.0.0.1:<port>` holding only YouTube's embed
+(youtube-nocookie.com, `origin` and `widget_referrer` set to that address). In
+WebKitGTK 2.52 (WSL, off-screen) YouTube answered `onReady`, no error 153; the
+WSL has no video decoders, so nothing played there. On the Linux test PC
+(WebKitGTK 2.54.2, Fedora) the real trailer showed its title and poster, and
+played (state 1, current time advancing past 11 s) once started. Autoplay
+needed nothing special in the app: wry gives the webview WebKit's
+`AutoplayPolicy::Allow`; a hand-made test window without it stayed unstarted
+until a click. So `trailer_relay.rs` serves one fixed page on loopback (started
+on the first trailer, nothing else served) and the overlay shows that page in
+its frame; the page passes the overlay's messages to the embed and its news
+back, checking the video id's shape, and loads none of YouTube's script. The
+CSP's `frame-src` gained `http://127.0.0.1:*`. A page that cannot start, or any
+YouTube error, still opens the browser. Not chosen: YouTube's watch page in a
+Skrin window (breaks "official embed only", poor with a remote).
+
 ## A longer plan, seen through newcomers' eyes (2026-10-21)
 
 The plan was reviewed by imagining two people finding Kinema through a web

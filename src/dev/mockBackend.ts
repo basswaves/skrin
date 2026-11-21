@@ -2632,6 +2632,8 @@ const handlers: Record<string, Handler> = {
   'plugin:media3|restore_mode': () => fakeMedia3.restoreMode(),
   // A film on a share Skrin opens itself, read through the core (stream.rs).
   stream_address: () => 'http://127.0.0.1:47123/stream/1',
+  // The page that lets YouTube's trailer play on Linux (trailer_relay.rs).
+  trailer_page_address: () => 'http://127.0.0.1:47124/',
   // Remembered, so a check can ask whether TV mode really filled the screen.
   'plugin:window|is_fullscreen': () => mockFullscreen,
   'plugin:window|set_fullscreen': (a) => {
