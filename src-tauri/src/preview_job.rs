@@ -22,6 +22,10 @@
 //! waiting for each file in turn. Android makes none: the job is not shown
 //! there and the commands answer "off" (`capabilities.seek_previews`).
 
+// The job is made by the desktop's libmpv handle; Android's build compiles the
+// shared helpers below but has no caller for them (CI's Android lints).
+#![cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
+
 use std::path::Path;
 
 use rusqlite::Connection;
