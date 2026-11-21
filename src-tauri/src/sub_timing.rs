@@ -24,6 +24,10 @@
 //! `subDelay.ts`) — the subtitle file is never changed. Nothing leaves the
 //! computer. Android has no mpv: the button is not offered there (PLAN.md,
 //! "Desktop features Android must get").
+//!
+//! The alignment below is free of any platform and waits for Android's own
+//! reader; until then Android's build has only the command, which refuses.
+#![cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
 
 use serde::Serialize;
 

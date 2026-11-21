@@ -159,7 +159,8 @@ pub fn span_of(text: &str) -> Option<SubtitleSpan> {
 /// (`… --> …` lines) and ASS/SSA (`Dialogue:` lines, whose second and third
 /// fields are the times). Only the times are read — never the text, never
 /// written back (sidecars are read, never written). For automatic timing
-/// (sub_timing.rs).
+/// (sub_timing.rs), which reads them on the desktop only so far.
+#[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
 pub fn cues_of(text: &str) -> Vec<(f64, f64)> {
     let mut cues = Vec::new();
     for line in text.lines() {

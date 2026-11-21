@@ -2630,7 +2630,17 @@ switcher, and it hid from Linux's clippy whatever that switcher stopped using.
 A constant (or helper) used only inside `cfg(not(target_os = "android"))` code
 passes every local check and fails CI's Android clippy under `-D warnings`.
 Nothing on a desktop shows it. **Do:** give the item the same `cfg`, as the
-frame constants for Videos have.
+frame constants for Videos have. It happened twice in round 10 (seek
+previews' `prepare`, then all of `sub_timing.rs`, a desktop-only feature whose
+platform-free core has no caller on Android): for a module that is all one
+such core, one `#![cfg_attr(any(target_os = "android", target_os = "ios"),
+allow(dead_code))]` at its top, with the reason beside it. **Check before
+committing** a module whose callers are desktop-only, as CI runs it — in WSL,
+in the Android kit's copy (`~/kinema-android`, which has the generated
+Android files): `NDK_HOME=~/Android/ndk/<NDK_VERSION>`, the
+`CC_/AR_aarch64_linux_android` lines from ci.yml, then
+`cargo clippy --manifest-path src-tauri/Cargo.toml --target
+aarch64-linux-android --all-targets -- -D warnings` (~30 s once built).
 
 ### New files on Linux are readable by every account
 
