@@ -7,6 +7,8 @@ makes no stability promises.
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-11-21
+
 ### New
 
 - **Fix subtitle timing automatically** (Windows and Linux). In the subtitle
