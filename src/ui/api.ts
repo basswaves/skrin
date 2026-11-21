@@ -109,6 +109,12 @@ export interface About {
   next_air_date: string | null;
   next_air_season: number | null;
   next_air_episode: number | null;
+  /** Every country's age rating, tab-separated `DK=15` (ageRating.ts picks one). */
+  certifications: string | null;
+  /** TMDB's recommendations the library holds, in TMDB's order; empty says nothing. */
+  similar: Title[];
+  /** A series' season posters, for the seasons TMDB has one for. */
+  season_posters: Array<{ season: number; poster_url: string; poster_path: string | null }>;
 }
 
 export const listTitles = () => invoke<Title[]>('list_titles');
@@ -131,6 +137,17 @@ export const getTitleDetail = (titleId: number) =>
 /** Path of a trailer file sitting next to the video, or null. */
 export const findLocalTrailer = (videoPath: string) =>
   invoke<string | null>('find_local_trailer', { videoPath });
+
+/** An extra kept beside a film or show (extras.rs): a featurette, deleted scenes… */
+export interface Extra {
+  path: string;
+  name: string;
+  /** The group it is shown under. */
+  kind: string;
+}
+
+/** The extras beside a video's files, read from disk, never written. */
+export const listExtras = (videoPath: string) => invoke<Extra[]>('list_extras', { videoPath });
 
 /** Genres arrive as a JSON array string, or null. */
 export function parseGenres(raw: string | null): string[] {

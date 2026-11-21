@@ -4692,6 +4692,41 @@ about them there: a line about a feature a device lacks helps nobody (owner).
 Android's own previews (MediaMetadataRetriever, a size-capped cache) are
 planned for when Android work resumes.
 
+## The details page's later items (2026-11-21)
+
+Round 10 B. One TMDB request per title as before (`recommendations` joins the
+`append_to_response` list; the series' `seasons` list was already in it), kept as
+`titles.certifications` (every country, `DK=15` tab-separated), `titles.similar_ids`
+and a `season_art` table (schema 41). NULL is never asked, so every TMDB title is
+fetched once more, which is also how the old titles get them.
+
+- **Age rating: the system's country, else none** (round 10 brief; it replaces
+  the US-only rule above, which was the owner's earlier choice — the owner can
+  say if they want US kept as a fallback). The country is the region of the
+  first system language (`da-DK` → DK); a language with no region names none.
+  All countries are stored so changing the system's region needs no refetch.
+  Nothing is shown rather than another country's rating. `titles.certification`
+  (US) is still written and read by nothing on the page.
+- **More like this** is TMDB's `recommendations`, not `similar` (similar is by
+  keyword and genre and drifts); only titles with a file that is not missing,
+  same kind, in TMDB's order, at most 20; the row is absent when there are none.
+- **Extras** are read from disk like the trailer (`extras.rs`, off the main thread,
+  shares included). Folders are Plex's names. File suffixes are only
+  `-featurette`, `-behindthescenes`, `-deleted`, `-interview` (with `-`, `.` or `_`):
+  `-scene`, `-short` and `-other` end real titles and are read as folders only, for the
+  reason the trailer gives. The scanner now leaves those suffixed files out of the
+  library as it does trailers, or each would become a junk title.
+- **Theme music** is read by the app and handed to the page as bytes
+  (`read_theme`, found again from the video's path, never a path from the page,
+  at most 25 MB) because the page may open by address only the artwork folder;
+  `media-src` gained `blob:`. Off by default (`theme_music` = on), local files only —
+  an online source (Plex and Jellyfin fetch one) was not built: it would need a host
+  in `whatLeaves.json` and the owner's word.
+- **Season pictures:** TMDB's season posters, cached like posters for seasons the
+  library holds. Episode thumbnails were already there (cached stills, shown beside
+  each episode); nothing new was needed.
+- `whatLeaves.json` unchanged: the same TMDB request and the same image host.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and

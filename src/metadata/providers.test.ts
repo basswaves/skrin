@@ -245,7 +245,7 @@ describe('TMDB details language', () => {
     expect(params.get('language')).toBeNull();
     expect(params.get('include_image_language')).toBe('en,null');
     expect(params.get('append_to_response')).toBe(
-      'external_ids,videos,images,credits,release_dates'
+      'external_ids,videos,images,credits,release_dates,recommendations'
     );
     expect(title).toMatchObject({
       title: 'The English Title',

@@ -41,12 +41,16 @@ import {
 import { resumePoint, resumeShare } from '../player/resume';
 import { endsAtLabel, formatTime } from './format';
 import { creditLines, secondsLeft, showStatusLine, todayString } from './aboutTitle';
+import { localRating, systemLanguages } from './ageRating';
+import { useThemeMusic } from './themeMusic';
 import FileInfo from './FileInfo';
 import Card from './Card';
 import { isMyListKey, toggleMyList, useOnMyList } from '../library/myList';
 import {
   findLocalTrailer,
   getTitleDetail,
+  listExtras,
+  type Extra,
   parseGenres,
   type Episode,
   type Studio,
@@ -119,6 +123,8 @@ const DETAIL_EPISODES_KEY = 'detail-episodes';
 /** Under the episodes: the film's collection, the cast, the file's details. */
 const DETAIL_COLLECTION_KEY = 'detail-collection';
 const DETAIL_CAST_KEY = 'detail-cast';
+const DETAIL_SIMILAR_KEY = 'detail-similar';
+const DETAIL_EXTRAS_KEY = 'detail-extras';
 const DETAIL_FILE_KEY = 'detail-file';
 const seasonKey = (s: number) => `detail-season:${s}`;
 
@@ -176,6 +182,8 @@ export default function TitleDetailView({
   const [error, setError] = useState<string | null>(null);
   const [season, setSeason] = useState<number | null>(null);
   const [trailerPath, setTrailerPath] = useState<string | null>(null);
+  /** Extras kept beside the files (extras.rs), read from disk. */
+  const [extras, setExtras] = useState<Extra[]>([]);
   /** A YouTube trailer plays in Skrin (or the YouTube app), not the browser. */
   const trailerInApp = useCapabilities()?.video_apps === true || pageCanEmbed();
   /** For a series: the episode the Play button will actually start. */
@@ -429,19 +437,25 @@ export default function TitleDetailView({
    * title — trailers live beside the media, so without a file there is nowhere
    * to look.
    */
+  const anchorPath = detail?.movie_path ?? detail?.episodes.find((e) => e.file_path)?.file_path ?? null;
   useEffect(() => {
-    const anchor = detail?.movie_path ?? detail?.episodes.find((e) => e.file_path)?.file_path;
-    if (!anchor) return;
+    if (!anchorPath) return;
 
     let cancelled = false;
-    findLocalTrailer(anchor)
+    findLocalTrailer(anchorPath)
       .then((found) => !cancelled && setTrailerPath(found))
       .catch((e) => console.warn('local trailer lookup failed', e));
+    listExtras(anchorPath)
+      .then((found) => !cancelled && setExtras(found))
+      .catch((e) => console.warn('extras lookup failed', e));
 
     return () => {
       cancelled = true;
     };
-  }, [detail]);
+  }, [anchorPath]);
+
+  // The show's or film's tune, when Settings → Playback → Theme music is on.
+  useThemeMusic(anchorPath);
 
   /**
    * Flip the watched flag, then re-read the whole detail rather than patching
@@ -547,6 +561,13 @@ export default function TitleDetailView({
   // props is a snapshot from the rail, and may predate the artwork cache
   // filling in.
   const shown = detail?.title ?? title;
+  /** The system's own country's age rating, or nothing (ageRating.ts). */
+  const rating = localRating(detail?.about.certifications, systemLanguages());
+  /** The poster of the season on screen, when TMDB has one. */
+  const seasonPoster =
+    title.kind === 'series' && season !== null
+      ? detail?.about.season_posters.find((p) => p.season === season)
+      : undefined;
 
   const startRename = useCallback(() => {
     setRenameError(null);
@@ -637,9 +658,9 @@ export default function TitleDetailView({
               <div className="detail-meta">
                 {/* The age rating boxed, as a disc case or a TV guide shows
                     it, so it reads as a rating rather than one more word. */}
-                {shown.certification && (
-                  <span className="detail-cert" aria-label={`Rated ${shown.certification}`}>
-                    {shown.certification}
+                {rating && (
+                  <span className="detail-cert" aria-label={`Rated ${rating}`}>
+                    {rating}
                   </span>
                 )}
                 {[
@@ -979,6 +1000,19 @@ export default function TitleDetailView({
 
           {seasons.length > 0 && (
             <>
+              {seasonPoster && (
+                <div className="season-picture">
+                  <Art
+                    className="season-poster"
+                    screenRem={5}
+                    local={seasonPoster.poster_path}
+                    remote={seasonPoster.poster_url}
+                    lazy
+                    fallback={<div className="season-poster" />}
+                  />
+                  <span>{season === 0 ? 'Specials' : `Season ${season}`}</span>
+                </div>
+              )}
               <FocusGroup
                 kind="row"
                 focusKey={DETAIL_SEASONS_KEY}
@@ -1085,6 +1119,53 @@ export default function TitleDetailView({
                     note={film.id === title.id ? 'This film' : null}
                     onSelect={(t) => (t.id === title.id ? undefined : onOpenTitle?.(t))}
                   />
+                ))}
+              </FocusGroup>
+            </section>
+          )}
+
+          {/* TMDB's recommendations that the library holds, in TMDB's order;
+              nothing at all when there are none. */}
+          {detail && detail.about.similar.length > 0 && (
+            <section className="detail-similar">
+              <h2 className="cast-heading">More like this</h2>
+              <FocusGroup kind="row" focusKey={DETAIL_SIMILAR_KEY} className="rail-track">
+                {detail.about.similar.map((film) => (
+                  <Card
+                    key={film.id}
+                    title={film}
+                    focusKey={`detail-similar:${film.id}`}
+                    onSelect={(t) => onOpenTitle?.(t)}
+                  />
+                ))}
+              </FocusGroup>
+            </section>
+          )}
+
+          {/* Extras kept beside the files (Extras, Featurettes, -featurette
+              …), played as the trailer is: for no title's progress. */}
+          {extras.length > 0 && (
+            <section className="detail-extras">
+              <h2 className="cast-heading">Extras</h2>
+              <FocusGroup kind="row" focusKey={DETAIL_EXTRAS_KEY} className="rail-track extras-track">
+                {extras.map((extra) => (
+                  <FocusButton
+                    key={extra.path}
+                    focusKey={`detail-extra:${extra.path}`}
+                    className="btn-secondary extras-item"
+                    label={`${extra.name}, ${extra.kind}`}
+                    onSelect={() =>
+                      onPlayFile({
+                        path: extra.path,
+                        label: `${title.title} · ${extra.name}`,
+                        fileId: null,
+                        titleId: null,
+                      })
+                    }
+                  >
+                    <span className="extras-name">▶ {extra.name}</span>
+                    <span className="extras-kind">{extra.kind}</span>
+                  </FocusButton>
                 ))}
               </FocusGroup>
             </section>

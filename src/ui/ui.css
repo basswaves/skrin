@@ -1356,6 +1356,53 @@ button {
   flex: 0 0 auto;
 }
 
+/* More like this and Extras: rows under the collection, like it. */
+.detail-similar,
+.detail-extras {
+  margin: 2rem 0 0.5rem;
+}
+.detail-similar .rail-track,
+.detail-extras .rail-track {
+  align-items: flex-start;
+  margin-top: 0;
+  padding-top: 0.75rem;
+}
+.extras-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 0 0 auto;
+  gap: 0.125rem;
+  max-width: 16rem;
+  text-align: left;
+}
+.extras-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.extras-kind {
+  font-size: max(var(--fs-floor), 0.75rem);
+  opacity: 0.65;
+}
+
+/* The poster of the season on screen, above the season tabs. */
+.season-picture {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+.season-poster {
+  width: 3.5rem;
+  aspect-ratio: 2 / 3;
+  border-radius: 0.25rem;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* File details: the text is there to be copied. */
 .file-info {
   margin: 2rem 0 1rem;

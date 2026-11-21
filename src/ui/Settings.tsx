@@ -122,6 +122,7 @@ import {
 } from '../player/skip';
 import { VIDEO_SYNC_KEY } from '../player/mpvOptions';
 import { STILL_WATCHING_KEY } from '../player/stillWatching';
+import { THEME_MUSIC_KEY } from './themeMusic';
 import { buildNfoExports, writeNfo } from '../metadata/nfo';
 import { detectLines } from '../library/detectReport';
 import FixMatch from '../library/FixMatch';
@@ -380,6 +381,7 @@ export default function Settings({
   const [creditsTail, setCreditsTail] = useState(DEFAULT_CREDITS_TAIL_SECS);
   const [displaySync, setDisplaySync] = useState(false);
   const [stillWatching, setStillWatching] = useState(true);
+  const [themeMusic, setThemeMusic] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [panel, setPanel] = useState<'none' | 'review' | 'developer'>(
@@ -529,6 +531,7 @@ export default function Settings({
 
       setDisplaySync((await getSetting(VIDEO_SYNC_KEY)) === 'display');
       setStillWatching((await getSetting(STILL_WATCHING_KEY)) !== 'off');
+      setThemeMusic((await getSetting(THEME_MUSIC_KEY)) === 'on');
 
       setSkiptroPath((await getSetting(SKIPTRO_PATH_KEY)) ?? '');
       setSkiptroDbPath((await getSetting(SKIPTRO_DB_PATH_KEY)) ?? '');
@@ -1192,6 +1195,19 @@ export default function Settings({
                     setContrast(v === 'on');
                   }}
                   note="For eyes that need it: every quiet line of text at full strength, the player's panels on solid black instead of see-through, and a thicker outline round what is highlighted."
+                />
+                <ChoiceRow
+                  label="Theme music"
+                  choices={[
+                    { value: 'off', label: 'Off' },
+                    { value: 'on', label: 'On' },
+                  ]}
+                  value={themeMusic ? 'on' : 'off'}
+                  onChange={(v) => {
+                    setThemeMusic(v === 'on');
+                    void setSetting(THEME_MUSIC_KEY, v).catch((e) => setError(userError(e)));
+                  }}
+                  note="Plays a show's or film's own tune, softly, while its page is open: a theme.mp3 kept in its folder (theme-music or backdrops folders work too). Nothing is downloaded, and a title with no such file is silent."
                 />
                 <ChoiceRow
                   label="Still watching?"

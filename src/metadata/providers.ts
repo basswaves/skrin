@@ -63,6 +63,15 @@ export interface TitleMetadata {
    * has none. Left out by every provider but TMDB, which keeps what is stored.
    */
   certification?: string | null;
+  /**
+   * Every country's age rating, tab-separated `DK=15` (TMDB only; empty when
+   * it has none). The page shows the system's country and nothing otherwise.
+   */
+  certifications?: string | null;
+  /** TMDB's recommendations, comma-separated TMDB ids (TMDB only). */
+  similar_ids?: string | null;
+  /** A series' season posters (TMDB only). */
+  season_posters?: Array<{ season: number; poster_url: string }>;
   /** Production companies (a film) or networks (a series). TMDB only. */
   studios?: Studio[];
   /**
@@ -226,17 +235,48 @@ export function usCertification(
   releaseDates: TmdbReleaseDates | undefined,
   contentRatings: TmdbContentRatings | undefined
 ): string {
+  return certificationIn('US', kind, releaseDates, contentRatings);
+}
+
+/** One country's rating, `''` when TMDB has none for it. */
+export function certificationIn(
+  country: string,
+  kind: 'movie' | 'series',
+  releaseDates: TmdbReleaseDates | undefined,
+  contentRatings: TmdbContentRatings | undefined
+): string {
   if (kind === 'series') {
-    return contentRatings?.results?.find((r) => r.iso_3166_1 === 'US')?.rating?.trim() ?? '';
+    return contentRatings?.results?.find((r) => r.iso_3166_1 === country)?.rating?.trim() ?? '';
   }
-  const us = releaseDates?.results?.find((r) => r.iso_3166_1 === 'US')?.release_dates ?? [];
-  const rated = us.filter((d) => d.certification?.trim());
+  const here = releaseDates?.results?.find((r) => r.iso_3166_1 === country)?.release_dates ?? [];
+  const rated = here.filter((d) => d.certification?.trim());
   const rank = (type: number | undefined) => {
     const index = RELEASE_TYPE_ORDER.indexOf(type ?? 0);
     return index === -1 ? RELEASE_TYPE_ORDER.length : index;
   };
   rated.sort((a, b) => rank(a.type) - rank(b.type));
   return rated[0]?.certification?.trim() ?? '';
+}
+
+/**
+ * Every country's rating TMDB holds, tab-separated `DK=15`, so the page can
+ * show the system's own country without asking again.
+ */
+export function allCertifications(
+  kind: 'movie' | 'series',
+  releaseDates: TmdbReleaseDates | undefined,
+  contentRatings: TmdbContentRatings | undefined
+): string {
+  const countries = new Set<string>([
+    ...(releaseDates?.results ?? []).map((r) => r.iso_3166_1),
+    ...(contentRatings?.results ?? []).map((r) => r.iso_3166_1),
+  ]);
+  const out: string[] = [];
+  for (const country of [...countries].sort()) {
+    const rating = certificationIn(country, kind, releaseDates, contentRatings);
+    if (country && rating && !/[\t=]/.test(rating)) out.push(`${country}=${rating}`);
+  }
+  return out.join('\t');
 }
 
 /** How many studios to keep. The page shows up to three; this leaves spares. */
@@ -824,6 +864,8 @@ export function tmdbDetailParams(kind: 'movie' | 'series', language: string): Re
   // The age rating lives in a different sub-resource for each kind.
   const append = ['external_ids', 'videos', 'images', 'credits'];
   append.push(kind === 'movie' ? 'release_dates' : 'content_ratings');
+  // What the page's "More like this" picks from (only titles held are shown).
+  append.push('recommendations');
   if (!isEnglish(language)) append.push('translations');
   return {
     append_to_response: append.join(','),
@@ -865,6 +907,8 @@ export async function tmdbGetTitle(
     next_episode_to_air?: { air_date?: string; season_number?: number; episode_number?: number } | null;
     release_dates?: TmdbReleaseDates;
     content_ratings?: TmdbContentRatings;
+    recommendations?: { results?: Array<{ id?: number }> };
+    seasons?: Array<{ season_number?: number; poster_path?: string | null }>;
     production_companies?: TmdbCompany[];
     networks?: TmdbCompany[];
     // Everything is appended to the one detail request, so a new match stays a
@@ -928,6 +972,19 @@ export async function tmdbGetTitle(
         profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
       })),
     certification: usCertification(kind, detail.release_dates, detail.content_ratings),
+    certifications: allCertifications(kind, detail.release_dates, detail.content_ratings),
+    similar_ids: (detail.recommendations?.results ?? [])
+      .map((r) => r.id)
+      .filter((id): id is number => typeof id === 'number')
+      .join(','),
+    ...(kind === 'series' && {
+      season_posters: (detail.seasons ?? [])
+        .filter((x) => typeof x.season_number === 'number' && x.poster_path)
+        .map((x) => ({
+          season: x.season_number as number,
+          poster_url: `${TMDB_IMAGE}${x.poster_path}`,
+        })),
+    }),
     studios: pickStudios(kind, detail.networks, detail.production_companies),
     // A show's crew changes by episode; who made it is `created_by`.
     directors:

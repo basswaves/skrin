@@ -1048,18 +1048,33 @@ const ABOUT_NONE: About = {
   next_air_date: null,
   next_air_season: null,
   next_air_episode: null,
+  certifications: null,
+  similar: [],
+  season_posters: [],
 };
-/** What TMDB's detail request said, per title. */
-const ABOUT: Record<number, Partial<About> & { collection_id?: string }> = PEOPLE
+/** What TMDB's detail request said, per title. `similar_ids`: library titles it recommends. */
+const ABOUT: Record<number, Partial<About> & { collection_id?: string; similar_ids?: number[] }> = PEOPLE
   ? {
-      [SERIES_ID]: { directors: ['Ida Creator'], show_status: 'Ended' },
+      [SERIES_ID]: {
+        directors: ['Ida Creator'],
+        show_status: 'Ended',
+        certifications: 'GB=15	US=TV-MA',
+        season_posters: [{ season: 1, poster_url: 'https://image.example.test/s1.jpg', poster_path: null }],
+      },
       [PART_ONE_ID]: {
         directors: ['Dee Rector'],
         writers: ['Wren Writer', 'Ira Author'],
         collection_id: '900',
         collection_name: 'Example Collection',
+        certifications: 'US=PG-13	DK=15',
       },
-      [PART_TWO_ID]: { directors: ['Dee Rector'], collection_id: '900', collection_name: 'Example Collection' },
+      [PART_TWO_ID]: {
+        directors: ['Dee Rector'],
+        collection_id: '900',
+        collection_name: 'Example Collection',
+        certifications: 'DK=15',
+        similar_ids: [SERIES_ID, PART_ONE_ID],
+      },
     }
   : {};
 if (PEOPLE) {
@@ -1205,14 +1220,18 @@ function posterOf(titleId: number): string | null {
 function aboutOf(titleId: number): About {
   const about = ABOUT[titleId];
   if (!about) return ABOUT_NONE;
-  const { collection_id: collectionId, ...rest } = about;
+  const { collection_id: collectionId, similar_ids: similarIds, ...rest } = about;
+  const similar = (similarIds ?? [])
+    .map((id) => titles.find((t) => t.id === id))
+    .filter((t): t is Title => Boolean(t))
+    .map(withWatchState);
   const collection = collectionId
     ? titles
         .filter((t) => ABOUT[t.id]?.collection_id === collectionId)
         .sort((a, b) => (a.year ?? 0) - (b.year ?? 0))
         .map(withWatchState)
     : [];
-  return { ...ABOUT_NONE, ...rest, collection };
+  return { ...ABOUT_NONE, ...rest, collection, similar };
 }
 
 const SLOW_DETECT = flag('kinemaMockSlowDetect') === '1';
@@ -2077,6 +2096,15 @@ const handlers: Record<string, Handler> = {
   find_local_pictures: () => ({ found: 0, frames: 0 }),
   artwork_stats: () => ({ files: 0, bytes: 0, failed: 0 }),
   find_local_trailer: () => null,
+  // Extras beside a film (extras.rs): Part Two has some under `kinemaMockPeople`.
+  list_extras: (a) =>
+    PEOPLE && String(a.videoPath).includes('Example.Part.Two')
+      ? [
+          { path: 'C:/fixture/Extras/Bloopers.mkv', name: 'Bloopers', kind: 'Extras' },
+          { path: 'C:/fixture/Featurettes/The Look.mkv', name: 'The Look', kind: 'Featurettes' },
+        ]
+      : [],
+  read_theme: () => new ArrayBuffer(0),
 
   // A video opened from outside (opened.rs). `kinemaMockOpen` is the path
   // Skrin was "started for", answered once per page load as the real one is.

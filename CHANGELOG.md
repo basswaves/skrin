@@ -9,6 +9,21 @@ makes no stability promises.
 
 ### New
 
+- **Film and show pages, the later items.** *More like this*: TMDB's
+  recommendations that are in your library, in TMDB's order — and nothing at
+  all when none are. *Extras*: what is kept beside the files, the way Plex,
+  Jellyfin and Kodi keep them (`Extras`, `Featurettes`, `Behind The
+  Scenes`, `Deleted Scenes`, `Interviews`, `Scenes`, `Shorts`, `Other`
+  folders, or `name-featurette.mkv`, `-behindthescenes`, `-deleted`,
+  `-interview` files), played like a trailer; Skrin only reads them. A show's
+  page shows the poster of the season on screen. The **age rating** is now the
+  one for your own country (from the system's language and region), and none
+  when TMDB has none for it, instead of always the US one. **Theme music**,
+  off by default (Settings → Playback): a `theme.mp3` (or `theme-music/`,
+  `backdrops/theme.mp3`) in a show's or film's folder plays softly while its
+  page is open. Nothing is downloaded. Titles are fetched from TMDB once more
+  to bring the new fields, one at a time as before.
+
 - **Seek previews** on Windows and Linux: the seek bar shows a small picture
   of where it points — the mouse over the bar, a drag, or Left/Right held on
   a keyboard or a remote. Skrin makes the pictures while you watch, one for

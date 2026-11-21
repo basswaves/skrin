@@ -73,6 +73,12 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   },
   {
     section: 'playback',
+    label: 'Theme music',
+    about: 'theme song tune show film page title music plays soft theme.mp3',
+    values: ['Off', 'On'],
+  },
+  {
+    section: 'playback',
     label: 'Still watching?',
     about: 'autoplay next episode binge stop ask sleep fell asleep',
     values: ['Off', 'On'],

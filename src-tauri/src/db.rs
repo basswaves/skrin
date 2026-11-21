@@ -7,7 +7,7 @@ use rusqlite::Connection;
 use std::path::Path;
 
 /// The schema this build understands. Bump it with every new `SCHEMA_V*`.
-pub const SCHEMA_VERSION: i64 = 40;
+pub const SCHEMA_VERSION: i64 = 41;
 
 /// What can go wrong opening the library.
 ///
@@ -977,6 +977,24 @@ ALTER TABLE titles ADD COLUMN english_title TEXT;
 ALTER TABLE titles ADD COLUMN details_language TEXT;
 "#;
 
+/// Schema version 41: the details page's later items, all from TMDB's one
+/// detail request. `certifications` is every country's age rating,
+/// tab-separated `DK=15`, so the page shows the system's country and says
+/// nothing when TMDB has none for it (the old `certification` stays the US
+/// one). `similar_ids` is TMDB's recommendations (comma-separated TMDB ids):
+/// only those the library holds are shown. `season_art` is each season's
+/// poster. NULL is never asked, so every TMDB title is fetched once more.
+const SCHEMA_V41: &str = r#"
+ALTER TABLE titles ADD COLUMN certifications TEXT;
+ALTER TABLE titles ADD COLUMN similar_ids TEXT;
+CREATE TABLE season_art (
+    title_id   INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+    season     INTEGER NOT NULL,
+    poster_url TEXT    NOT NULL,
+    PRIMARY KEY (title_id, season)
+);
+"#;
+
 /// How long a statement waits for the write lock before giving up.
 ///
 /// Load-bearing from the moment there is more than one connection. SQLite
@@ -1362,7 +1380,7 @@ pub(crate) const MIGRATIONS: [&str; SCHEMA_VERSION as usize] = [
     SCHEMA_V20, SCHEMA_V21, SCHEMA_V22, SCHEMA_V23, SCHEMA_V24, SCHEMA_V25,
     SCHEMA_V26, SCHEMA_V27, SCHEMA_V28, SCHEMA_V29, SCHEMA_V30, SCHEMA_V31,
     SCHEMA_V32, SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38,
-    SCHEMA_V39, SCHEMA_V40,
+    SCHEMA_V39, SCHEMA_V40, SCHEMA_V41,
 ];
 
 /// Bring the database up to [`SCHEMA_VERSION`].

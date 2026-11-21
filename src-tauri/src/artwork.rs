@@ -137,6 +137,11 @@ fn all_urls(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<(String, Kind)>
                            AND e.episode BETWEEN m.parsed_episode
                                              AND COALESCE(m.parsed_episode_last, m.parsed_episode))
          UNION ALL
+         SELECT poster_url,   1 FROM season_art s WHERE poster_url <> ''
+            AND EXISTS (SELECT 1 FROM media_files m
+                         WHERE m.title_id = s.title_id AND m.missing = 0
+                           AND m.parsed_season = s.season)
+         UNION ALL
          SELECT profile_url,  0 FROM people   WHERE profile_url  IS NOT NULL AND profile_url  <> ''
          UNION ALL
          SELECT logo_url,     0 FROM studios  WHERE logo_url     IS NOT NULL AND logo_url     <> ''",
@@ -790,6 +795,7 @@ mod tests {
              CREATE TABLE episodes (title_id INTEGER, season INTEGER, episode INTEGER, still_url TEXT);
              CREATE TABLE media_files (title_id INTEGER, missing INTEGER, parsed_season INTEGER,
                                        parsed_episode INTEGER, parsed_episode_last INTEGER);
+             CREATE TABLE season_art (title_id INTEGER, season INTEGER, poster_url TEXT);
              CREATE TABLE people (profile_url TEXT);
              CREATE TABLE studios (logo_url TEXT);
              INSERT INTO titles (poster_url, backdrop_url, logo_url)

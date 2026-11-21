@@ -70,6 +70,30 @@ pub struct TitleInput {
     /// other providers, which fetch in English.
     #[serde(default)]
     pub details_language: Option<String>,
+    /// Every country's age rating, tab-separated `DK=15` (TMDB only); empty
+    /// when TMDB has none, absent from other providers.
+    #[serde(default)]
+    pub certifications: Option<String>,
+    /// TMDB's recommendations, comma-separated TMDB ids (TMDB only).
+    #[serde(default)]
+    pub similar_ids: Option<String>,
+    /// A series' season posters (TMDB only); absent keeps what is stored.
+    #[serde(default)]
+    pub season_posters: Option<Vec<SeasonPosterInput>>,
+}
+
+#[derive(Deserialize)]
+pub struct SeasonPosterInput {
+    pub season: i64,
+    pub poster_url: String,
+}
+
+/// A season's poster on the page: the cached copy when there is one.
+#[derive(Serialize)]
+pub struct SeasonPoster {
+    pub season: i64,
+    pub poster_url: String,
+    pub poster_path: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -212,6 +236,13 @@ pub struct About {
     pub next_air_date: Option<String>,
     pub next_air_season: Option<i64>,
     pub next_air_episode: Option<i64>,
+    /// Every country's age rating, tab-separated `DK=15`; the page picks the
+    /// system's country (`ageRating.ts`) and shows nothing when it is absent.
+    pub certifications: Option<String>,
+    /// TMDB's recommendations that the library holds, in TMDB's order.
+    pub similar: Vec<Title>,
+    /// A series' season posters, for the seasons TMDB has one for.
+    pub season_posters: Vec<SeasonPoster>,
 }
 
 fn names(joined: Option<String>) -> Vec<String> {
@@ -244,6 +275,24 @@ pub(crate) fn about_for(conn: &rusqlite::Connection, art: &str, title_id: i64) -
             params![title_id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?)),
         )?;
+    let (certifications, similar_ids, kind): (Option<String>, Option<String>, String) = conn.query_row(
+        "SELECT certifications, similar_ids, kind FROM titles WHERE id = ?1",
+        params![title_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+    let similar = similar_held(conn, art, title_id, &kind, similar_ids.as_deref().unwrap_or(""))?;
+    let season_posters = {
+        let mut stmt = conn.prepare(
+            "SELECT s.season, s.poster_url,
+                    (SELECT :art || a.local_path FROM artwork_cache a
+                      WHERE a.url = s.poster_url AND a.local_path <> '')
+               FROM season_art s WHERE s.title_id = :id ORDER BY s.season",
+        )?;
+        let rows = stmt.query_map(named_params! { ":art": art, ":id": title_id }, |r| {
+            Ok(SeasonPoster { season: r.get(0)?, poster_url: r.get(1)?, poster_path: r.get(2)? })
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    };
     let some = |s: Option<String>| s.filter(|v| !v.is_empty());
     let collection = match some(collection_id) {
         Some(id) => {
@@ -268,7 +317,56 @@ pub(crate) fn about_for(conn: &rusqlite::Connection, art: &str, title_id: i64) -
         next_air_date: some(date),
         next_air_season: season,
         next_air_episode: episode,
+        certifications: some(certifications),
+        similar,
+        season_posters,
     })
+}
+
+/// How many recommendations the page shows at most.
+const SIMILAR_LIMIT: usize = 20;
+
+/// TMDB's recommendations for a title that the library holds (a file that is
+/// not missing), same kind, in TMDB's order, never the title itself. Empty
+/// when there are none, and the page then says nothing.
+fn similar_held(
+    conn: &rusqlite::Connection,
+    art: &str,
+    title_id: i64,
+    kind: &str,
+    ids: &str,
+) -> rusqlite::Result<Vec<Title>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut found: Vec<Title> = Vec::new();
+    let mut again = conn.prepare(&format!(
+        "{TITLE_SELECT} WHERE t.kind = :k AND t.id <> :id AND t.tmdb_id IS NOT NULL
+           AND instr(',' || :ids || ',', ',' || t.tmdb_id || ',') > 0
+           AND EXISTS (SELECT 1 FROM media_files m WHERE m.title_id = t.id AND m.missing = 0)"
+    ))?;
+    for t in again.query_map(
+        named_params! { ":art": art, ":k": kind, ":id": title_id, ":ids": ids },
+        map_title,
+    )? {
+        found.push(t?);
+    }
+    let order: Vec<&str> = ids.split(',').collect();
+    let tmdb: std::collections::HashMap<i64, String> = {
+        let mut m = std::collections::HashMap::new();
+        let mut q = conn.prepare("SELECT tmdb_id FROM titles WHERE id = ?1")?;
+        for t in &found {
+            if let Some(v) = q.query_row(params![t.id], |r| r.get::<_, Option<String>>(0))? {
+                m.insert(t.id, v);
+            }
+        }
+        m
+    };
+    found.sort_by_key(|t| {
+        order.iter().position(|o| Some(*o) == tmdb.get(&t.id).map(String::as_str)).unwrap_or(usize::MAX)
+    });
+    found.truncate(SIMILAR_LIMIT);
+    Ok(found)
 }
 
 /// Upsert by (provider, provider_id) so re-matching never duplicates a title.
@@ -283,9 +381,9 @@ pub fn save_title(db: tauri::State<Db>, title: TitleInput) -> Result<i64, String
              genres, runtime_mins, rating, poster_url, backdrop_url, fetched_at,
              trailer_key, trailer_site, logo_url, certification, directors, writers,
              collection_id, collection_name, show_status, next_air_date, next_air_season,
-             next_air_episode, english_title, details_language)
+             next_air_episode, english_title, details_language, certifications, similar_ids)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,
-                 ?21,?22,?23,?24,?25,?26,?27,?28)
+                 ?21,?22,?23,?24,?25,?26,?27,?28,?29,?30)
          ON CONFLICT(provider, provider_id) DO UPDATE SET
             imdb_id = excluded.imdb_id, tmdb_id = excluded.tmdb_id,
             title = excluded.title, year = excluded.year, overview = excluded.overview,
@@ -303,6 +401,8 @@ pub fn save_title(db: tauri::State<Db>, title: TitleInput) -> Result<i64, String
             trailer_site = COALESCE(excluded.trailer_site, titles.trailer_site),
             logo_url     = COALESCE(excluded.logo_url,     titles.logo_url),
             certification = COALESCE(excluded.certification, titles.certification),
+            certifications = COALESCE(excluded.certifications, titles.certifications),
+            similar_ids    = COALESCE(excluded.similar_ids,    titles.similar_ids),
             directors       = COALESCE(excluded.directors,       titles.directors),
             writers         = COALESCE(excluded.writers,         titles.writers),
             collection_id   = COALESCE(excluded.collection_id,   titles.collection_id),
@@ -323,7 +423,7 @@ pub fn save_title(db: tauri::State<Db>, title: TitleInput) -> Result<i64, String
             joined(&title.directors), joined(&title.writers), title.collection_id,
             title.collection_name, title.show_status, title.next_air_date,
             title.next_air_season, title.next_air_episode, title.english_title,
-            title.details_language
+            title.details_language, title.certifications, title.similar_ids
         ],
     )
     .map_err(to_string_err)?;
@@ -335,6 +435,20 @@ pub fn save_title(db: tauri::State<Db>, title: TitleInput) -> Result<i64, String
             |r| r.get(0),
         )
         .map_err(to_string_err)?;
+
+    // Season posters: replaced wholesale when TMDB sent a list (an empty
+    // one too: it has none); absent keeps what is stored.
+    if let Some(posters) = &title.season_posters {
+        tx.execute("DELETE FROM season_art WHERE title_id = ?1", params![title_id])
+            .map_err(to_string_err)?;
+        for p in posters.iter().filter(|p| !p.poster_url.is_empty()) {
+            tx.execute(
+                "INSERT OR REPLACE INTO season_art (title_id, season, poster_url) VALUES (?1,?2,?3)",
+                params![title_id, p.season, p.poster_url],
+            )
+            .map_err(to_string_err)?;
+        }
+    }
 
     // Cast is replaced wholesale, but only when the provider actually supplied
     // some. An empty list means "this provider does not do cast" — TVmaze and
@@ -1023,7 +1137,7 @@ fn titles_needing_detail(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Tr
         "SELECT id, tmdb_id, kind FROM titles
           WHERE tmdb_id IS NOT NULL AND tmdb_id <> ''
             AND (trailer_key IS NULL OR logo_url IS NULL OR certification IS NULL
-                 OR directors IS NULL)
+                 OR directors IS NULL OR certifications IS NULL OR similar_ids IS NULL)
           ORDER BY id",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -1155,7 +1269,7 @@ mod tests {
                  (2, 'movie',  'tmdb',   '22', '22', 'Rated',   0, '', '', 'R'),
                  (3, 'movie',  'tmdb',   '33', '33', 'Unrated', 0, '', '', ''),
                  (4, 'series', 'tvmaze', '44', NULL, 'Show',    0, NULL, NULL, NULL);
-             UPDATE titles SET directors = '';",
+             UPDATE titles SET directors = '', certifications = '', similar_ids = '';",
         )
         .unwrap();
         let ids: Vec<i64> = titles_needing_detail(&conn).unwrap().iter().map(|t| t.id).collect();
@@ -1218,6 +1332,41 @@ mod tests {
         let alone = about_for(&conn, "", 5).unwrap();
         assert!(alone.collection.is_empty() && alone.collection_name.is_none());
         assert!(alone.directors.is_empty());
+    }
+
+    /// "More like this" lists only recommended films the library holds, in
+    /// TMDB's order, never the film itself; ratings and season posters ride along.
+    #[test]
+    fn recommendations_held_and_the_rest_of_the_about_come_back() {
+        let conn = library("similar");
+        conn.execute_batch(
+            "INSERT INTO titles (id, kind, provider, provider_id, tmdb_id, title, fetched_at,
+                                 similar_ids, certifications) VALUES
+                 (2, 'movie', 'tmdb', '22', '22', 'This',  0, '77,33,44,22', 'DK=15\tUS=R'),
+                 (3, 'movie', 'tmdb', '33', '33', 'Held A', 0, '', NULL),
+                 (4, 'movie', 'tmdb', '44', '44', 'Not held', 0, '', NULL),
+                 (5, 'movie', 'tmdb', '77', '77', 'Held B', 0, '', NULL),
+                 (6, 'series', 'tmdb', '66', '33', 'Same id, a show', 0, '', NULL);
+             INSERT INTO season_art (title_id, season, poster_url) VALUES (1, 2, 'https://x/s2.jpg');",
+        )
+        .unwrap();
+        for (id, title) in [(301, 2), (302, 3), (303, 5), (304, 6)] {
+            conn.execute(
+                "INSERT INTO media_files (id, root_id, path, parent_dir, file_name, extension,
+                     size_bytes, modified_at, first_seen_at, last_seen_at, match_status, title_id)
+                 VALUES (?1, 1, ?2, 'C:/films', ?2, 'mkv', 1, 0, 0, 0, 'matched', ?3)",
+                params![id, format!("C:/films/{id}.mkv"), title],
+            )
+            .unwrap();
+        }
+        let about = about_for(&conn, "", 2).unwrap();
+        let held: Vec<i64> = about.similar.iter().map(|t| t.id).collect();
+        assert_eq!(held, vec![5, 3], "TMDB's order, held only, a film for a film");
+        assert_eq!(about.certifications.as_deref(), Some("DK=15\tUS=R"));
+        assert!(about_for(&conn, "", 3).unwrap().similar.is_empty());
+        let show = about_for(&conn, "", 1).unwrap();
+        assert_eq!(show.season_posters.len(), 1);
+        assert_eq!(show.season_posters[0].season, 2);
     }
 
     /// Only TMDB's data has an age limit, and the oldest is refreshed first.

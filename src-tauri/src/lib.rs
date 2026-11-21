@@ -79,6 +79,7 @@ mod subtitle_files;
 mod tracking;
 mod trakt;
 mod trakt_resume;
+mod extras;
 mod trailer;
 mod updates;
 mod util;
@@ -637,6 +638,8 @@ pub fn run() {
             display::restore_screen,
             display::player_window,
             trailer::find_local_trailer,
+            extras::list_extras,
+            extras::read_theme,
             nfo::read_nfo,
             nfo::read_show_nfo,
             nfo::write_nfo,

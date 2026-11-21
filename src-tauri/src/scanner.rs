@@ -128,7 +128,9 @@ pub(crate) fn is_video(path: &Path) -> bool {
     !path
         .file_name()
         .and_then(|n| n.to_str())
-        .map(|name| crate::trailer::is_trailer_file_name(name) || is_sample_file_name(name))
+        .map(|name| crate::trailer::is_trailer_file_name(name)
+                || crate::extras::is_extra_file_name(name)
+                || is_sample_file_name(name))
         .unwrap_or(false)
 }
 
