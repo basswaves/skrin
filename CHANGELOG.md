@@ -17,8 +17,7 @@ makes no stability promises.
   fraction of a second. HDR films get proper SDR pictures, not washed-out
   ones. They take about 10 KB each, stay on this computer (never beside your
   videos) and go when the file leaves the library; Settings → Advanced →
-  Seek previews shows the space and deletes them. Android shows the time, as
-  before.
+  Seek previews shows the space and deletes them. Android is to follow.
 
 ## [0.19.0] — 2026-11-20
 

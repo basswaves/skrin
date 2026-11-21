@@ -4,8 +4,9 @@
  * deletes them. They are kept until their file leaves the library; deleting
  * them is safe, they are made again while watching.
  *
- * Android makes none (no second mpv there): said, so the setting is not a
- * mystery on a TV device.
+ * Not drawn on Android, which makes none yet (no second mpv there): a line
+ * about a feature a device does not have tells its owner nothing they can
+ * use (owner, 2026-11-21). Android's own previews are on the plan.
  */
 import { useCallback, useEffect, useState } from 'react';
 import FocusButton from './FocusButton';
@@ -29,44 +30,35 @@ export default function SeekPreviewSection() {
   useEffect(() => {
     if (here) read();
   }, [here, read]);
-  if (!can) return null;
+  if (!here) return null;
 
   return (
     <section className="settings-section">
       <h2>Seek previews</h2>
-      {!here ? (
-        <p className="settings-intro">
-          The pictures above the seek bar are made on a computer only (Windows and Linux). Here the
-          seek bar shows the time.
-        </p>
-      ) : (
-        <>
-          <p className="settings-intro">
-            The seek bar shows a small picture of where it points. Skrin makes them while you watch,
-            one every ten seconds of the film, and keeps them on this computer until the file leaves
-            the library
-            {usage ? ` (${count(usage.files, 'picture')}, ${formatBytes(usage.bytes)})` : ''}.
-            Deleting them is safe: they are made again.
-          </p>
-          <FocusButton
-            className="btn-secondary"
-            onSelect={() =>
-              void (async () => {
-                setError(null);
-                try {
-                  const removed = await deleteSeekPreviews();
-                  setNote(`Deleted ${count(removed, 'picture')}.`);
-                  read();
-                } catch (e) {
-                  setError(userError(e));
-                }
-              })()
+      <p className="settings-intro">
+        The seek bar shows a small picture of where it points. Skrin makes them while you watch, one
+        every ten seconds of the film, and keeps them on this computer until the file leaves the
+        library
+        {usage ? ` (${count(usage.files, 'picture')}, ${formatBytes(usage.bytes)})` : ''}. Deleting
+        them is safe: they are made again.
+      </p>
+      <FocusButton
+        className="btn-secondary"
+        onSelect={() =>
+          void (async () => {
+            setError(null);
+            try {
+              const removed = await deleteSeekPreviews();
+              setNote(`Deleted ${count(removed, 'picture')}.`);
+              read();
+            } catch (e) {
+              setError(userError(e));
             }
-          >
-            Delete seek previews
-          </FocusButton>
-        </>
-      )}
+          })()
+        }
+      >
+        Delete seek previews
+      </FocusButton>
       {note && <p className="settings-ok">{note}</p>}
       {error && <p className="settings-warn">{error}</p>}
     </section>

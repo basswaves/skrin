@@ -2,7 +2,7 @@
  * Seek preview pictures (round 10): the picture above the seek bar where a
  * held Left/Right takes the film — by keyboard and remote alone, the mouse
  * untouched — and its own line in Settings → Advanced, with the space used
- * and a Delete reached by keys. Android makes none, and says so.
+ * and a Delete reached by keys. Android makes none yet, and shows no line.
  *
  * The mock draws each picture with its second on it (mockBackend.ts), so the
  * test reads which one is shown from `data-at`.
@@ -89,11 +89,11 @@ test('Settings shows the space seek previews take, and deletes them by keys', as
   await expect(section).toContainText('0 pictures');
 });
 
-test('Android makes no seek previews, and Settings says it is a computer’s', async ({ page }) => {
+test('Android makes no seek previews yet, and Settings has no line about them', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('kinemaMockSystem', 'android'));
   await page.goto('/');
   await expect.poll(() => focused(page), { timeout: 30_000 }).toContain('Play');
   const section = await advancedSettings(page);
-  await expect(section).toContainText('made on a computer only');
-  await expect(section.getByRole('button', { name: 'Delete seek previews' })).toHaveCount(0);
+  await expect(page.locator('.settings-section', { hasText: 'Storage' })).toBeVisible();
+  await expect(section).toHaveCount(0);
 });

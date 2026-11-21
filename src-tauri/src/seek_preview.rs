@@ -23,8 +23,8 @@
 //!   picture every [`FILL_GAP`], from the play head on, at low priority. A
 //!   live request always goes first.
 //!
-//! Android has no mpv: nothing is made there, and Settings says so
-//! (`capabilities.seek_previews`).
+//! Android has no mpv: nothing is made there yet, and Settings shows nothing
+//! about them (`capabilities.seek_previews`).
 
 use std::path::{Path, PathBuf};
 

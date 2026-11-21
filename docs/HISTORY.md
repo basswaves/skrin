@@ -4687,7 +4687,10 @@ scope, no change to the content security policy. They live in
 `<app data>/previews/<file id>/`, with the path and size they were made from:
 a folder whose file left the library, or whose id now names another file, is
 swept at start and when a library folder is removed. A file only missing for
-now keeps them. Android makes none (no mpv) and says so in Settings.
+now keeps them. Android makes none yet (no mpv) and Settings shows nothing
+about them there: a line about a feature a device lacks helps nobody (owner).
+Android's own previews (MediaMetadataRetriever, a size-capped cache) are
+planned for when Android work resumes.
 
 ## Open items
 

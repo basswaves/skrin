@@ -78,7 +78,7 @@ pub struct Capabilities {
     /// there first; elsewhere it plays in Skrin's overlay or the browser.
     pub video_apps: bool,
     /// Pictures above the seek bar are made here (seek_preview.rs): a second
-    /// libmpv handle, so computers only. Android says "desktop only".
+    /// libmpv handle, so computers only for now; Android's are planned.
     pub seek_previews: bool,
     /// How much memory the computer has, in bytes; 0 where it could not be
     /// read. The player sizes its read-ahead from it (src/player/mpvOptions.ts,
