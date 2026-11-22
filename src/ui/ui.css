@@ -3684,7 +3684,8 @@ button.cast-member {
 }
 
 .track-panel-head button.focused,
-.stats-head button.focused {
+.stats-head button.focused,
+.stats-copy button.focused {
   background: rgba(255, 255, 255, 0.28);
   outline: var(--focus-ring) solid #fff;
   outline-offset: 2px;
@@ -3828,7 +3829,8 @@ button.cast-member {
   letter-spacing: 0.02em;
 }
 
-.stats-head button {
+.stats-head button,
+.stats-copy button {
   padding: 0.125rem 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.25rem;
@@ -3836,6 +3838,10 @@ button.cast-member {
   color: #fff;
   font: inherit;
   cursor: pointer;
+}
+
+.stats-copy {
+  margin-bottom: 0.5rem;
 }
 
 .stats-empty {

@@ -5042,3 +5042,22 @@ the reasons behind it.
   **without touching the mouse at all**. Anything unreachable by D-pad is a bug,
   and every one of them found so far was invisible in mouse testing — a stray
   hover repairs focus and hides the failure.
+
+## "Copy facts" (2026-11-22, round 12 C)
+
+What a forum post or bug report needs is what the equipment *said* and what
+Skrin *did about it*; both were already on screen or in the logs, but not as
+one piece of text. Added `rawFacts.ts` (pure builder, unit-tested) and
+`CopyFactsButton` in the stats panel and the equipment section. Decisions:
+device names and ids are left out (the brief's "name-free" and the repository's
+no-personal-data rule; the receiver's model would help a reader but identifies
+a household) while the GPU name stays; options are recorded where Skrin sends
+them (init, the optional set, `mpvSet`, `mpvCommand('set')`, so the step-down
+and the audio path are in too) rather than re-read from mpv, because "set" and
+"default" cannot be told apart by reading; the viewer's own state (volume,
+tracks, subtitle timing) and anything naming a place or device are not
+recorded. The button sits on its own row under the panel's head: the panel is a
+`menu` group, whose ring goes up and down, so beside "close" it was
+unreachable by D-pad. On `i` the panel takes no ring, so there it is a mouse
+button, as "close" is; by keyboard or remote it is reached through Audio &
+subtitles → Playback details.

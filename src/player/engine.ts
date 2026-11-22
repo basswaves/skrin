@@ -45,6 +45,7 @@ import { logPaths } from '../metadata/api';
 import { capabilitiesNow, loadCapabilities } from '../capabilities';
 import { keyCommand, keyFromValue, KEY_PROPERTY, MPV_KEYS } from './mpvKeys';
 import { loadfile } from './loadfile';
+import { noteChosen, noteChosenAll } from './chosenOptions';
 import { MOUSE_PROPERTY, parseMouse, type MouseEvent } from './mpvMouse';
 import { probeEnhancementLayer } from './dolbyVision';
 import * as media3 from './media3';
@@ -177,6 +178,8 @@ async function startMpv(options: MpvConfig['initialOptions']): Promise<string> {
   // and Skrin's mouse script must not be loaded into it twice.
   const already = await invoke<boolean>('mpv_started').catch(() => false);
   const label = await init({ initialOptions: options, observedProperties: OBSERVED });
+  // Remembered for "Copy these facts" (rawFacts.ts), which lists what Skrin set.
+  noteChosenAll(options ?? {});
   if (already) return label;
   // Applied individually and after startup: if a build rejects one of these
   // option names, we lose that refinement rather than the whole player.
@@ -187,6 +190,7 @@ async function startMpv(options: MpvConfig['initialOptions']): Promise<string> {
   for (const [key, value] of Object.entries(optional)) {
     try {
       await setProperty(key, value);
+      noteChosen(key, value);
     } catch {
       console.warn(`mpv rejected optional setting ${key}=${value}`);
     }
@@ -937,6 +941,7 @@ export async function mpvCommand(
   args: (string | number | boolean)[] = []
 ): Promise<void> {
   await command(name, args);
+  if (name === 'set' && args.length === 2) noteChosen(String(args[0]), args[1]);
 }
 
 /** Read an mpv property; throws where mpv refuses. See `readProperty`. */
@@ -950,6 +955,7 @@ export async function mpvGet<T>(name: string, format: ScalarFormat): Promise<T |
  */
 export async function mpvSet(name: string, value: string | number | boolean): Promise<void> {
   await setProperty(name, value);
+  noteChosen(name, value);
 }
 
 /**

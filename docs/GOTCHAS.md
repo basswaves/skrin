@@ -3427,3 +3427,11 @@ visits the address again posing as a browser. **Do:** keep
 Skrin reads its own playlists. The same switch also turns off Matroska
 ordered chapters (mpv `demux_mkv_timeline.c`), so such a file plays straight
 through; `bd://` and `sub-add` are not references and still work.
+
+### A button beside "close" in the stats panel cannot be reached by arrows
+
+**Symptom:** a second button in the panel's head row got no ring: Left from
+"close" did nothing, no error. **Cause:** the panel is a `menu` focus group;
+its ring moves up and down only. **Do:** put new controls on their own row,
+under the head (`.stats-copy`). Also: a test that finds a button by its name
+loses it when the label changes ("copy facts" → "copied"); find it by class.

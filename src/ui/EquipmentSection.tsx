@@ -16,6 +16,7 @@
 import { userError } from './errors';
 import { useCallback, useEffect, useState } from 'react';
 import FocusButton from './FocusButton';
+import CopyFactsButton from './CopyFactsButton';
 import {
   checkEquipment,
   formatRate,
@@ -102,12 +103,15 @@ export default function EquipmentSection({ system }: { system: string }) {
         <FocusButton className="btn-secondary" onSelect={() => void check()}>
           {checking ? 'Checking…' : 'Check again'}
         </FocusButton>
+        <CopyFactsButton className="btn-secondary" equipment={equipment} />
         <span className="muted">
           {equipment
             ? `Last checked ${new Date(equipment.checked_at * 1000).toLocaleTimeString()}. `
             : ''}
           Only needed if a TV or receiver was switched on, or a {system} sound or display setting
-          was changed, after Skrin started.
+          was changed, after Skrin started. “Copy facts” puts what these devices reported, and the
+          mpv options Skrin set, on the clipboard for a forum post or bug report; device names,
+          ids, serial numbers, file names and film titles are left out.
         </span>
       </div>
       {error && <p className="equipment-problem">Could not check: {error}</p>}

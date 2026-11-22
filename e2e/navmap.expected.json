@@ -236,7 +236,8 @@
       "Most": { "U": "Sound 10 ms earlier", "D": "✓Off #5", "L": "More", "R": "·" },
       "✓Off #5": { "U": "✓Off #4", "D": "Check again", "L": "Picture & sound", "R": "On" },
       "On": { "U": "✓Off #4", "D": "Check again", "L": "✓Off #5", "R": "·" },
-      "Check again": { "U": "✓Off #5", "D": "·", "L": "Picture & sound", "R": "·" }
+      "Check again": { "U": "✓Off #5", "D": "copy facts", "L": "Picture & sound", "R": "·" },
+      "copy facts": { "U": "Check again", "D": "·", "L": "Picture & sound", "R": "·" }
     },
     "settings-intros": {
       "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "✓Show a Skip button" },
@@ -775,7 +776,8 @@
       "Most": { "U": "Sound 10 ms earlier", "D": "✓Off #3", "L": "More", "R": "·" },
       "✓Off #3": { "U": "✓Off #2", "D": "Check again", "L": "Picture & sound", "R": "On" },
       "On": { "U": "✓Off #2", "D": "Check again", "L": "✓Off #3", "R": "·" },
-      "Check again": { "U": "✓Off #3", "D": "·", "L": "Picture & sound", "R": "·" }
+      "Check again": { "U": "✓Off #3", "D": "copy facts", "L": "Picture & sound", "R": "·" },
+      "copy facts": { "U": "Check again", "D": "·", "L": "Picture & sound", "R": "·" }
     },
     "settings-intros": {
       "Search settings": { "U": "Settings", "D": "Library #2", "L": "·", "R": "✓Show a Skip button" },

@@ -769,6 +769,52 @@ async function pressInPanel(page: Page, target: ReturnType<Page['locator']>) {
   await press(page, 'Enter');
 }
 
+test('copy facts in the details panel, by remote: plain text, nothing personal', async ({ page }) => {
+  // The webview's clipboard is stubbed: what the button writes is what is checked.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __copied?: string };
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: (t: string) => ((w.__copied = t), Promise.resolve()) },
+      configurable: true,
+    });
+  });
+  await play(page, 'series');
+  const panel = await openTrackPanel(page);
+  await pressInPanel(page, panel.locator('.track-option', { hasText: 'Playback details' }));
+  const stats = page.locator('.stats-panel');
+  await expect(stats).toBeVisible();
+  await expect(stats.locator('.stats-group').first()).toBeVisible();
+
+  // The ring is in the panel (opened from Audio & subtitles): Copy is a stop on it.
+  const copy = stats.locator('.stats-copy button');
+  for (let i = 0; i < 6 && !(await copy.evaluate((el) => el.classList.contains('focused'))); i++) {
+    await press(page, 'ArrowDown');
+  }
+  await expect(copy).toHaveClass(/focused/);
+  await press(page, 'Enter');
+  await expect(copy).toHaveText('copied');
+
+  const text = await page.evaluate(() => (window as unknown as { __copied?: string }).__copied ?? '');
+  expect(text).toContain('Left out on purpose');
+  expect(text).toContain('== What ');
+  expect(text).toContain('== mpv options Skrin set');
+  expect(text).toContain('== What the player is doing now');
+  expect(text).toContain('[Source]');
+  // Names and ids of the devices stay out (the mock's screens carry both).
+  const eq = await call<{ displays: { name: string; id: string }[]; audio: { name: string; id: string }[] }>(
+    page,
+    '/src/player/equipment.ts',
+    'getEquipment'
+  );
+  for (const d of [...eq.displays, ...eq.audio]) {
+    expect(text).not.toContain(d.name);
+    if (d.id) expect(text).not.toContain(d.id);
+  }
+  expect(text).not.toMatch(/[A-Za-z]:[\\/]|\/home\/|\/Users\//);
+  // Copying left the ring where it was.
+  await expect(copy).toHaveClass(/focused/);
+});
+
 test('subtitle size and a dark box, by remote, kept for this screen', async ({ page }) => {
   await play(page, 'series');
   // The screen's size is put on as the file starts: Normal by default.

@@ -187,8 +187,11 @@ test('reading on and back never leaves the ring half under the top bar', async (
   for (let i = 0; i < 4 && (await focused(page)) !== 'Picture & sound'; i++) await press(page, 'ArrowDown');
   await press(page, 'Enter');
   await press(page, 'ArrowRight');
-  for (let i = 0; i < 20 && (await focused(page)) !== 'Check again'; i++) await press(page, 'ArrowDown');
-  await expect.poll(() => focused(page)).toBe('Check again');
+  // The section's last stops are its two buttons side by side; Down from above
+  // lands on whichever is nearer, and the page's end must clear either.
+  const lastStop = async () => ['Check again', 'copy facts'].includes((await focused(page)) ?? '');
+  for (let i = 0; i < 20 && !(await lastStop()); i++) await press(page, 'ArrowDown');
+  await expect.poll(lastStop).toBe(true);
 
   const halfHidden = () =>
     page.evaluate(() => {
@@ -210,7 +213,7 @@ test('reading on and back never leaves the ring half under the top bar', async (
   await press(page, 'ArrowDown');
   await settled(page);
   expect(await halfHidden()).toBe(false);
-  expect(await focused(page)).toBe('Check again');
+  expect(['Check again', 'copy facts']).toContain(await focused(page));
   // Back up the section to its first item: each one clear of the bar.
   for (let i = 0; i < 5; i++) {
     await press(page, 'ArrowUp');

@@ -5,6 +5,7 @@
 import FocusButton from '../ui/FocusButton';
 import { FocusProvider } from '../ui/FocusGroup';
 import { ALL_ARROWS, useFocusGroup, useFocusLeaf } from '../ui/focusGroups';
+import CopyFactsButton from '../ui/CopyFactsButton';
 import type { StatGroup } from './stats';
 
 /** Its close button, where the ring lands when it opens from Audio & subtitles. */
@@ -39,6 +40,10 @@ export default function StatsPanel({
           <FocusButton focusKey={STATS_CLOSE_KEY} onSelect={onClose}>
             close
           </FocusButton>
+        </div>
+        {/* Under the head, not beside close: this is a menu, whose ring goes up and down. */}
+        <div className="stats-copy">
+          <CopyFactsButton groups={stats} />
         </div>
         {stats.length === 0 && <div className="stats-empty">reading…</div>}
         {stats.map((group) => (

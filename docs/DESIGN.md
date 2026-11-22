@@ -659,6 +659,18 @@ rather than the settings that were requested — different claims, and only the
 second answers "is anything touching my image?". All flat scalar reads, polled
 rather than observed, each one individually allowed to fail.
 
+**"Copy facts" turns the answers behind every choice into text for a post.**
+In the stats panel and in Settings → Your equipment: what the screens and
+sound devices reported (HDR state and light levels, modes, formats each device
+takes untouched, Skrin's reading of them), the mpv options Skrin set
+(`chosenOptions.ts` records them as they are sent, never mpv's defaults) and,
+in the panel, its rows as they read now (`rawFacts.ts`). It copies the saved
+check, never asks the hardware again, and sends nothing. Left out, and said in
+the text's first lines: screen and sound-device names and ids, serial numbers,
+file names and paths, film titles — and a `scrub` pass turns any path that got
+into a row into `<path>`. The graphics card's name stays: a stutter report is
+useless without it.
+
 **The volume goes to 200%, never clips, and stops at 100% on the way.** Where
 mpv plays, the control reaches twice the film's own level, as VLC's does. Up
 to 100% it is mpv's own `volume`; above it, mpv's volume stays at 100 and the
