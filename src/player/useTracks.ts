@@ -24,8 +24,30 @@ import { forcedSubtitle, loadSubtitle } from './onlineSubtitles';
 import { samePath } from './session';
 import { screenHere } from './displaySwitch';
 import { applySubStyle, DEFAULT_STYLE, readSubStyle, saveSubStyle, type SubStyle } from './subtitleStyle';
-import { secondTrackFor } from './tracks';
-import { chooseTracks, forcedTrack, readLanguageDefaults, spokenTrack } from './trackChoice';
+import { describeTrack, secondTrackFor } from './tracks';
+import {
+  chooseTracks,
+  clearTrackReasons,
+  forcedTrack,
+  readLanguageDefaults,
+  setTrackReason,
+  spokenTrack,
+  type TrackChoice,
+} from './trackChoice';
+
+/** What the stats panel says about the tracks playing now (their Why lines). */
+function sayReasons(list: Track[], visible: boolean, why: TrackChoice['why']): void {
+  const audio = list.find((t) => t.type === 'audio' && t.selected);
+  const sub = list.find((t) => t.type === 'sub' && t.selected);
+  setTrackReason(
+    'audio',
+    audio ? { track: describeTrack(audio), why: why?.audio ?? "the file's own" } : null
+  );
+  setTrackReason('sub', {
+    track: visible && sub ? describeTrack(sub) : 'off',
+    why: why?.sub ?? "the file's own",
+  });
+}
 
 /**
  * Whose track choices apply: a title's, or for a video its folder's
@@ -90,6 +112,8 @@ export function useTracks({
     // — see trackChoice.ts. A trailer (no title) takes the defaults too.
     let showForced = true;
     let sub2Lang: string | null = null;
+    let why: TrackChoice['why'];
+    clearTrackReasons();
     try {
       const [prefs, defaults] = await Promise.all([
         prefsOf(target.titleId, videoFile),
@@ -100,6 +124,7 @@ export function useTracks({
       const [mode, lang] = defaults.subs.split(':');
       setWantedSubLang(mode !== 'off' && lang ? lang : systemLanguage());
       const choice = chooseTracks(list, prefs, defaults);
+      why = choice.why;
       if (choice.aid !== null) await playTrack('audio', choice.aid);
       if (choice.sid !== null) await playTrack('sub', choice.sid);
       if (choice.subVisible !== null) await showSubtitles(choice.subVisible);
@@ -117,6 +142,7 @@ export function useTracks({
 
     const visible = await subtitlesShown();
     setSubVisible(visible);
+    sayReasons(updated, visible, why);
 
     // The second subtitles in the remembered language, or none — set either
     // way, since mpv would keep the last file's number (engine.ts).
@@ -153,6 +179,11 @@ export function useTracks({
           setTracks(now);
           setSid(now.find((t) => t.type === 'sub' && t.selected)?.id ?? null);
           setSubVisible(true);
+          const forced = now.find((t) => t.type === 'sub' && t.selected);
+          setTrackReason('sub', {
+            track: forced ? describeTrack(forced) : 'forced',
+            why: 'forced lines from OpenSubtitles: the file has none for the language spoken',
+          });
           console.log(`forced ${spoken} subtitles from OpenSubtitles for ${target.path}`);
         } catch (e) {
           // Never fatal: the film plays on without them.
@@ -168,8 +199,13 @@ export function useTracks({
       await loadSubtitle(path, language, false, release);
       const now = await readTracks();
       setTracks(now);
-      setSid(now.find((t) => t.type === 'sub' && t.selected)?.id ?? null);
+      const fetched = now.find((t) => t.type === 'sub' && t.selected);
+      setSid(fetched?.id ?? null);
       setSubVisible(true);
+      setTrackReason('sub', {
+        track: fetched ? describeTrack(fetched) : language,
+        why: 'found online at your request (OpenSubtitles)',
+      });
     },
     []
   );
@@ -185,6 +221,8 @@ export function useTracks({
           await chooseSecondTrack(null);
           setSid2(null);
         }
+        const mine = 'your choice, made while watching; kept for this title';
+        setTrackReason(kind, track ? { track: describeTrack(track), why: mine } : { track: 'off', why: mine });
         if (kind === 'sub' && track === null) {
           await showSubtitles(false);
           setSubVisible(false);

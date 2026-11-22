@@ -552,11 +552,15 @@ reasoning is in [docs/DESIGN.md](docs/DESIGN.md) and [docs/HISTORY.md](docs/HIST
   the setting is there because a device that is weak in a way it cannot
   report should not be stuck with the choice. Nothing else becomes a preset
   because of it.
-  **The expert drawer (planned, 2026-10-21) follows the same line:** it lists
-  every decision made for a film and a screen with the reason, and lets
-  someone correct a *fact* about their equipment that Skrin read wrongly —
-  never a matter of taste. The defaults must stay right for people who never
-  open it.
+  **The expert drawer (built in 0.22) follows the same line:** the details
+  panel gives every decision made for a film and a screen its reason (a Why
+  line under the row), and Settings → Your equipment lets someone correct a
+  *fact* about one device that it reported wrongly — the PCM channels and
+  formats a receiver takes, a screen's peak brightness — never a matter of
+  taste. Auto, what the device says, comes first; a correction is said with
+  both values wherever it is used, so it is never passed off as the device's
+  own answer; a screen's peak is said only and changes nothing. The defaults
+  must stay right for people who never open it.
 - **When a graphics card cannot keep up, the desktop player steps down — and
   only then.** The picture Skrin aims for is the full one. But a card that
   drops frames shows a stuttering film, which is further from the creator's

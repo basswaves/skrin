@@ -58,6 +58,18 @@ import {
 } from './dolbyVision';
 import type { VideoDetails } from '../ui/badges';
 import { CLEAN_FILMS, currentStepDown, stepsInForce, type StepState } from './stepDown';
+import { trackReasons } from './trackChoice';
+import { bitstreamFor } from './outputCheck';
+import {
+  bothValues,
+  formatBothValues,
+  formatFact,
+  NO_CORRECTIONS,
+  pcmFact,
+  peakFact,
+  type Corrections,
+} from './corrections';
+import type { AudioDevice, Display } from './equipment';
 
 export interface StatRow {
   label: string;
@@ -66,6 +78,12 @@ export interface StatRow {
   note?: string;
   /** Draws attention: something here is costing quality. */
   warn?: boolean;
+  /**
+   * Why Skrin chose this, in a person's words (Expert drawer): folded under
+   * the row until its group is focused or pointed at, so the panel does not
+   * grow. Copy facts writes it out.
+   */
+  why?: string;
 }
 
 export interface StatGroup {
@@ -321,8 +339,35 @@ export function describeStepDown(state: StepState, hdrSource: boolean, el = fals
     value: steps.map((s) => s.label).join(' · '),
     note: `${why}. Remembered for this graphics card; after ${CLEAN_FILMS} films that play clean, one step is tried back, and Settings → Advanced can forget it. The picture is otherwise as set.`,
     warn: true,
+    why: stepDownCause(state),
   };
 }
+
+/**
+ * D6's cause, for the Why line: what the graphics card missed, and when.
+ * Levels remembered before the cause was kept (before 0.22) say so.
+ */
+export function stepDownCause(state: StepState): string {
+  const cheapest = 'each step is the cheapest loss left, and only frames the graphics card missed count';
+  if (!state.cause) {
+    return `The graphics card fell behind on an earlier film (when was not recorded); ${cheapest}.`;
+  }
+  const pct = state.cause.percent.toFixed(state.cause.percent < 10 ? 1 : 0);
+  const when = new Date(state.cause.at * 1000).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  return `The graphics card missed ${pct} % of frames on ${when}; ${cheapest}.`;
+}
+
+/** Why the tone mapping is what it is: one curve, the film's look, nothing invented. */
+export const TONE_MAP_WHY =
+  "Skrin's one curve for every film (BT.2390): it fits the film's light into what the screen shows, keeps the film's look and invents nothing. There is no setting to change it, on purpose.";
+
+/** Why HDR goes out as mastered: the screen knows itself best. */
+export const PASSTHROUGH_WHY =
+  'Sent as mastered: the screen knows its own light best and does its own tone mapping; Skrin changes nothing on the way.';
 
 /** `system` names the ordinary path: "the Windows mixer", "the Linux sound server". */
 export function describeAudioPath(
@@ -428,12 +473,14 @@ export function describeHdr(f: HdrFacts, system?: string | null): StatRow {
         value: `HDR out, compressed · ${source.toFixed(0)} → ${target.toFixed(0)} nits`,
         note: `adapted to the peak ${owner} reports for the screen, not sent as mastered`,
         warn: true,
+        why: TONE_MAP_WHY,
       };
     }
     return {
       label: 'HDR pipeline',
       value: `passthrough, ${f.sourceGamma} in, ${f.targetGamma} out`,
       note: "sent with the video's own HDR metadata; the display does its own tone mapping",
+      why: PASSTHROUGH_WHY,
     };
   }
 
@@ -445,6 +492,7 @@ export function describeHdr(f: HdrFacts, system?: string | null): StatRow {
       // (the output check above says which, from the screen's own state).
       owner === 'Windows' ? '' : ', or the graphics driver offers no HDR output'
     }${f.computePeak ? '; measured frame peak' : ''}`,
+    why: TONE_MAP_WHY,
   };
 }
 
@@ -614,6 +662,11 @@ async function readOutputCheck(from: {
   // The settings as they apply to this screen and this sound device.
   const switches = switchSettingsFor(policies, screen && screenIdOf(equipment, screen.gdi_name));
   const device = targetDevice(equipment, audioSettings.deviceId);
+  const direct = goesDirect(audioSettings, device);
+  const corrections = audioSettings.corrections ?? NO_CORRECTIONS;
+  const display =
+    (screen && equipment?.displays.find((d) => d.connected && d.gdi_name === screen.gdi_name)) ||
+    null;
   const checks = outputCheck({
     fullscreen,
     source: from.source,
@@ -642,12 +695,14 @@ async function readOutputCheck(from: {
       outFormat: from.outFormat,
       inChannels: inCount,
       outChannels: outCount,
-      direct: goesDirect(audioSettings, device),
+      direct,
       device,
+      corrections: soundCorrections(corrections, device, from.codec, direct),
     },
     system: capabilitiesNow()?.system,
   });
   if (checks.length === 0) return null;
+  const peak = from.hdrSource ? peakWords(corrections, display) : null;
   return {
     heading: 'Output check',
     rows: checks.map((c) => ({
@@ -655,8 +710,40 @@ async function readOutputCheck(from: {
       value: c.verdict === 'native' ? `✓ ${c.value}` : c.value,
       note: [c.why, c.fix && `Fix: ${c.fix}`].filter(Boolean).join(' ') || undefined,
       warn: c.verdict === 'limited',
+      ...(c.label === 'HDR' && peak ? { why: peak } : {}),
     })),
   };
+}
+
+/** The sound's corrections in words, both values each (outputCheck's Sound why). */
+export function soundCorrections(
+  c: Corrections,
+  device: AudioDevice | null,
+  codec: string | null,
+  direct: boolean
+): string[] {
+  const out: string[] = [];
+  if (direct) {
+    const ch = bothValues(pcmFact(c, device), 'the receiver', String);
+    if (ch) out.push(`PCM channels ${ch}`);
+  }
+  const stream = bitstreamFor(codec, device);
+  if (stream && direct) {
+    const f = formatBothValues(formatFact(c, device, stream), 'the receiver');
+    if (f) out.push(`${device?.bitstream.find((b) => b.codec === stream)?.label ?? stream} untouched: ${f}`);
+  }
+  return out;
+}
+
+/**
+ * A corrected screen peak, said (owner, 2026-11-22: words only). It changes
+ * nothing: Skrin sends HDR as mastered and the screen tone maps.
+ */
+export function peakWords(c: Corrections, display: Display | null): string | null {
+  const both = bothValues(peakFact(c, display), 'the screen', (n) => `${n} nits`);
+  return both
+    ? `Peak ${both}. Said only: Skrin sends HDR as mastered and the screen does its own tone mapping, so the picture is the same either way.`
+    : null;
 }
 
 /**
@@ -1047,6 +1134,7 @@ export async function readPlaybackStats(file?: VideoDetails | null): Promise<Sta
     {
       heading: 'Audio',
       rows: [
+        ...trackRows(),
         { label: 'Codec', value: text(audioCodec) },
         { label: 'Bitrate', value: bitrate(audioBitrate) },
         {
@@ -1108,6 +1196,15 @@ export async function readPlaybackStats(file?: VideoDetails | null): Promise<Sta
   }
 
   return groups;
+}
+
+/** The tracks playing, and why they are the ones (trackChoice.ts). */
+export function trackRows(): StatRow[] {
+  const { audio, sub } = trackReasons();
+  const rows: StatRow[] = [];
+  if (audio) rows.push({ label: 'Sound track', value: audio.track, why: audio.why });
+  if (sub) rows.push({ label: 'Subtitles', value: sub.track, why: sub.why });
+  return rows;
 }
 
 /**

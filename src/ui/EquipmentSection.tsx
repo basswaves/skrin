@@ -3,20 +3,33 @@
  * outputs this PC is connected to, and what it remembers of ones it has seen
  * before.
  *
- * Read-only on purpose. It describes hardware, and nothing here is a choice —
- * the choices built on it (which formats to pass through, whether to switch
- * the display) come later and will sit beside it. What it is for right now is
- * the one question nobody can answer by looking at a picture: *did Windows
- * actually tell the app the receiver takes TrueHD?*
+ * It describes hardware. The one thing to set is "Correct a fact" under a
+ * device (CorrectFacts.tsx, Expert drawer): for when a device reports
+ * something wrong — Auto, what it says, first; both values said wherever a
+ * correction is used. What it is for, above all, is the one question nobody
+ * can answer by looking at a picture: *did Windows actually tell the app the
+ * receiver takes TrueHD?*
  *
  * Opening it asks the hardware nothing: every launch already checked, and this
  * shows that. "Check again" is the only thing that re-asks — for when a
  * receiver was switched on or a Windows setting changed since launch.
  */
 import { userError } from './errors';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import FocusButton from './FocusButton';
 import CopyFactsButton from './CopyFactsButton';
+import { ScreenCorrections, SoundCorrections } from './CorrectFacts';
+import {
+  agreements,
+  CORRECTIONS_EVENT,
+  correctionLines,
+  markTold,
+  NO_CORRECTIONS,
+  saveCorrections,
+  setFact,
+  type Corrections,
+} from '../player/corrections';
+import { migrateAudioCorrections, readAudioSettings, targetDevice } from '../player/audioOutput';
 import {
   checkEquipment,
   formatRate,
@@ -24,8 +37,69 @@ import {
   hdrLabel,
   PROBE_LABEL,
   refreshRate,
+  type AudioDevice,
+  type Display,
   type Equipment,
 } from '../player/equipment';
+
+type Told = { id: string; fact: string; words: string };
+
+/** A device's corrections: what is set, said; and the drawer to change it. */
+function Correct({
+  device,
+  corrections,
+  onChange,
+  told,
+}: {
+  device: Display | AudioDevice;
+  corrections: Corrections;
+  onChange: (next: Corrections) => void;
+  told: Told[];
+}) {
+  const [open, setOpen] = useState(false);
+  const lines = correctionLines(corrections, device);
+  const mine = told.filter(
+    (t) => t.id === device.id && corrections.devices[device.id] !== undefined
+  );
+  return (
+    <>
+      {lines.length > 0 && (
+        <ul className="equipment-notes equipment-corrected">
+          {lines.map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+      )}
+      {mine.map((t) => (
+        <div className="settings-toggle-row" key={t.fact}>
+          <span className="muted">{t.words} — the correction can go.</span>
+          <FocusButton
+            className="btn-secondary"
+            onSelect={() =>
+              onChange(setFact(corrections, device.id, t.fact as 'pcm_channels', null))
+            }
+          >
+            Use what it says
+          </FocusButton>
+        </div>
+      ))}
+      <div className="settings-toggle-row">
+        <FocusButton className="btn-secondary" onSelect={() => setOpen(!open)}>
+          {open ? 'Done' : 'Correct a fact'}
+        </FocusButton>
+        {!open && lines.length === 0 && (
+          <span className="muted">Only if it reports something wrong.</span>
+        )}
+      </div>
+      {open &&
+        ('peak_nits' in device ? (
+          <ScreenCorrections display={device} corrections={corrections} onChange={onChange} />
+        ) : (
+          <SoundCorrections device={device} corrections={corrections} onChange={onChange} />
+        ))}
+    </>
+  );
+}
 
 const day = (secs: number) =>
   new Date(secs * 1000).toLocaleDateString(undefined, {
@@ -63,6 +137,48 @@ export default function EquipmentSection({ system }: { system: string }) {
   // Starts true: the saved answer is fetched as soon as the section mounts.
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [corrections, setCorrections] = useState<Corrections>(NO_CORRECTIONS);
+  /** "Now says the same" notes, found when the section opened: said this visit, not again. */
+  const [told, setTold] = useState<Told[]>([]);
+  const readOnce = useRef(false);
+
+  const changeCorrections = useCallback((next: Corrections) => {
+    setCorrections(next);
+    // A note whose correction is gone (Use what it says, or Auto) goes with it.
+    setTold((was) =>
+      was.filter((t) => {
+        const d = next.devices[t.id];
+        if (!d) return false;
+        if (t.fact.startsWith('formats.')) return !!d.formats?.[t.fact.slice('formats.'.length)];
+        return t.fact === 'pcm_channels' ? !!d.pcm_channels : !!d.peak_nits;
+      })
+    );
+    void saveCorrections(next)
+      .then(() => window.dispatchEvent(new Event(CORRECTIONS_EVENT)))
+      .catch((e: unknown) => setError(userError(e)));
+  }, []);
+
+  // The corrections, after moving the global format values of before 0.22
+  // to the device the sound goes to; then the "now says the same" notes,
+  // marked as said.
+  useEffect(() => {
+    if (!equipment || readOnce.current) return;
+    readOnce.current = true;
+    void (async () => {
+      const read = await readAudioSettings();
+      const settings = await migrateAudioCorrections(read, targetDevice(equipment, read.deviceId));
+      let c = settings.corrections ?? NO_CORRECTIONS;
+      const now = agreements(
+        c,
+        equipment.displays.filter((d) => d.connected),
+        equipment.audio.filter((a) => a.connected)
+      );
+      setTold(now);
+      for (const t of now) c = markTold(c, t.id, t.fact);
+      setCorrections(c);
+      if (now.length > 0) await saveCorrections(c);
+    })().catch((e: unknown) => console.warn('settings: corrections not read', e));
+  }, [equipment]);
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -96,8 +212,9 @@ export default function EquipmentSection({ system }: { system: string }) {
       <h2>Your equipment</h2>
       <p className="settings-intro">
         What {system} reports about the screens and sound devices connected to this PC. Skrin
-        checks every time it starts and bases its playback choices on this. Nothing here is a
-        setting: if something looks wrong, the cause is in {system} or the cables, not in Skrin.
+        checks every time it starts and bases its playback choices on this. If something looks
+        wrong, the cause is usually in {system} or the cables; a device that reports itself
+        wrong can be put right with Correct a fact.
       </p>
       <div className="settings-toggle-row">
         <FocusButton className="btn-secondary" onSelect={() => void check()}>
@@ -137,6 +254,12 @@ export default function EquipmentSection({ system }: { system: string }) {
                   <li key={n}>{n}</li>
                 ))}
               </ul>
+              <Correct
+                device={d}
+                corrections={corrections}
+                onChange={changeCorrections}
+                told={told}
+              />
             </div>
           ))}
 
@@ -171,6 +294,12 @@ export default function EquipmentSection({ system }: { system: string }) {
                   <li key={n}>{n}</li>
                 ))}
               </ul>
+              <Correct
+                device={a}
+                corrections={corrections}
+                onChange={changeCorrections}
+                told={told}
+              />
             </div>
           ))}
 

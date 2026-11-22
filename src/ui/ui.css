@@ -3906,6 +3906,20 @@ button.cast-member {
   opacity: 0.6;
 }
 
+/* Why Skrin chose this (Expert drawer): folded until the group is focused or
+   pointed at, so the panel stays the size it was. */
+.stats-why {
+  display: none;
+  font-size: max(var(--fs-floor), 11px);
+  opacity: 0.8;
+  padding: 0 0 0.25rem 9.75rem;
+}
+
+.stats-group.focused .stats-why,
+.stats-group:hover .stats-why {
+  display: block;
+}
+
 /* libplacebo describes its render passes in full sentences, not field names. */
 .stats-group.wide-labels .stats-label {
   flex: 0 0 13rem;
@@ -4990,7 +5004,7 @@ kbd {
     .episode-runtime, .muted, .first-run-lede, .first-run-optional, .device-choice-detail,
     .equipment-format, .volume-control.receiver .volume-value, .volume-pop-hint,
     .track-panel-head, .track-empty, .track-note, .up-next-label, .stats-empty,
-    .stats-group h3, .stats-label, .stats-note, .stats-row.warn .stats-note,
+    .stats-group h3, .stats-label, .stats-note, .stats-row.warn .stats-note, .stats-why,
     .stats-group.wide-labels .stats-label, .shortcuts-plus, .library-tile-meta,
     .video-tile-date, .folders-heading, .chapter-time
   ) {

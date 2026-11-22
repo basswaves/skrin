@@ -671,6 +671,29 @@ file names and paths, film titles — and a `scrub` pass turns any path that got
 into a row into `<path>`. The graphics card's name stays: a stutter report is
 useless without it.
 
+**The Expert drawer: every choice with its reason, and a fact corrected per
+device** (notes/EXPERT-DRAWER.md shape A). Not a page of its own: the stats
+panel's rows carry a **Why** line (`StatRow.why`), folded until the row's group
+has the ring or the pointer, so the panel stays its size and the five checks
+stay on top. Why this sound track and these subtitles (`trackChoice.ts`
+returns the rule that picked them: the title's own choice, your language,
+forced lines for a foreign line, SDH or audio description because Settings
+asks), why the tone mapping (one curve for every film), and what made D6 step
+down (`StepState.cause`: the share of frames missed and the date, kept with the
+level). Copy facts writes the Why lines out. **Correct a fact** sits under each
+device in Settings → Your equipment (`CorrectFacts.tsx`, `corrections.ts`):
+a receiver's PCM channels and each format untouched (Auto/On/Off), a screen's
+peak brightness; kept per device under the equipment check's stable id; Auto
+(what the device says) first; numbers as a step list, never a text box. A
+correction is never the device's word: Settings, the stats panel check that
+used it and Copy facts all say both values ("you said 6; the device says 8",
+"corrected by the user"), and when the device later says the same, Settings
+says once that the correction can go. Channels and formats change what mpv is
+given (`audio-channels`, `audio-spdif`); the peak is **words only** — HDR goes
+out as mastered and the screen tone maps, so the picture does not change. The
+global per-format values of before 0.22 move to the device the sound goes to,
+the first time one is known.
+
 **The volume goes to 200%, never clips, and stops at 100% on the way.** Where
 mpv plays, the control reaches twice the film's own level, as VLC's does. Up
 to 100% it is mpv's own `volume`; above it, mpv's volume stays at 100 and the

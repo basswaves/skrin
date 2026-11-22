@@ -27,7 +27,15 @@
  * on a device that takes AC3 but not TrueHD means silence or noise at the
  * receiver (GOTCHAS → "mpv relabels a refused bitstream as AC3").
  */
-import { getSetting } from '../metadata/api';
+import { getSetting, setSetting } from '../metadata/api';
+import {
+  formatFact,
+  migrateLegacy,
+  pcmFact,
+  readCorrections,
+  saveCorrections,
+  type Corrections,
+} from './corrections';
 import { covers, readPolicy, type DevicePolicy } from './devicePolicy';
 import { getEquipment, type AudioDevice, type Equipment } from './equipment';
 import { chooseTrack, mpvCommand, mpvGet, readTracks } from './engine';
@@ -48,7 +56,13 @@ export interface AudioSettings {
   direct: DevicePolicy;
   /** Endpoint id from the equipment check, or null for Windows' default. */
   deviceId: string | null;
+  /**
+   * The global per-format values of before 0.22 (`audio_bitstream_<codec>`).
+   * Used only until `corrections` has taken them over (`migrated`).
+   */
   overrides: Partial<Record<string, Override>>;
+  /** Per device: formats and PCM channels the user corrected (corrections.ts). */
+  corrections?: Corrections;
 }
 
 export interface AudioPlan {
@@ -105,10 +119,25 @@ export function channelsFor(maxChannels: number | null): string {
   return 'stereo';
 }
 
+/**
+ * The user's word on `codec` for `device`: its own correction, else (only
+ * before the global values have moved to a device) the old global one.
+ */
+export function formatOverride(
+  settings: AudioSettings,
+  device: AudioDevice | null,
+  codec: string
+): Override {
+  const corrected = settings.corrections && formatFact(settings.corrections, device, codec).corrected;
+  if (corrected) return corrected;
+  if (settings.corrections?.migrated) return 'auto';
+  return settings.overrides[codec] ?? 'auto';
+}
+
 /** The formats `device` gets untouched when sound goes straight to it. */
 function passthrough(settings: AudioSettings, device: AudioDevice | null): string[] {
   return BITSTREAM_CODECS.filter((codec) => {
-    const override = settings.overrides[codec] ?? 'auto';
+    const override = formatOverride(settings, device, codec);
     if (override !== 'auto') return override === 'on';
     return device?.bitstream.some((b) => b.codec === codec && b.result === 'yes') ?? false;
   });
@@ -141,16 +170,18 @@ export function planAudio(settings: AudioSettings, device: AudioDevice | null): 
     device: name,
     exclusive: true,
     spdif,
-    channels: channelsFor(device?.max_pcm_channels ?? null),
+    // The receiver's own answer, or the user's correction of it.
+    channels: channelsFor(pcmFact(settings.corrections ?? { devices: {} }, device).used),
   };
 }
 
 // ---- applying it --------------------------------------------------------------
 
 export async function readAudioSettings(): Promise<AudioSettings> {
-  const [direct, deviceId, ...overrides] = await Promise.all([
+  const [direct, deviceId, corrections, ...overrides] = await Promise.all([
     readPolicy(AUDIO_DIRECT_KEY),
     getSetting(AUDIO_DEVICE_KEY),
+    readCorrections(),
     ...BITSTREAM_CODECS.map((codec) => getSetting(bitstreamKey(codec))),
   ]);
   const entries = BITSTREAM_CODECS.map((codec, i) => {
@@ -161,7 +192,38 @@ export async function readAudioSettings(): Promise<AudioSettings> {
     direct,
     deviceId: deviceId || null,
     overrides: Object.fromEntries(entries),
+    corrections,
   };
+}
+
+/**
+ * Before 0.22 each format's Auto/On/Off was one value for every device; now
+ * it is per device. The first time a device is known, the old values move to
+ * it (the one the sound goes to) and the global keys are emptied. Returns the
+ * settings as they now stand; never throws (a failed save keeps the old
+ * values applying, as before).
+ */
+export async function migrateAudioCorrections(
+  settings: AudioSettings,
+  device: AudioDevice | null
+): Promise<AudioSettings> {
+  const corrections = settings.corrections ?? { devices: {} };
+  const next = migrateLegacy(corrections, settings.overrides, device?.id ?? null);
+  if (!next) return settings;
+  try {
+    await saveCorrections(next);
+    const moved = Object.entries(settings.overrides).filter(([, v]) => v === 'on' || v === 'off');
+    await Promise.all(moved.map(([codec]) => setSetting(bitstreamKey(codec), '')));
+    if (moved.length > 0) {
+      console.log(
+        `audio: the format corrections (${moved.map(([c, v]) => `${c} ${v}`).join(', ')}) now belong to the device the sound goes to`
+      );
+    }
+    return { ...settings, corrections: next, overrides: {} };
+  } catch (e) {
+    console.warn('audio: could not move the format corrections to the device', e);
+    return settings;
+  }
 }
 
 async function setAll(plan: AudioPlan): Promise<void> {
@@ -250,9 +312,10 @@ export async function releaseAudioDevice(): Promise<void> {
  */
 export async function applyAudioPlan(force = false): Promise<AudioPlan> {
   if (force) lastApplied = '';
-  const settings = await readAudioSettings();
   const equipment = await getEquipment().catch(() => null);
-  const device = targetDevice(equipment, settings.deviceId);
+  const read = await readAudioSettings();
+  const device = targetDevice(equipment, read.deviceId);
+  const settings = await migrateAudioCorrections(read, device);
   const plan = planAudio(settings, device);
   soundDevice = deviceInUse(plan, device);
   await holdDevice(plan);

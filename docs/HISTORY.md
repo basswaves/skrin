@@ -5061,3 +5061,28 @@ recorded. The button sits on its own row under the panel's head: the panel is a
 unreachable by D-pad. On `i` the panel takes no ring, so there it is a mouse
 button, as "close" is; by keyboard or remote it is reached through Audio &
 subtitles → Playback details.
+
+## The Expert drawer: Why lines and corrections per device (2026-11-22, round 12 E)
+
+Shape A of notes/EXPERT-DRAWER.md, every recommended option the owner picked.
+**Why lines, not a page:** the stats panel already held the five checks with
+their reasons; a separate Expert page would repeat them and drift, and would be
+a new screen on the watching path. A Why line folds until its group has the
+ring, so a remote walks the panel as before and the panel does not grow. Three
+gaps closed: why this track (the rule that picked it, from `chooseTracks`
+itself, so the reason and the choice cannot disagree), why the tone mapping,
+and D6's cause — the level used to forget the share of frames once a later
+film started, so the cause and its date are now stored with the level (levels
+from before say "when was not recorded"). **Corrections per device:** the old
+per-format Auto/On/Off was global, so a laptop carried the home receiver's
+override to the desk; now each correction is keyed on the equipment check's
+stable id, and the global values move once to the device the sound goes to
+(kept applying until one is known, so nobody loses theirs). Receiver channels
+came first because they are a real support case: a Windows speaker setup or a
+receiver answering 2 when it takes 8 folds every decoded film to stereo.
+**The screen peak is words only:** the peak drives nothing today (HDR goes as
+mastered, the TV tone maps); letting a typed number drive Skrin's own tone
+mapping would invite taste in a fact's clothes and a second tone map in the TV.
+**Both values everywhere** ("you said; the device says", "corrected by the
+user" in Copy facts) keeps "Skrin never presents the user's word as the
+device's". "Now says the same" is said once per correction, then stays quiet.

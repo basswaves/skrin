@@ -328,3 +328,23 @@ describe('the details panel', () => {
     );
   });
 });
+
+describe('the cause is kept with the level (the Why line)', () => {
+  it('reads back what was missed and when, and drops a malformed one', () => {
+    const raw = JSON.stringify({
+      a: { level: 2, percent: 4, clean: 0, v: 2, cause: { percent: 4, at: 1_790_000_000 } },
+      b: { level: 1, percent: null, clean: 0, v: 2, cause: { percent: 'x', at: 1 } },
+    });
+    const memory = parseMemory(raw);
+    expect(memory.a.cause).toEqual({ percent: 4, at: 1_790_000_000 });
+    expect(memory.b.cause).toBeUndefined();
+  });
+
+  it('survives a step back up after clean films', () => {
+    const cause = { percent: 4, at: 1_790_000_000 };
+    let state: StepState = { level: 2, percent: null, clean: 0, cause };
+    for (let i = 0; i < CLEAN_FILMS; i++) state = afterCleanFilm(state);
+    expect(state.level).toBe(1);
+    expect(state.cause).toEqual(cause);
+  });
+});

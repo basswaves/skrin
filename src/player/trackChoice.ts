@@ -21,7 +21,7 @@
  */
 import { getSetting } from '../metadata/api';
 import type { TitlePrefs } from './api';
-import { sameLanguage, systemLanguage } from './language';
+import { languageName, sameLanguage, systemLanguage } from './language';
 import type { Track } from './engine';
 import { findTrackByLang, isAudioDescription, isHearingImpaired } from './tracks';
 
@@ -78,6 +78,12 @@ export interface TrackChoice {
   sid: number | null;
   /** Whether subtitles show, or null to leave it as it is. */
   subVisible: boolean | null;
+  /**
+   * Why, in a person's words, for the stats panel's Why lines (Expert
+   * drawer, notes/EXPERT-DRAWER.md): which rule picked the sound and the
+   * subtitles. Absent only on choices made before reasons existed.
+   */
+  why?: { audio: string; sub: string };
 }
 
 export function forcedTrack(tracks: Track[], lang: string | null | undefined): Track | null {
@@ -92,11 +98,35 @@ function forcedOrNone(
   tracks: Track[],
   aid: number | null,
   spoken: Track | null,
-  show: boolean
+  show: boolean,
+  audioWhy: string,
+  offWhy: string
 ): TrackChoice {
   const forced = show ? forcedTrack(tracks, spoken?.lang) : null;
-  if (forced) return { aid, sid: forced.id, subVisible: true };
-  return { aid, sid: null, subVisible: false };
+  if (forced) {
+    return {
+      aid,
+      sid: forced.id,
+      subVisible: true,
+      why: {
+        audio: audioWhy,
+        sub: `forced: only the lines spoken in another language (${offWhy})`,
+      },
+    };
+  }
+  return { aid, sid: null, subVisible: false, why: { audio: audioWhy, sub: offWhy } };
+}
+
+const lang = (code: string | null | undefined) => languageName(code) ?? 'that language';
+
+/** ", audio description because you asked for it" and the like, where it applies. */
+function needs(track: Track | null, defaults: LanguageDefaults): string {
+  if (!track) return '';
+  if (track.type === 'audio' && defaults.description && isAudioDescription(track))
+    return '; audio description, because Settings asks for it';
+  if (track.type === 'sub' && defaults.sdh && isHearingImpaired(track))
+    return '; for the deaf and hard of hearing, because Settings asks for it';
+  return '';
 }
 
 /** The audio track that will play: the one chosen, or the file's own. */
@@ -131,11 +161,33 @@ export function chooseTracks(
   // A choice made in this title: as before, it decides both.
   if (prefs?.chosen) {
     const audio = findTrackByLang(tracks, 'audio', prefs.audio_lang, wantAudio);
+    const audioWhy = audio
+      ? `your choice for this title, made while watching it${needs(audio, defaults)}`
+      : prefs.audio_lang
+        ? `the file's own: your choice for this title (${lang(prefs.audio_lang)}) is not in this file`
+        : "the file's own";
     if (!prefs.sub_enabled) {
-      return forcedOrNone(tracks, audio?.id ?? null, spokenTrack(tracks, audio), defaults.forced);
+      return forcedOrNone(
+        tracks,
+        audio?.id ?? null,
+        spokenTrack(tracks, audio),
+        defaults.forced,
+        audioWhy,
+        'subtitles off: your choice for this title'
+      );
     }
     const sub = findTrackByLang(tracks, 'sub', prefs.sub_lang, wantSub);
-    return { aid: audio?.id ?? null, sid: sub?.id ?? null, subVisible: true };
+    return {
+      aid: audio?.id ?? null,
+      sid: sub?.id ?? null,
+      subVisible: true,
+      why: {
+        audio: audioWhy,
+        sub: sub
+          ? `your choice for this title, made while watching it${needs(sub, defaults)}`
+          : `the file's own: your choice for this title (${lang(prefs.sub_lang)}) is not in this file`,
+      },
+    };
   }
 
   const audio =
@@ -143,22 +195,83 @@ export function chooseTracks(
       ? siblingFor(tracks, wantAudio)
       : findTrackByLang(tracks, 'audio', defaults.audio, wantAudio);
   const playing = spokenTrack(tracks, audio);
+  const audioWhy =
+    defaults.audio === 'original'
+      ? `the film's own language, as the file sets it (Settings)${needs(playing, defaults)}`
+      : audio
+        ? `${lang(defaults.audio)}, your language for sound in Settings${needs(audio, defaults)}`
+        : `the file's own: it has no ${lang(defaults.audio)} sound, your language in Settings`;
 
-  const [mode, lang] = defaults.subs.split(':');
-  if (mode === 'off' || !lang) {
-    return forcedOrNone(tracks, audio?.id ?? null, playing, defaults.forced);
+  const [mode, subLang] = defaults.subs.split(':');
+  if (mode === 'off' || !subLang) {
+    return forcedOrNone(
+      tracks,
+      audio?.id ?? null,
+      playing,
+      defaults.forced,
+      audioWhy,
+      'subtitles off in Settings'
+    );
   }
 
   // Untagged audio counts as another language: showing subtitles someone did
   // not need is a smaller mistake than hiding ones they did.
-  const foreignAudio = !sameLanguage(playing?.lang, lang);
+  const foreignAudio = !sameLanguage(playing?.lang, subLang);
   if (mode === 'always' || foreignAudio) {
-    const sub = findTrackByLang(tracks, 'sub', lang, wantSub);
+    const sub = findTrackByLang(tracks, 'sub', subLang, wantSub);
+    const because =
+      mode === 'always'
+        ? `${lang(subLang)}, always, as Settings says`
+        : `${lang(subLang)}, your language: the sound is in ${
+            playing?.lang ? lang(playing.lang) : 'a language the file does not name'
+          }`;
     // No track in that language: leave whatever the file chose.
-    if (!sub) return { aid: audio?.id ?? null, sid: null, subVisible: null };
-    return { aid: audio?.id ?? null, sid: sub.id, subVisible: true };
+    if (!sub) {
+      return {
+        aid: audio?.id ?? null,
+        sid: null,
+        subVisible: null,
+        why: { audio: audioWhy, sub: `the file's own: it has no ${lang(subLang)} subtitles` },
+      };
+    }
+    return {
+      aid: audio?.id ?? null,
+      sid: sub.id,
+      subVisible: true,
+      why: { audio: audioWhy, sub: `${because}${needs(sub, defaults)}` },
+    };
   }
 
   // Audio already in the viewer's language: only the forced lines, if any.
-  return forcedOrNone(tracks, audio?.id ?? null, playing, defaults.forced);
+  return forcedOrNone(
+    tracks,
+    audio?.id ?? null,
+    playing,
+    defaults.forced,
+    audioWhy,
+    `no full subtitles: the sound is already in ${lang(subLang)}, your language`
+  );
+}
+
+// ---- said in the stats panel ---------------------------------------------------
+
+/** One track as playing now, and why it is the one. */
+export interface TrackReason {
+  /** The track as a person reads it, or "off". */
+  track: string;
+  why: string;
+}
+
+let reasons: { audio: TrackReason | null; sub: TrackReason | null } = { audio: null, sub: null };
+
+/** Why the tracks playing now are the ones (the stats panel's Why lines). */
+export const trackReasons = () => reasons;
+
+export function setTrackReason(kind: 'audio' | 'sub', reason: TrackReason | null): void {
+  reasons = { ...reasons, [kind]: reason };
+}
+
+/** A new file: nothing said yet. */
+export function clearTrackReasons(): void {
+  reasons = { audio: null, sub: null };
 }

@@ -73,9 +73,15 @@ test('Settings scrolls by the page rule: the focused row a bit above the middle'
       const browse = document.querySelector<HTMLElement>('.browse')!;
       const f = document.querySelector('.focused')!;
       const row = (f.closest('.choice-options') ?? f).getBoundingClientRect();
+      // The first control of a section whose heading and intro stand above
+      // it: the heading goes to the third, the control under the intro.
+      const section = f.closest('.settings-section');
+      const firstOfSection = section?.querySelector('.focusable, button') === f;
+      const heading = firstOfSection ? section?.querySelector('h2')?.getBoundingClientRect().top : null;
       const bar = document.querySelector('[data-sticky-top]')!.getBoundingClientRect().bottom;
       return {
         top: row.top,
+        heading: heading ?? null,
         bar,
         vh: browse.clientHeight,
         scroll: browse.scrollTop,
@@ -88,7 +94,10 @@ test('Settings scrolls by the page rule: the focused row a bit above the middle'
     expect(m.top, `Down ${i + 1}: under the bar`).toBeGreaterThanOrEqual(m.bar);
     // A third of the way down, as on Movies; a little lower where the row's
     // own heading stands right above it and goes there instead.
-    expect(m.top, `Down ${i + 1}: above the middle (${Math.round(m.top)} of ${m.vh})`).toBeLessThan(m.vh * 0.55);
+    const headingAtThird = m.heading !== null && Math.abs(m.heading - m.vh / 3) <= m.vh * 0.1;
+    if (!headingAtThird) {
+      expect(m.top, `Down ${i + 1}: above the middle (${Math.round(m.top)} of ${m.vh})`).toBeLessThan(m.vh * 0.55);
+    }
     if (Math.abs(m.top - m.vh / 3) <= 2) onLine++;
   }
   expect(checked).toBeGreaterThan(2);

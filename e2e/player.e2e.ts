@@ -815,6 +815,31 @@ test('copy facts in the details panel, by remote: plain text, nothing personal',
   await expect(copy).toHaveClass(/focused/);
 });
 
+test('why lines in the details panel, by remote: folded until the group has the ring', async ({
+  page,
+}) => {
+  await play(page, 'series');
+  const panel = await openTrackPanel(page);
+  await pressInPanel(page, panel.locator('.track-option', { hasText: 'Playback details' }));
+  const stats = page.locator('.stats-panel');
+  await expect(stats.locator('.stats-group').first()).toBeVisible();
+
+  const audio = stats.locator('.stats-group', { has: page.locator('h3', { hasText: /^Audio$/ }) });
+  const why = audio.locator('.stats-why').first();
+  // Folded while the ring is elsewhere: the panel stays its size.
+  await expect(why).toBeHidden();
+  for (let i = 0; i < 12 && !(await audio.evaluate((el) => el.classList.contains('focused'))); i++) {
+    await press(page, 'ArrowDown');
+  }
+  await expect(audio).toHaveClass(/focused/);
+  await expect(why).toBeVisible();
+  await expect(audio.locator('.stats-row', { hasText: 'Sound track' })).toBeVisible();
+  await expect(why).toHaveText(/^Why: /);
+  // The group left behind folds again.
+  await press(page, 'ArrowDown');
+  await expect(why).toBeHidden();
+});
+
 test('subtitle size and a dark box, by remote, kept for this screen', async ({ page }) => {
   await play(page, 'series');
   // The screen's size is put on as the file starts: Normal by default.

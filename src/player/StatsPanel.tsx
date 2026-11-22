@@ -60,7 +60,8 @@ export default function StatsPanel({
  * and with only the close button to land on a remote could not scroll to the
  * rest — so Down goes group by group, each brought into view (the player's
  * `nearest` scroll, focusScroll.ts). Nothing happens on OK: it is there to be
- * read. A mouse scrolls the panel as before.
+ * read. A mouse scrolls the panel as before. Each row's Why line (why Skrin
+ * chose it) unfolds while the group has the ring or the pointer.
  */
 function Group({ group }: { group: StatGroup }) {
   const { ref, focused, navProps } = useFocusLeaf<HTMLElement>({});
@@ -72,12 +73,16 @@ function Group({ group }: { group: StatGroup }) {
     >
       <h3>{group.heading}</h3>
       {group.rows.map((row) => (
-        <div key={row.label} className={`stats-row ${row.warn ? 'warn' : ''}`}>
-          <span className="stats-label">{row.label}</span>
-          <span className="stats-value">
-            {row.value}
-            {row.note && <em className="stats-note">{row.note}</em>}
-          </span>
+        <div key={row.label}>
+          <div className={`stats-row ${row.warn ? 'warn' : ''}`}>
+            <span className="stats-label">{row.label}</span>
+            <span className="stats-value">
+              {row.value}
+              {row.note && <em className="stats-note">{row.note}</em>}
+            </span>
+          </div>
+          {/* Folded until this group has the ring or the pointer (ui.css). */}
+          {row.why && <div className="stats-why">Why: {row.why}</div>}
         </div>
       ))}
     </section>

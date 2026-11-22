@@ -155,7 +155,8 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   {
     section: 'picture',
     label: 'Your equipment',
-    about: 'TV receiver screens sound what Skrin found',
+    about:
+      'TV receiver screens sound what Skrin found correct a fact wrong channels formats peak brightness nits',
     when: (can) => can.equipment_detection,
   },
 

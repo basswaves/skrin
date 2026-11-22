@@ -126,6 +126,12 @@ export interface StepState {
   clean?: number;
   /** The ladder version it was stored with (memory only; `parseMemory`). */
   v?: number;
+  /**
+   * The last time the graphics card fell behind and a rung went down: the
+   * share of frames it missed, and when (Unix seconds). Kept with the level,
+   * so a later film's panel can say what caused it (the Why line).
+   */
+  cause?: { percent: number; at: number };
 }
 
 /** Every option on the ladder with the value it has at `level`. */
@@ -366,7 +372,7 @@ export function afterCleanFilm(state: StepState): StepState {
   if (state.level <= 0) return { level: 0, percent: null, clean: 0 };
   const clean = (state.clean ?? 0) + 1;
   if (clean < CLEAN_FILMS) return { ...state, clean };
-  return { level: state.level - 1, percent: null, clean: 0 };
+  return { level: state.level - 1, percent: null, clean: 0, cause: state.cause };
 }
 
 // ---- what is in force, and what is remembered -------------------------------
@@ -411,7 +417,13 @@ export function parseMemory(raw: string | null): Record<string, StepState> {
     const value: unknown = JSON.parse(raw);
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return out;
     for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      const e = entry as { level?: unknown; percent?: unknown; clean?: unknown; v?: unknown } | null;
+      const e = entry as {
+        level?: unknown;
+        percent?: unknown;
+        clean?: unknown;
+        v?: unknown;
+        cause?: { percent?: unknown; at?: unknown } | null;
+      } | null;
       const stored = e && typeof e.level === 'number' ? Math.trunc(e.level) : NaN;
       // Version 1's levels had no enhancement rung below them.
       const level = e?.v === LADDER || !(stored >= 1) ? stored : stored + 1;
@@ -422,6 +434,16 @@ export function parseMemory(raw: string | null): Record<string, StepState> {
         percent: typeof e?.percent === 'number' && Number.isFinite(e.percent) ? e.percent : null,
         clean,
       };
+      const c = e?.cause;
+      if (
+        c &&
+        typeof c.percent === 'number' &&
+        Number.isFinite(c.percent) &&
+        typeof c.at === 'number' &&
+        Number.isFinite(c.at)
+      ) {
+        out[key].cause = { percent: c.percent, at: c.at };
+      }
     }
   } catch {
     // Not JSON: forgotten, as if never remembered.
@@ -485,7 +507,7 @@ export function applyRememberedStepDown(): Promise<void> {
   })();
   return loading
     .then(() => {
-      current = { level: remembered.level, percent: null };
+      current = { level: remembered.level, percent: null, cause: remembered.cause };
       return applyLevel(current.level);
     })
     .catch(() => undefined);
@@ -493,22 +515,23 @@ export function applyRememberedStepDown(): Promise<void> {
 
 /** Take the next rung down, say so in the log, and remember it. */
 export async function stepDownTo(level: Level, percent: number): Promise<void> {
-  current = { level, percent };
+  const cause = { percent, at: Math.floor(Date.now() / 1000) };
+  current = { level, percent, cause };
   console.warn(
     `step down: ${percent.toFixed(1)}% of frames missed by the graphics card; level ${level} (${rungNames(level)}) on ${deviceKey || 'this device'}`
   );
   await applyLevel(level);
-  await remember({ level, percent, clean: 0 });
+  await remember({ level, percent, clean: 0, cause });
 }
 
 /** Put back a rung whose drops did not fall, say so, and remember the level before it. */
 export async function stepBackTo(level: Level, before: number, after: number): Promise<void> {
-  current = { level, percent: null };
+  current = { level, percent: null, cause: remembered.cause };
   console.warn(
     `step down undone: ${after.toFixed(1)}% of frames still missed (was ${before.toFixed(1)}%), so the last rung did not help; back to level ${level} on ${deviceKey || 'this device'}`
   );
   await applyLevel(level);
-  await remember({ level, percent: null, clean: 0 });
+  await remember({ level, percent: null, clean: 0, cause: remembered.cause });
 }
 
 /**

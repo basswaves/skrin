@@ -16,6 +16,7 @@ import { hasMpv } from '../player/engine';
 import { chosenOptions } from '../player/chosenOptions';
 import { getEquipment, type Equipment } from '../player/equipment';
 import { rawFactsText } from '../player/rawFacts';
+import { readCorrections } from '../player/corrections';
 import type { StatGroup } from '../player/stats';
 import { copyText } from './copyText';
 import FocusButton from './FocusButton';
@@ -40,14 +41,16 @@ export default function CopyFactsButton({
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const copy = async () => {
-    const [eq, version] = await Promise.all([
+    const [eq, version, corrections] = await Promise.all([
       equipment ? Promise.resolve(equipment) : getEquipment().catch(() => null),
       getVersion().catch(() => null),
+      readCorrections(),
     ]);
     const text = rawFactsText({
       version,
       system: capabilitiesNow()?.system ?? 'this system',
       equipment: eq,
+      corrections,
       chosen: hasMpv() ? chosenOptions() : undefined,
       groups,
     });

@@ -14,6 +14,14 @@
  */
 import type { StatGroup } from './stats';
 import {
+  copyValue,
+  formatFact,
+  NO_CORRECTIONS,
+  pcmFact,
+  peakFact,
+  type Corrections,
+} from './corrections';
+import {
   formatRate,
   PROBE_LABEL,
   refreshRate,
@@ -54,13 +62,16 @@ function modesLine(d: Display): string {
     .join('; ');
 }
 
-function displayLines(d: Display, n: number, system: string): string[] {
+function displayLines(d: Display, n: number, system: string, c: Corrections): string[] {
   const out: string[] = [];
   const mode =
     d.width > 0 ? `${d.width}×${d.height} at ${formatRate(refreshRate(d))} Hz` : 'mode not reported';
   out.push(`Screen ${n} (${d.connection || 'connection not reported'}): ${mode}`);
   const light: string[] = [];
-  if (d.peak_nits) light.push(`peak ${nits(d.peak_nits)} nits`);
+  const peak = peakFact(c, d);
+  if (peak.corrected !== null) {
+    light.push(`peak ${copyValue(peak, (v) => `${v} nits`, 'said only, changes nothing')}`);
+  } else if (d.peak_nits) light.push(`peak ${nits(d.peak_nits)} nits`);
   if (d.full_frame_nits) light.push(`full-frame ${nits(d.full_frame_nits)} nits`);
   if (d.min_nits !== null) light.push(`black ${nits(d.min_nits)} nits`);
   out.push(
@@ -75,14 +86,14 @@ function displayLines(d: Display, n: number, system: string): string[] {
   return out;
 }
 
-function audioLines(a: AudioDevice, n: number, system: string): string[] {
+function audioLines(a: AudioDevice, n: number, system: string, c: Corrections): string[] {
   const out: string[] = [];
   out.push(
     `Sound ${n} (${a.connection || 'connection not reported'})${a.is_default ? ` — ${system} default` : ''}`
   );
   if (a.mix_layout) out.push(`  ${system} mixes to ${a.mix_layout} at ${a.mix_rate} Hz`);
   out.push(
-    `  Direct PCM channels: ${a.max_pcm_channels ?? 'not reported'}; spatial sound: ${
+    `  Direct PCM channels: ${copyValue(pcmFact(c, a), String)}; spatial sound: ${
       a.spatial_objects ? `on, ${a.spatial_objects} objects` : 'off or not reported'
     }`
   );
@@ -90,7 +101,13 @@ function audioLines(a: AudioDevice, n: number, system: string): string[] {
     out.push(
       '  Takes untouched: ' +
         a.bitstream
-          .map((b) => `${b.label} ${PROBE_LABEL[b.result]}${b.remembered ? ' (remembered)' : ''}`)
+          .map((b) => {
+            const said = `${b.label} ${PROBE_LABEL[b.result]}${b.remembered ? ' (remembered)' : ''}`;
+            const corrected = formatFact(c, a, b.codec).corrected;
+            return corrected
+              ? `${said} (device) — ${corrected} (corrected by the user, used)`
+              : said;
+          })
           .join('; ')
     );
   }
@@ -99,16 +116,20 @@ function audioLines(a: AudioDevice, n: number, system: string): string[] {
 }
 
 /** What the screens and sound devices said, from the equipment check. */
-export function equipmentFacts(eq: Equipment, system: string): string {
+export function equipmentFacts(
+  eq: Equipment,
+  system: string,
+  corrections: Corrections = NO_CORRECTIONS
+): string {
   const when = new Date(eq.checked_at * 1000).toISOString().slice(0, 16).replace('T', ' ');
   const out: string[] = [`== What ${system} reports (checked ${when} UTC) ==`];
   if (eq.gpus.length > 0) out.push(`Graphics: ${eq.gpus.join('; ')}`);
   const displays = eq.displays.filter((d) => d.connected);
   const audio = eq.audio.filter((a) => a.connected);
   if (displays.length === 0) out.push('Screens: none found');
-  displays.forEach((d, i) => out.push(...displayLines(d, i + 1, system)));
+  displays.forEach((d, i) => out.push(...displayLines(d, i + 1, system, corrections)));
   if (audio.length === 0) out.push('Sound: none found');
-  audio.forEach((a, i) => out.push(...audioLines(a, i + 1, system)));
+  audio.forEach((a, i) => out.push(...audioLines(a, i + 1, system, corrections)));
   if (eq.problems.length > 0) out.push(`Could not read: ${eq.problems.join('; ')}`);
   return out.join('\n');
 }
@@ -128,7 +149,10 @@ export function playbackFacts(groups: StatGroup[]): string {
   if (groups.length === 0) out.push('nothing read yet');
   for (const g of groups) {
     out.push(`[${g.heading}]`);
-    for (const r of g.rows) out.push(`  ${r.label}: ${r.value}${r.note ? ` (${r.note})` : ''}`);
+    for (const r of g.rows) {
+      out.push(`  ${r.label}: ${r.value}${r.note ? ` (${r.note})` : ''}`);
+      if (r.why) out.push(`    why: ${r.why}`);
+    }
   }
   return out.join('\n');
 }
@@ -137,6 +161,8 @@ export interface RawFacts {
   version: string | null;
   system: string;
   equipment: Equipment | null;
+  /** The user's corrections of the equipment's facts (corrections.ts). */
+  corrections?: Corrections;
   /** From `chosenOptions()`; omitted where mpv is not the engine. */
   chosen?: Record<string, string>;
   /** The stats panel's groups; omitted where no film plays (Settings). */
@@ -147,9 +173,26 @@ export interface RawFacts {
 export function rawFactsText(f: RawFacts): string {
   const parts = [
     `Skrin ${f.version ?? '(version not known)'} on ${f.system}\n${LEFT_OUT}`,
-    f.equipment ? equipmentFacts(f.equipment, f.system) : '== Equipment ==\nnot read',
+    f.equipment
+      ? equipmentFacts(f.equipment, f.system, f.corrections)
+      : '== Equipment ==\nnot read',
   ];
   if (f.chosen) parts.push(optionsFacts(f.chosen));
   if (f.groups) parts.push(playbackFacts(f.groups));
-  return scrub(parts.join('\n\n')) + '\n';
+  return scrub(withoutNames(parts.join('\n\n'), f.equipment)) + '\n';
+}
+
+/**
+ * The stats panel's rows name the devices ("… takes only 2 channels"): every
+ * screen's and sound device's name becomes `<device>`, longest first, so a
+ * name inside another is not half replaced.
+ */
+export function withoutNames(text: string, eq: Equipment | null): string {
+  const names = [...(eq?.displays ?? []), ...(eq?.audio ?? [])]
+    .map((d) => d.name)
+    .filter((n) => n && n.trim().length > 2)
+    .sort((a, b) => b.length - a.length);
+  let out = text;
+  for (const name of names) out = out.split(name).join('<device>');
+  return out;
 }

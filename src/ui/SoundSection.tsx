@@ -12,7 +12,10 @@
  *
  * The rules themselves are in `player/audioOutput.ts`; this only reads and
  * writes the settings it reads, and says in words what they will do with the
- * device that is actually connected.
+ * device that is actually connected. Which formats and how many channels a
+ * receiver takes, where it reports them wrong, is corrected per device in
+ * Your equipment (CorrectFacts.tsx); the summary here reads them again when
+ * one changes.
  */
 import { userError } from './errors';
 import { useCallback, useEffect, useState } from 'react';
@@ -35,17 +38,16 @@ import { getEquipment, type AudioDevice, type Equipment } from '../player/equipm
 import {
   AUDIO_DEVICE_KEY,
   AUDIO_DIRECT_KEY,
-  BITSTREAM_CODECS,
-  bitstreamKey,
   goesDirect,
+  migrateAudioCorrections,
   planAudio,
   readAudioSettings,
   soundDeviceNow,
   targetDevice,
   type SoundDevice,
   type AudioSettings,
-  type Override,
 } from '../player/audioOutput';
+import { CORRECTIONS_EVENT } from '../player/corrections';
 import {
   DELAY_STEP_MS,
   delayLabel,
@@ -57,11 +59,6 @@ import {
 
 function formatLabel(device: AudioDevice | null, codec: string): string {
   return device?.bitstream.find((b) => b.codec === codec)?.label ?? codec;
-}
-
-function detected(device: AudioDevice | null, codec: string): string {
-  const result = device?.bitstream.find((b) => b.codec === codec)?.result;
-  return result === 'yes' ? 'takes it' : result === 'no' ? 'does not take it' : 'not known';
 }
 
 /** `system` is for the wording only: "through Windows", "through Linux". */
@@ -188,13 +185,20 @@ export default function SoundSection({
 
   useEffect(() => {
     let live = true;
-    void Promise.all([readAudioSettings(), getEquipment().catch(() => null)]).then(([s, e]) => {
-      if (!live) return;
-      setSettings(s);
-      setEquipment(e);
-    });
+    const read = () =>
+      void Promise.all([readAudioSettings(), getEquipment().catch(() => null)])
+        .then(async ([s, e]) => [await migrateAudioCorrections(s, targetDevice(e, s.deviceId)), e] as const)
+        .then(([s, e]) => {
+          if (!live) return;
+          setSettings(s);
+          setEquipment(e);
+        });
+    read();
+    // A correction in Your equipment changes what this section says.
+    window.addEventListener(CORRECTIONS_EVENT, read);
     return () => {
       live = false;
+      window.removeEventListener(CORRECTIONS_EVENT, read);
     };
   }, []);
 
@@ -291,34 +295,11 @@ export default function SoundSection({
       <LevelRows onError={onError} />
 
       {settings.direct.policy !== 'off' && (
-        <>
-          <h3>Formats</h3>
-          <p className="settings-intro">
-            Auto uses what the receiver told {system} it can play. Only force a format on if you
-            know better: a format the receiver cannot play comes out as silence or noise.
-          </p>
-          {BITSTREAM_CODECS.map((codec) => {
-            const override: Override = settings.overrides[codec] ?? 'auto';
-            return (
-              <ChoiceRow
-                key={codec}
-                label={formatLabel(device, codec)}
-                choices={[
-                  { value: 'auto', label: `Auto (${detected(device, codec)})` },
-                  { value: 'on', label: 'On' },
-                  { value: 'off', label: 'Off' },
-                ]}
-                value={override}
-                onChange={(next) =>
-                  save(bitstreamKey(codec), next, {
-                    ...settings,
-                    overrides: { ...settings.overrides, [codec]: next },
-                  })
-                }
-              />
-            );
-          })}
-        </>
+        <p className="choice-hint">
+          Auto uses what each receiver told {system} it can play. If one reports a format or its
+          channels wrong, Your equipment → Correct a fact, under that receiver, says what it really
+          takes — for that receiver only.
+        </p>
       )}
     </section>
   );

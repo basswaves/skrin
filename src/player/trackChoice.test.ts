@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseTracks } from './trackChoice';
+import { chooseTracks as choose } from './trackChoice';
 import type { Track } from './engine';
 
 const t = (id: number, type: string, lang: string | undefined, extra: Partial<Track> = {}): Track => ({
@@ -23,6 +23,12 @@ const film = [
 ];
 
 const norwegian = { audio: 'original', subs: 'foreign:no', forced: true };
+
+/** The choice alone; the reasons have their own tests below. */
+function chooseTracks(...args: Parameters<typeof choose>) {
+  const { why: _why, ...rest } = choose(...args);
+  return rest;
+}
 
 describe('chooseTracks', () => {
   it('shows Norwegian subtitles under English audio by default', () => {
@@ -142,5 +148,46 @@ describe('audio description and SDH, as the person needs them', () => {
   it('keeps the file’s track when there is no description to choose', () => {
     const plain = described.filter((x) => x.id !== 2 && x.id !== 4);
     expect(chooseTracks(plain, null, { ...english, description: true }).aid).toBeNull();
+  });
+});
+
+describe('why this track: the stats panel Why lines', () => {
+  it('says the subtitles are in your language because the sound is not', () => {
+    const why = choose(film, null, norwegian).why!;
+    expect(why.audio).toMatch(/film's own language/);
+    expect(why.sub).toBe('Norwegian, your language: the sound is in English');
+  });
+
+  it('says forced lines are for a foreign line when the sound is in your language', () => {
+    const why = choose(film, null, { audio: 'nor', subs: 'foreign:no', forced: true }).why!;
+    expect(why.audio).toBe('Norwegian, your language for sound in Settings');
+    expect(why.sub).toMatch(/^forced: only the lines spoken in another language/);
+    expect(why.sub).toMatch(/already in Norwegian/);
+  });
+
+  it('says a choice made in the title is why', () => {
+    const prefs = { chosen: true, audio_lang: 'eng', sub_lang: 'eng', sub_enabled: true };
+    const why = choose(film, prefs, norwegian).why!;
+    expect(why.audio).toMatch(/your choice for this title/);
+    expect(why.sub).toMatch(/your choice for this title/);
+  });
+
+  it('says SDH was chosen because Settings asks for it', () => {
+    const tracks = [...film, t(6, 'sub', 'nor', { hearingImpaired: true })];
+    const choice = choose(tracks, null, { ...norwegian, sdh: true });
+    expect(choice.sid).toBe(6);
+    expect(choice.why!.sub).toMatch(/deaf and hard of hearing, because Settings asks for it/);
+  });
+
+  it('says the file had nothing in the wanted language', () => {
+    const why = choose(film, null, { audio: 'deu', subs: 'always:fr', forced: true }).why!;
+    expect(why.audio).toBe("the file's own: it has no German sound, your language in Settings");
+    expect(why.sub).toBe("the file's own: it has no French subtitles");
+  });
+
+  it('says subtitles are off as set', () => {
+    const tracks = film.filter((x) => x.id !== 5);
+    const why = choose(tracks, null, { audio: 'original', subs: 'off', forced: true }).why!;
+    expect(why.sub).toBe('subtitles off in Settings');
   });
 });

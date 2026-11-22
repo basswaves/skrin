@@ -189,7 +189,9 @@ test('reading on and back never leaves the ring half under the top bar', async (
   await press(page, 'ArrowRight');
   // The section's last stops are its two buttons side by side; Down from above
   // lands on whichever is nearer, and the page's end must clear either.
-  const lastStop = async () => ['Check again', 'copy facts'].includes((await focused(page)) ?? '');
+  // Since the Expert drawer, the last stops are the last device's "Correct a fact".
+  const lastStop = async () =>
+    ['Check again', 'copy facts', 'Correct a fact'].includes((await focused(page)) ?? '');
   for (let i = 0; i < 20 && !(await lastStop()); i++) await press(page, 'ArrowDown');
   await expect.poll(lastStop).toBe(true);
 
@@ -213,7 +215,7 @@ test('reading on and back never leaves the ring half under the top bar', async (
   await press(page, 'ArrowDown');
   await settled(page);
   expect(await halfHidden()).toBe(false);
-  expect(['Check again', 'copy facts']).toContain(await focused(page));
+  expect(['Check again', 'copy facts', 'Correct a fact']).toContain(await focused(page));
   // Back up the section to its first item: each one clear of the bar.
   for (let i = 0; i < 5; i++) {
     await press(page, 'ArrowUp');
@@ -373,4 +375,68 @@ test('Android: the system keyboard opens on OK, never on arriving at a field', a
   await expect(box).not.toBeFocused();
   await press(page, 'ArrowUp');
   await expect(box).toHaveAttribute('inputmode', 'none');
+});
+
+test('correct a fact by keys: the receiver takes 6 channels, said with both values, per device', async ({
+  page,
+}) => {
+  await open(page, 'windows');
+  await press(page, 'ArrowUp', 2);
+  await press(page, 'ArrowRight', 5);
+  await press(page, 'Enter');
+  await press(page, 'ArrowDown');
+  for (let i = 0; i < 4 && (await focused(page)) !== 'Picture & sound'; i++) await press(page, 'ArrowDown');
+  await press(page, 'Enter');
+  await press(page, 'ArrowRight');
+
+  // Down to the receiver's "Correct a fact" (the first sound device's).
+  const onReceiver = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('.focused');
+      return (
+        el?.textContent === 'Correct a fact' &&
+        !!el.closest('.equipment-item')?.textContent?.includes('Mock AV receiver')
+      );
+    });
+  for (let i = 0; i < 40 && !(await onReceiver()); i++) await press(page, 'ArrowDown');
+  await expect.poll(onReceiver).toBe(true);
+  await press(page, 'Enter');
+  await expect.poll(() => focused(page)).toBe('Done');
+
+  // PCM channels: Auto (8), 2, 6, 8. Down to the row, then right to 6.
+  await press(page, 'ArrowDown');
+  await expect.poll(() => focused(page)).toMatch(/^(✓)?Auto \(8\)$/);
+  await press(page, 'ArrowRight', 2);
+  await expect.poll(() => focused(page)).toBe('6');
+  await press(page, 'Enter');
+  const item = page.locator('.equipment-item', { hasText: 'Mock AV receiver' });
+  await expect(item.locator('.choice-note').first()).toHaveText(
+    '6 channels — you said; the device says 8 channels'
+  );
+  // Said under the device while the drawer is shut, too.
+  await expect(item.locator('.equipment-corrected')).toHaveText(
+    'PCM channels: 6 — you said; the device says 8'
+  );
+
+  // Kept for this receiver only, and used: decoded sound goes as 5.1.
+  const plans = await page.evaluate(async () => {
+    const audioPath = '/src/player/audioOutput.ts';
+    const eqPath = '/src/player/equipment.ts';
+    const audio = await import(/* @vite-ignore */ audioPath);
+    const eqMod = await import(/* @vite-ignore */ eqPath);
+    const eq = await eqMod.getEquipment();
+    const settings = { ...(await audio.readAudioSettings()), direct: { policy: 'all', devices: [] } };
+    const by = (id: string) => eq.audio.find((a: { id: string }) => a.id === id);
+    return {
+      receiver: audio.planAudio(settings, by('mock-avr')).channels,
+      speakers: audio.planAudio({ ...settings, direct: { policy: 'these', devices: ['mock-onboard'] } }, by('mock-onboard')).channels,
+    };
+  });
+  expect(plans).toEqual({ receiver: '5.1(side),5.1,stereo', speakers: '7.1,5.1(side),5.1,stereo' });
+
+  // Back to Auto: the correction is gone.
+  await press(page, 'ArrowLeft', 2);
+  await expect.poll(() => focused(page)).toBe('Auto (8)');
+  await press(page, 'Enter');
+  await expect(item.locator('.equipment-corrected')).toHaveCount(0);
 });

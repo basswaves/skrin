@@ -76,6 +76,12 @@ export interface OutputFacts {
     outChannels: number | null;
     direct: boolean;
     device: AudioDevice | null;
+    /**
+     * The user's corrections this sound used, both values in words
+     * ("PCM channels: 8 — you said; the receiver says 2"). Said in the why,
+     * so a correction is never read as the device's own answer.
+     */
+    corrections?: string[];
   } | null;
   /** For the wording only (capabilities `system`). Windows unless said. */
   system?: string;
@@ -405,7 +411,7 @@ export function checkColourDepth(f: OutputFacts): Check | null {
 }
 
 /** mpv's decoder name → the bitstream the device would need to take it untouched. */
-function bitstreamFor(codec: string | null, device: AudioDevice | null): string | null {
+export function bitstreamFor(codec: string | null, device: AudioDevice | null): string | null {
   if (!codec) return null;
   const takes = (c: string) =>
     device?.bitstream.some((b) => b.codec === c && b.result === 'yes') ?? false;
@@ -425,6 +431,14 @@ const CODEC_NAME: Record<string, string> = {
 };
 
 export function checkSound(f: OutputFacts): Check | null {
+  const check = soundVerdict(f);
+  const said = f.audio?.corrections?.filter(Boolean) ?? [];
+  if (!check || said.length === 0) return check;
+  const words = `Your correction: ${said.join('; ')}.`;
+  return { ...check, why: check.why ? `${check.why} ${words}` : words };
+}
+
+function soundVerdict(f: OutputFacts): Check | null {
   const a = f.audio;
   if (!a || (!a.codec && !a.outFormat)) return null;
   const label = 'Sound';
@@ -472,7 +486,9 @@ export function checkSound(f: OutputFacts): Check | null {
       verdict: 'limited',
       value: `folded from ${a.inChannels} to ${a.outChannels} channels`,
       why: a.direct
-        ? `${a.device?.name ?? 'The device'} takes only ${a.outChannels} channels.`
+        ? a.corrections?.some((c) => c.startsWith('PCM channels'))
+          ? `Sent as ${a.outChannels} channels: what you said ${a.device?.name ?? 'the device'} takes.`
+          : `${a.device?.name ?? 'The device'} takes only ${a.outChannels} channels.`
         : `${system}’s speaker setup for this device has fewer channels than the soundtrack.`,
       fix: a.direct
         ? undefined
