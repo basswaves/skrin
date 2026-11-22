@@ -9,7 +9,7 @@
 //! `ffmpeg.rs`). Without ffprobe the scan skips this step and the badges that
 //! need it are simply not shown.
 //!
-//! Two ffprobe runs per file, both short:
+//! Two ffprobe runs per file, both short, and for some files an ffmpeg run:
 //!
 //! 1. **The streams**, from the container's headers. Codec, size, frame rate,
 //!    bit depth, HDR transfer, the Dolby Vision configuration record, every
@@ -21,11 +21,16 @@
 //!    headers, and the RPU is the only place that says whether a profile 7
 //!    enhancement layer is full (FEL) or minimal (MEL). About 0.2 s for a 4K
 //!    frame.
+//! 3. **Only for a Dolby Vision or HDR10+ file: the film's own dynamic
+//!    metadata**, one frame at each of ten places across it, with ffmpeg
+//!    (`dynamic_hdr.rs`) — brightness, the grade's L6 figures, trims. About
+//!    half a second to two seconds on a 4K film; nothing for other files.
 //!
 //! Everything is read once and kept in `media_probe`; a file is read again only
 //! when its size or modification time changes, or when [`PROBE_VERSION`] is
 //! raised.
 
+use crate::dynamic_hdr::{DvMetadata, Hdr10PlusMetadata};
 use crate::library::Db;
 use crate::util::{now_secs, to_string_err};
 use rusqlite::{params, Connection};
@@ -39,7 +44,8 @@ use tauri::{Emitter, Manager};
 /// Raise to read every file again, after a change to what is read or how.
 ///
 /// 2: the video's stream index, which the aspect measurement needs.
-pub const PROBE_VERSION: i64 = 2;
+/// 3: Dolby Vision's and HDR10+'s own metadata (`dynamic_hdr.rs`).
+pub const PROBE_VERSION: i64 = 3;
 
 /// Emitted once per file, so the scan can say how far it has got.
 const PROGRESS_EVENT: &str = "probe-progress";
@@ -81,6 +87,10 @@ pub struct Video {
     pub aspect_ratio: Option<f64>,
     pub transfer: Transfer,
     pub hdr10_plus: bool,
+    /// What the HDR10+ metadata says, read across the film. Absent before
+    /// version 3, or where it could not be read.
+    #[serde(default)]
+    pub hdr10_plus_metadata: Option<Hdr10PlusMetadata>,
     pub dolby_vision: Option<DolbyVision>,
     /// The brightest the mastering display could go, in nits.
     pub mastering_peak_nits: Option<f64>,
@@ -100,7 +110,7 @@ pub enum Transfer {
     Hlg,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DolbyVision {
     pub profile: u8,
     pub level: Option<u8>,
@@ -109,6 +119,10 @@ pub struct DolbyVision {
     /// Only for a file carrying an enhancement layer (profile 7), and only when
     /// its RPU could be read. `None` otherwise — never guessed.
     pub enhancement_layer: Option<EnhancementLayer>,
+    /// What the RPU itself says, read across the film. Absent before
+    /// version 3, or where it could not be read.
+    #[serde(default)]
+    pub metadata: Option<DvMetadata>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -433,6 +447,7 @@ fn details_from(probe: ProbeOutput, frames: Option<FramesOutput>) -> MediaDetail
                 compatibility,
                 // Only a profile with an enhancement layer has one to name.
                 enhancement_layer: rpu.and_then(|(_, el)| el).filter(|_| profile == 7),
+                metadata: None,
             }),
             // No configuration record, but the frames carry an RPU: an
             // elementary stream, or a container that lost the record. The RPU
@@ -442,6 +457,7 @@ fn details_from(probe: ProbeOutput, frames: Option<FramesOutput>) -> MediaDetail
                 level: None,
                 compatibility: None,
                 enhancement_layer: el.filter(|_| profile == 7),
+                metadata: None,
             }),
             (None, _) => None,
         };
@@ -467,6 +483,7 @@ fn details_from(probe: ProbeOutput, frames: Option<FramesOutput>) -> MediaDetail
             aspect_ratio,
             transfer: transfer(stream),
             hdr10_plus,
+            hdr10_plus_metadata: None,
             dolby_vision,
             mastering_peak_nits,
             max_cll: light_level("max_content"),
@@ -567,7 +584,37 @@ pub fn probe(ffmpeg: &Path, video: &Path) -> Result<MediaDetails, String> {
             .and_then(|text| serde_json::from_str::<FramesOutput>(&text).ok())
     });
 
-    Ok(details_from(probe, frames))
+    let mut details = details_from(probe, frames);
+    let duration = details.duration_secs;
+    if let Some(v) = details.video.as_mut() {
+        if v.codec == "hevc" && (v.dolby_vision.is_some() || v.hdr10_plus) {
+            let index = v.stream_index.unwrap_or(0);
+            if let Some(reading) = crate::dynamic_hdr::sample(ffmpeg, video, index, duration) {
+                add_dynamic(v, &reading);
+            }
+        }
+    }
+    Ok(details)
+}
+
+/// Put what the film's own metadata said beside what ffprobe said.
+///
+/// The crate's FEL/MEL is dovi_tool's own rule run on the RPU itself, so it
+/// is preferred to the same rule run on ffprobe's printout; either is kept
+/// only for profile 7, the one with a layer to name.
+fn add_dynamic(video: &mut Video, reading: &crate::dynamic_hdr::Reading) {
+    if let Some(dv) = video.dolby_vision.as_mut() {
+        if let Some(meta) = reading.dolby_vision() {
+            if dv.profile == 7 {
+                dv.enhancement_layer = meta.enhancement_layer.or(dv.enhancement_layer);
+            }
+            dv.metadata = Some(meta);
+        }
+    }
+    if video.hdr10_plus || reading.has_hdr10_plus() {
+        video.hdr10_plus = true;
+        video.hdr10_plus_metadata = reading.hdr10_plus();
+    }
 }
 
 /// Whether ffprobe runs at all, asked once before a pass rather than failing

@@ -48,7 +48,15 @@ import { startRow } from './startTime';
 import { goesDirect, readAudioSettings, targetDevice } from './audioOutput';
 import { getEquipment, type DisplayMode } from './equipment';
 import { capabilitiesNow, screenOwner } from '../capabilities';
-import { describeDolbyVision, enhancementLayerSupported, mergedEnhancementLayer } from './dolbyVision';
+import {
+  describeDolbyVision,
+  describeDynamicToneMapping,
+  describeFileMetadata,
+  enhancementLayerSupported,
+  mergedEnhancementLayer,
+  toneMapInput,
+} from './dolbyVision';
+import type { VideoDetails } from '../ui/badges';
 import { CLEAN_FILMS, currentStepDown, stepsInForce, type StepState } from './stepDown';
 
 export interface StatRow {
@@ -299,11 +307,7 @@ function describeScaling(
  * is using; this says they are not the ones Skrin chose, and who changed them.
  * A step that cannot show in an SDR film's picture is not listed for it.
  */
-export function describeStepDown(
-  state: StepState,
-  hdrSource: boolean,
-  el = false
-): StatRow | null {
+export function describeStepDown(state: StepState, hdrSource: boolean, el = false): StatRow | null {
   const steps = stepsInForce(state.level, hdrSource, el);
   if (steps.length === 0) return null;
   const why =
@@ -490,12 +494,14 @@ async function readRenderPasses(): Promise<{
   rows: StatRow[];
   unavailable: string | null;
   mergedEl: boolean;
+  toneMapFrom: number | null;
 }> {
   const { value, error } = await probe<string>('vo-passes', 'string');
   const rows = parseRenderPasses(value);
   const mergedEl = mergedEnhancementLayer(value);
-  if (rows.length > 0) return { rows, unavailable: null, mergedEl };
-  return { rows: [], unavailable: error ?? 'no passes reported', mergedEl };
+  const toneMapFrom = toneMapInput(value);
+  if (rows.length > 0) return { rows, unavailable: null, mergedEl, toneMapFrom };
+  return { rows: [], unavailable: error ?? 'no passes reported', mergedEl, toneMapFrom };
 }
 
 /** Everything the webview can say about the panel it is being drawn on. */
@@ -702,7 +708,12 @@ export function describeDrawing(d: PageDrawing | null): StatRow | null {
   return null;
 }
 
-export async function readPlaybackStats(): Promise<StatGroup[]> {
+/**
+ * The panel's groups, from mpv — plus, for the file in the library, what the
+ * probe read from the file itself (`file`, its video details), which mpv
+ * does not know.
+ */
+export async function readPlaybackStats(file?: VideoDetails | null): Promise<StatGroup[]> {
   // ---- source ----
   const videoCodec = await readProperty<string>('video-codec', 'string');
   const videoFormat = await readProperty<string>('video-format', 'string');
@@ -735,6 +746,15 @@ export async function readPlaybackStats(): Promise<StatGroup[]> {
     'int64'
   );
   const sigPeak = await readProperty<number>('video-params/sig-peak', 'double');
+  // The frame's own dynamic metadata as mpv passes it to libplacebo:
+  // Dolby Vision L1 (PQ) and HDR10+ scene peaks (nits). Absent without.
+  const maxPqY = await readProperty<number>('video-params/max-pq-y', 'double');
+  const sceneMaxRgb = await Promise.all(
+    ['r', 'g', 'b'].map((c) => readProperty<number>(`video-params/scene-max-${c}`, 'double'))
+  );
+  const sceneMax = sceneMaxRgb.some((v) => v !== null)
+    ? Math.max(...sceneMaxRgb.map((v) => v ?? 0))
+    : null;
   // What mpv rendered *for*. The property is `video-target-params`; this read
   // `target-params` for months, which does not exist — see describeHdr.
   const targetGamma = await readProperty<string>('video-target-params/gamma', 'string');
@@ -973,13 +993,22 @@ export async function readPlaybackStats(): Promise<StatGroup[]> {
           },
           capabilitiesNow()?.system
         ),
+        // A file labelled Dolby Vision with no RPU in it: the row below
+        // ("none in the file") says what it is; this one would say its
+        // metadata was applied.
         ...[
-          describeDolbyVision(dolbyVision, {
-            merged: passes.mergedEl,
-            supported: enhancementLayerSupported(),
-            steppedDown: elSteppedDown,
-          }),
+          file?.dolby_vision?.metadata?.rpus === 0
+            ? null
+            : describeDolbyVision(dolbyVision, {
+                merged: passes.mergedEl,
+                supported: enhancementLayerSupported(),
+                steppedDown: elSteppedDown,
+              }),
         ].filter((r): r is StatRow => r !== null),
+        ...describeFileMetadata(file),
+        ...[describeDynamicToneMapping(passes.toneMapFrom, maxPqY, sceneMax)].filter(
+          (r): r is StatRow => r !== null
+        ),
         { label: 'Transfer', value: text(gamma) },
         {
           label: 'Primaries',

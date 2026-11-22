@@ -138,7 +138,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
     showChapters,
     openChapters,
     closeChapters,
-  } = usePanels();
+  } = usePanels(target.fileId);
   const { delayMs, changeDelay } = useAudioDelay(setNotice);
   const { subDelayMs, changeTiming, autoTiming, quietCheck } = useSubDelay(setNotice, {
     video: target.path,

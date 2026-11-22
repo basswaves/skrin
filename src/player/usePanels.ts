@@ -11,11 +11,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { hasMpv } from './engine';
 import { readPlaybackStats, type StatGroup } from './stats';
 import { readMedia3Stats } from './statsMedia3';
+import { fileFacts, type VideoDetails } from '../ui/badges';
 
 /** Stats refresh. Fast enough to watch a drop counter, slow enough to be free. */
 const STATS_REFRESH_MS = 1000;
 
-export function usePanels() {
+/** `fileId`: the library file playing, whose probed facts the stats panel adds. */
+export function usePanels(fileId: number | null = null) {
   const [showTracks, setShowTracks] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
@@ -59,8 +61,18 @@ export function usePanels() {
     if (!showStats) return;
 
     let cancelled = false;
+    // What the probe read from the file (dynamic_hdr.rs): asked once per
+    // opening, since it does not change while the film plays.
+    let file: Promise<VideoDetails | null> = Promise.resolve(null);
+    if (fileId !== null && hasMpv()) {
+      file = fileFacts(fileId)
+        .then((f) => f?.details?.video ?? null)
+        .catch(() => null);
+    }
     // Each engine's own facts: mpv's properties, or what Media3 says.
-    const readStats = hasMpv() ? readPlaybackStats : readMedia3Stats;
+    const readStats = hasMpv()
+      ? () => file.then((video) => readPlaybackStats(video))
+      : readMedia3Stats;
     const read = () => {
       void readStats()
         .then((groups) => {
@@ -75,7 +87,7 @@ export function usePanels() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [showStats]);
+  }, [showStats, fileId]);
 
   return {
     showTracks,

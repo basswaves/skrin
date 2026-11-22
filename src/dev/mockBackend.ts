@@ -589,7 +589,26 @@ function filmFacts(fileId: number) {
           height: 2160,
           aspect_ratio: 16 / 9,
           transfer: 'pq',
-          dolby_vision: { profile: 7, level: 6, compatibility: 6, enhancement_layer: 'FEL' },
+          dolby_vision: {
+            profile: 7,
+            level: 6,
+            compatibility: 6,
+            enhancement_layer: 'FEL',
+            // As dynamic_hdr.rs reads a real profile 7 FEL disc.
+            metadata: {
+              profile: 7,
+              enhancement_layer: 'FEL',
+              cm_version: '2.9',
+              brightness: { peak_nits: 388.9, average_nits: 12.3, frames: 10 },
+              mastering_peak_nits: 1000,
+              max_cll: 794,
+              max_fall: 385,
+              l2_trims: true,
+              l8_trims: false,
+              points: 10,
+              rpus: 10,
+            },
+          },
           mastering_peak_nits: 1000,
         },
         audio: [

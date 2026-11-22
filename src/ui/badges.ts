@@ -25,6 +25,38 @@ export interface DolbyVision {
   level: number | null;
   compatibility: number | null;
   enhancement_layer: 'FEL' | 'MEL' | null;
+  /** What the RPU itself says (dynamic_hdr.rs); absent before probe version 3. */
+  metadata?: DvMetadata | null;
+}
+
+/** Brightness from the frames read across a film, in nits (dynamic_hdr.rs). */
+export interface Brightness {
+  peak_nits: number;
+  average_nits: number;
+  /** Frames that carried the metadata, one per place read. */
+  frames: number;
+}
+
+export interface DvMetadata {
+  profile: number | null;
+  enhancement_layer: 'FEL' | 'MEL' | null;
+  cm_version: string | null;
+  brightness: Brightness | null;
+  mastering_peak_nits: number | null;
+  max_cll: number | null;
+  max_fall: number | null;
+  l2_trims: boolean;
+  l8_trims: boolean;
+  /** Places read across the film. */
+  points: number;
+  /** How many of those frames had an RPU; 0 for a file labelled Dolby Vision without one. */
+  rpus?: number;
+}
+
+export interface Hdr10PlusMetadata {
+  brightness: Brightness | null;
+  target_display_nits: number | null;
+  points: number;
 }
 
 export interface VideoDetails {
@@ -39,6 +71,7 @@ export interface VideoDetails {
   aspect_ratio: number | null;
   transfer: 'sdr' | 'pq' | 'hlg';
   hdr10_plus: boolean;
+  hdr10_plus_metadata?: Hdr10PlusMetadata | null;
   dolby_vision: DolbyVision | null;
   mastering_peak_nits: number | null;
   max_cll: number | null;
@@ -94,7 +127,10 @@ export const fileFacts = (fileId: number) => invoke<FileFacts | null>('file_fact
 // ---- the names the source is read from --------------------------------------
 
 function comparable(path: string): string {
-  return path.replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase();
+  return path
+    .replace(/[\\/]+/g, '/')
+    .replace(/\/$/, '')
+    .toLowerCase();
 }
 
 /**
@@ -179,7 +215,9 @@ export function dolbyVisionLabel(dv: DolbyVision): string {
     dv.profile === 8 && dv.compatibility !== null && [1, 2, 4].includes(dv.compatibility)
       ? `8.${dv.compatibility}`
       : String(dv.profile);
-  return dv.enhancement_layer ? `Profile ${profile} · ${dv.enhancement_layer}` : `Profile ${profile}`;
+  return dv.enhancement_layer
+    ? `Profile ${profile} · ${dv.enhancement_layer}`
+    : `Profile ${profile}`;
 }
 
 /** `7.1`, `5.1`, `2.0`. ffprobe's `5.1(side)` is still 5.1 to anyone reading it. */
@@ -359,7 +397,8 @@ export function buildBadges(
   // source can only come from the name, but not against what was measured.
   const measured = video && video.width > 0 && video.height > 0;
   const belowUhd =
-    measured && !['4K UHD', '8K'].includes(resolutionLabel(video.width, video.height, video.interlaced));
+    measured &&
+    !['4K UHD', '8K'].includes(resolutionLabel(video.width, video.height, video.interlaced));
   const named =
     release && belowUhd && release.source === 'Ultra HD Blu-ray'
       ? { ...release, source: 'Blu-ray' }

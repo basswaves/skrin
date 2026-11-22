@@ -65,6 +65,10 @@ src-tauri/src/
   probe.rs       What each file holds — codec, HDR, Dolby Vision profile and
                  FEL/MEL, audio formats, subtitles — read with ffprobe once per
                  file at scan time and kept in media_probe for the badges
+  dynamic_hdr.rs Dolby Vision's RPU (the `dolby_vision` crate) and HDR10+,
+                 one frame at each of ten places across a DV or HDR10+ film,
+                 copied out by ffmpeg without decoding: L1 brightness, L6,
+                 L2/L8 trims, FEL/MEL — for the stats panel
   aspect.rs      The picture's real shape with the black bars taken off:
                  eight keyframes through each film and one episode per season,
                  cropdetect, the shape most agree on
@@ -190,7 +194,8 @@ ratings(Rust)→  IMDb's ratings file when due, keeping the library's rows;
                 Rotten Tomatoes through the user's OMDb key (TS), within a
                 daily budget
 artwork(Rust)→  posters, backdrops, logos, stills, cast faces into app data
-examine(Rust)→  ffprobe on each new or changed file → media_probe
+examine(Rust)→  ffprobe on each new or changed file (+ ffmpeg for a Dolby
+                Vision or HDR10+ film's own metadata) → media_probe
 detect (Rust)→  Skiptro and the built-in analysis → skip markers
 measure(Rust)→  cropdetect, films and one episode a season → media_probe
 browse (TS)  →  titles/episodes → rails, detail pages
@@ -681,6 +686,11 @@ name (`release.ts`). They describe the file — a Dolby Vision badge on a film
 Windows will send as HDR10 is still true of the file, and the stats panel says
 what was sent. Skrin's own lettering throughout, no brand logos; never
 focusable, and under Play so the remote's landing spot does not move.
+What a Dolby Vision or HDR10+ film's own metadata says (`dynamic_hdr.rs`:
+content-mapping version, trims, sampled scene brightness, L6) goes in the
+stats panel instead, beside what mpv did — the badges stay as few as they
+were. Brightness read from ten frames is said as ten frames, never as the
+film's.
 
 **One layout, one scale knob — not a TV skin.** Every dimension in `ui.css` is in
 `rem`; TV mode multiplies the root font size and everything follows. A parallel set

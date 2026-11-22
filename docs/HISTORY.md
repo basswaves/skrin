@@ -4988,6 +4988,42 @@ existed are moved up one, so they keep meaning the same steps.
 **MEL adds nothing**, and libplacebo runs no merge pass for it; the panel
 says "nothing merged" rather than guessing which kind the film is.
 
+## Dolby Vision's and HDR10+'s own metadata in the stats panel (2026-11-22)
+
+**What the film's metadata says, from the file, beside what mpv did.** The
+probe now reads a Dolby Vision or HDR10+ film's own dynamic metadata
+(`dynamic_hdr.rs`): the RPU through the `dolby_vision` crate (quietvoid's,
+MIT, the library inside dovi_tool — a Rust dependency built from source, and
+the same one the parked Android P7 → 8.1 conversion needs), HDR10+ through a
+short reader of the ST 2094-40 layout. The stats panel says the content
+mapping version, whether the grader left trims for other screens (L2, L8),
+the scene brightness (L1, or HDR10+'s MaxSCL), and Dolby Vision's own L6
+figures. The badges did not grow: they already said profile, FEL/MEL and
+HDR10+, and more figures under Play would be a spec sheet, not a badge.
+
+**Ten frames, said as ten frames.** The whole film's metadata would mean
+reading the whole file — minutes on a 60 GB remux over a network share. One
+ffmpeg run copies one frame's RPU and SEIs (no decoding) from each of ten
+places: about 0.4 s more per Dolby Vision or HDR10+ file, nothing for others;
+a whole-library re-read of 565 files took 533 s, the 78 such files ≈ 30 s of
+it. The panel says "from 10 places across the film". L6's MaxCLL is the
+film's real peak where the grade fills it in, so sampling L1 is for the
+typical brightness, not the peak.
+
+**What reading across the film found.** A file with a Dolby Vision profile 8
+configuration record and no RPU in any frame: the panel says "labelled, but
+no metadata in the file" instead of "its Dolby Vision metadata applied". An
+HDR10+ film whose HDR10+ stops after its opening frames: "not found across
+the film". Both were invisible to the old two-frame read.
+
+**libplacebo follows the dynamic metadata, and the panel says so only when
+mpv shows it.** On an SDR window the tone-map pass names its input peak
+("bt2390 tone map (231 -> 84)"); on a profile 7 film it equalled the frame's
+Dolby Vision L1 peak (`video-params/max-pq-y`), on an HDR10+ one the scene
+peak (`scene-max-r/g/b`), frame after frame, with Skrin's peak detection on
+and with it off. The panel's "Dynamic metadata — used for tone mapping" row
+is that comparison made on every refresh, not a claim.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and

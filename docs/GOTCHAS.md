@@ -895,6 +895,25 @@ the "1.0" that marks a minimal enhancement layer (MEL) is printed as
 `8388608` (`1 << 23`), not `1`. A check for `vdr_in_max == 1` calls every MEL
 disc FEL.
 
+### An HDR10+ file may carry HDR10+ only in its first frames
+
+The probe's frame read (first two frames) said HDR10+ for a 4K film whose
+HDR10+ SEIs stop after the opening: none in ten places read across the rest,
+neither in the bitstream nor in ffprobe's decoded side data. A badge from the
+first frames is true of the file; any "the film's HDR10+ brightness" from
+those frames alone would not be. `dynamic_hdr.rs` reads across the film and
+the panel says "not found across the film" for such a file.
+
+### ffmpeg cannot write several outputs to one pipe
+
+Reading one frame at ten places in one ffmpeg run needs ten inputs (`-ss`
+each) and ten outputs; pointing them all at `pipe:1` interleaves their
+buffers. `dynamic_hdr.rs` writes each to a small file in a temporary folder
+and removes it. One run with ten inputs costs about a third of ten runs
+(measured: 1.1 s against 2.5 s on a 4K remux on a network share). The
+`concat` demuxer with `inpoint`/`outpoint` instead copied whole GOPs per
+point and took 4 s.
+
 ### Your ffmpeg may not write Dolby Vision, and says nothing
 
 To make a Dolby Vision test clip, `-x265-params dolby-vision-profile=8.1:

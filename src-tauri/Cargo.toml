@@ -28,6 +28,9 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
+# Reads the Dolby Vision RPU for the details panel (dynamic_hdr.rs).
+# quietvoid's, MIT; the library inside dovi_tool, built from source.
+dolby_vision = "3.4"
 walkdir = "2.5.0"
 # NFO sidecars are XML. Event-based rather than deserialised into a struct:
 # the shape varies between MediaElch, tinyMediaManager and Kodi itself, and a

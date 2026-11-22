@@ -61,6 +61,7 @@ mod places;
 mod playlists;
 mod playback;
 mod power;
+mod dynamic_hdr;
 mod probe;
 mod procstats;
 mod scanner;
