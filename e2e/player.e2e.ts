@@ -332,16 +332,26 @@ test('watching keys: seeking, pausing, volume, stats and the transport row', asy
   await press(page, 'ArrowLeft');
   await expect.poll(async () => (await mpv(page)).position).toBeLessThan(before - 5);
 
-  // Space pauses and puts the ring on Play, so OK plays again.
+  // Space pauses and leaves the arrows seeking (GitHub #25): no ring on the
+  // controls, and Right still jumps ahead while paused.
   await press(page, 'Space');
   await expect.poll(async () => (await mpv(page)).paused).toBe(true);
-  await expect(osdFocused(page)).toBeAttached();
-  await expect.poll(() => focused(page)).toBe('Play');
+  await expect(osdFocused(page)).toHaveCount(0);
+  before = (await mpv(page)).position;
+  await press(page, 'ArrowRight');
+  await expect.poll(async () => (await mpv(page)).position).toBeGreaterThan(before + 9);
+  expect((await mpv(page)).paused).toBe(true);
+  await expect(osdFocused(page)).toHaveCount(0);
   // Paused, the controls stay up.
   await pause(page, 4000, 'time on purpose: paused, the controls must stay up past the hide delay');
   await expect(page.locator('.player.osd-hidden')).toHaveCount(0);
+  // OK plays again without the ring on Play, even with the intro's Skip showing.
   await press(page, 'Enter');
   await expect.poll(async () => (await mpv(page)).paused).toBe(false);
+  // Up still hands the arrows to the controls, with the ring on Pause.
+  await press(page, 'ArrowUp');
+  await expect(osdFocused(page)).toBeAttached();
+  await expect.poll(() => focused(page)).toBe('Pause');
   await press(page, 'Escape');
   await expect(osdFocused(page)).toHaveCount(0);
 
@@ -378,7 +388,7 @@ test('watching keys: seeking, pausing, volume, stats and the transport row', asy
   await expect.poll(async () => (await mpv(page)).position).toBeLessThan(before - 25);
   await remoteKey(page, 'MediaPause');
   await expect.poll(async () => (await mpv(page)).paused).toBe(true);
-  await expect.poll(() => focused(page)).toBe('Play');
+  await expect(osdFocused(page)).toHaveCount(0);
   await remoteKey(page, 'MediaPlay');
   await expect.poll(async () => (await mpv(page)).paused).toBe(false);
   await remoteKey(page, 'MediaPlayPause');

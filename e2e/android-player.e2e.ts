@@ -142,13 +142,14 @@ test('Android: a film plays through Media3 — the screen matched, seeking, paus
   await expect.poll(async () => (await media3(page)).position).toBeLessThan(before - 5);
   expect(await sent(page)).toContain('seek');
 
-  // Space pauses and puts the ring on Play; OK plays again.
+  // Space pauses and the arrows go on seeking (GitHub #25); OK plays again.
   await press(page, 'Space');
   await expect.poll(async () => (await media3(page)).wantPlaying).toBe(false);
-  await expect.poll(() => focused(page)).toBe('Play');
+  before = (await media3(page)).position;
+  await press(page, 'ArrowRight');
+  await expect.poll(async () => (await media3(page)).position).toBeGreaterThan(before + 9);
   await press(page, 'Enter');
   await expect.poll(async () => (await media3(page)).wantPlaying).toBe(true);
-  await press(page, 'Escape');
 
   // Back leaves the player: Media3 stops and the screen gets its mode back.
   await press(page, 'Escape');

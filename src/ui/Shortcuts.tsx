@@ -54,7 +54,7 @@ const GROUPS: Group[] = [
     keys: [
       [['Enter'], 'Pause and resume (a remote’s OK button)'],
       [['Space'], 'Pause and resume'],
-      [['←', '→'], 'Back or forward 10 seconds; hold to go faster'],
+      [['←', '→'], 'Back or forward 10 seconds, playing or paused; hold to go faster'],
       [['↑', '↓'], 'Bring up the controls: seek bar, subtitles, audio'],
       [['Esc'], 'Close what is open, then leave fullscreen, then stop'],
       [['F'], 'Fullscreen (the TV layout is always fullscreen)', 'windowed'],
@@ -87,7 +87,7 @@ const REMOTE_GROUPS: Group[] = [
     keys: [
       [['OK'], 'Pause and resume'],
       [['⏯'], 'Pause and resume'],
-      [['←', '→'], 'Back or forward 10 seconds; hold to go faster'],
+      [['←', '→'], 'Back or forward 10 seconds, playing or paused; hold to go faster'],
       [['↑', '↓'], 'Bring up the controls: seek bar, subtitles, audio'],
       [['⏪', '⏩'], 'Back or forward 30 seconds'],
       [['Back'], 'Close what is open, then stop'],

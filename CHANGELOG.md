@@ -7,6 +7,10 @@ makes no stability promises.
 
 ## [Unreleased]
 
+### Changed
+
+- **Left and Right go on seeking while the film is paused** (GitHub #25). Pausing with Space, OK or a remote's pause key no longer moves onto the controls, so the arrows mean the same thing playing or paused, as in other players. Up or Down still brings the controls up with the ring on them, and OK plays again, even with Skip intro showing.
+
 ## [0.21.0] — 2026-11-22
 
 ### New

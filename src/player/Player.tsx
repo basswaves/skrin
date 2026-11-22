@@ -293,14 +293,15 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
   useEffect(() => () => clickPause.cancel(), [clickPause]);
 
   /**
-   * Pause or play from a key or the remote. Pausing puts the ring on
-   * Play/Pause, so the next OK plays again and the arrows are already on the
-   * controls — a paused film is when you want them. A mouse click on the
-   * picture uses `togglePause` and moves nothing.
+   * Pause or play from a key or the remote. The ring stays where it is: Left
+   * and Right go on seeking while paused, as in every other player, and OK
+   * plays again either way (GitHub #25). It used to move onto Play/Pause, so
+   * the arrows changed meaning the moment the film paused. Up or Down is
+   * still the way onto the controls.
    */
   const togglePauseByKey = useCallback(async () => {
-    if (await togglePause()) enterOsdFocus();
-  }, [togglePause, enterOsdFocus]);
+    await togglePause();
+  }, [togglePause]);
 
   const seekRelative = useCallback(
     async (delta: number) => {
@@ -407,6 +408,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
   // ---- keyboard -----------------------------------------------------------
   usePlayerKeys({
     togglePauseByKey,
+    paused,
     toggleFullscreen,
     backOut,
     exit,
