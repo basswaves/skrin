@@ -7,6 +7,8 @@ makes no stability promises.
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-11-22
+
 ### New
 
 - **The version is shown under the list in Settings**, on every page there (GitHub #27); it was only under Advanced → Updates. Searching Settings for "version" or "about" finds it.
