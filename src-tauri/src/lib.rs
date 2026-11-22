@@ -484,6 +484,7 @@ pub fn run() {
             library::check_library_root_move,
             library::move_library_root,
             library::remove_library_root,
+            library::set_library_root_kind,
             library::list_library_roots,
             library::scan_library,
             library::refresh_query_statistics,

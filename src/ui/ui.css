@@ -2760,8 +2760,10 @@ button.cast-member {
   font-size: max(var(--fs-floor), 0.8125rem);
 }
 
-/* A library folder the last scan could not reach: It moved… beside Remove. */
-.root-moved {
+/* A library folder the last scan could not reach: It moved… beside Remove.
+   A Movies or TV folder: Make it TV / Make it Movies beside Remove. */
+.root-moved,
+.root-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;

@@ -86,6 +86,7 @@ import {
   listLibraryRoots,
   moveLibraryRoot,
   removeLibraryRoot,
+  setLibraryRootKind,
   DEFAULT_SKIPTRO_EXPORT_ARGS,
   DEFAULT_SKIPTRO_SCAN_ARGS,
   FFMPEG_PATH_KEY,
@@ -190,6 +191,19 @@ function RemoveRoot({
     >
       Remove
     </ConfirmButton>
+  );
+}
+
+/**
+ * A Movies folder becomes TV, or TV Movies (GitHub #26). No confirmation:
+ * pressing it again changes it back, and nothing a person decided is lost.
+ */
+function ChangeKind({ root, onChange }: { root: LibraryRoot; onChange: (kind: 'movies' | 'tv') => void }) {
+  const to = root.kind === 'tv' ? 'movies' : 'tv';
+  return (
+    <FocusButton className="btn-secondary settings-root-kind" onSelect={() => onChange(to)}>
+      {to === 'tv' ? 'Make it TV' : 'Make it Movies'}
+    </FocusButton>
   );
 }
 
@@ -868,6 +882,31 @@ export default function Settings({
     [refresh, scanNow]
   );
 
+  /**
+   * Movies ↔ TV: the folder's files are read again under the new kind, with
+   * everything watched and decided kept (library.rs, `set_library_root_kind`),
+   * and the scan straight away does the reading.
+   */
+  const changeKind = useCallback(
+    async (root: LibraryRoot, kind: 'movies' | 'tv') => {
+      setError(null);
+      try {
+        const again = await setLibraryRootKind(root.id, kind);
+        await refresh();
+        await scanNow();
+        const word = kind === 'tv' ? 'TV' : 'Movies';
+        setNote((n) =>
+          [`Now a ${word} folder: ${count(again, 'file')} read again, with what you watched and decided kept.`, n]
+            .filter(Boolean)
+            .join(' ')
+        );
+      } catch (e) {
+        setError(userError(e));
+      }
+    },
+    [refresh, scanNow]
+  );
+
   const exportNfo = useCallback(async (overwrite: boolean) => {
     setError(null);
     setNote(null);
@@ -960,8 +999,13 @@ export default function Settings({
                               </FocusButton>
                               <RemoveRoot root={root} onRemoved={refresh} onError={setError} />
                             </FocusGroup>
-                          ) : (
+                          ) : root.kind === 'videos' ? (
                             <RemoveRoot root={root} onRemoved={refresh} onError={setError} />
+                          ) : (
+                            <FocusGroup kind="row" className="root-actions">
+                              <ChangeKind root={root} onChange={(kind) => void changeKind(root, kind)} />
+                              <RemoveRoot root={root} onRemoved={refresh} onError={setError} />
+                            </FocusGroup>
                           )}
                         </li>
                       ))}

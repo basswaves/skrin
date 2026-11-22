@@ -1292,6 +1292,8 @@ const MOCK_FFMPEG_PATH = 'C:\\Users\\you\\AppData\\Local\\Microsoft\\WinGet\\Lin
 /** Under `kinemaMockEmpty`: whether a folder has been added, then scanned,
  * and which (the picker's, or the one chosen in Skrin's own browser). */
 const emptyLibrary = { hasRoot: !EMPTY, scanned: false, path: 'C:\\fixture' };
+/** The mock's own library folder's kind, which Settings can change (GitHub #26). */
+const mockRootKind: { kind: 'movies' | 'tv' } = { kind: 'tv' };
 
 /**
  * Android's drives for Skrin's own folder browser (`kinemaMockSystem=android`):
@@ -1747,7 +1749,7 @@ const handlers: Record<string, Handler> = {
   list_library_roots: () =>
     emptyLibrary.hasRoot
       ? [
-          { id: 1, path: emptyLibrary.path, kind: 'tv', file_count: files.length },
+          { id: 1, path: emptyLibrary.path, kind: mockRootKind.kind, file_count: files.length },
           // `kinemaMockNoVideos=1`: no Videos folder, for the Library page's
           // empty state.
           // Not in an empty library's first run either: one folder added
@@ -1953,6 +1955,12 @@ const handlers: Record<string, Handler> = {
       SCAN_ERRORS.splice(0, SCAN_ERRORS.length, ...SCAN_ERRORS.filter((e) => !e.startsWith('root unavailable')));
     }
     return { files: 60, replaced: 0 };
+  },
+  // Movies ↔ TV (GitHub #26): the mock's own folder changes kind; every file
+  // is "read again".
+  set_library_root_kind: (a) => {
+    if (Number(a.id) === 1) mockRootKind.kind = String(a.kind) as 'movies' | 'tv';
+    return files.length;
   },
   // In an empty library's first run, removing its one folder empties it again
   // (the Welcome page's Remove); elsewhere an added folder goes.

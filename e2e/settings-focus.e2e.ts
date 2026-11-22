@@ -191,3 +191,22 @@ test('in a small window the chosen section stays fully in view in the list (A10-
   const r = await inView();
   expect(r.bottom).toBeLessThanOrEqual(r.height);
 });
+
+test('a TV folder becomes Movies and back by keys, beside Remove (GitHub #26)', async ({ page }) => {
+  await settings(page);
+  await onSection(page, 'Library');
+  await press(page, 'ArrowRight');
+  // The folder rows are above Add: Up until the ring is on the change button.
+  for (let i = 0; i < 8 && (await focused(page)) !== 'Make it Movies'; i++) await press(page, 'ArrowUp');
+  expect(await focused(page)).toBe('Make it Movies');
+  // Remove is beside it in the same row.
+  await press(page, 'ArrowRight');
+  expect(await focused(page)).toBe('Remove');
+  await press(page, 'ArrowLeft');
+  await press(page, 'Enter');
+  await expect(page.locator('.settings-roots .root-kind').first()).toHaveText('Movies');
+  await expect(page.locator('.settings-note')).toContainText('Now a Movies folder');
+  await expect.poll(() => focused(page)).toBe('Make it TV');
+  await press(page, 'Enter');
+  await expect(page.locator('.settings-roots .root-kind').first()).toHaveText('TV');
+});

@@ -104,6 +104,13 @@ export const moveLibraryRoot = (id: number, path: string) =>
 
 export const removeLibraryRoot = (id: number) => invoke<void>('remove_library_root', { id });
 
+/**
+ * A Movies folder becomes TV or the other way round (GitHub #26). Resolves to
+ * how many of its files go back to be read; the next scan reads and matches them.
+ */
+export const setLibraryRootKind = (id: number, kind: 'movies' | 'tv') =>
+  invoke<number>('set_library_root_kind', { id, kind });
+
 export const listLibraryRoots = () => invoke<LibraryRoot[]>('list_library_roots');
 
 export const scanLibrary = () => invoke<ScanReport>('scan_library');

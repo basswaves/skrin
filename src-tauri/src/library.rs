@@ -330,6 +330,55 @@ pub async fn move_library_root(
     crate::following::move_root(&mut conn, id, &path)
 }
 
+/// A Movies folder becomes a TV folder or the other way round (GitHub #26).
+/// The kind is how its files' names are read where they could be either
+/// (`parse.ts`), so what the machine read and matched is read again under the
+/// new one — the same rows, so watched marks, resume points and every decision
+/// a person made (a match by hand, a placement, "ignored") stay as they are.
+/// Videos folders are not matched at all, so they are not part of this.
+/// Returns how many files go back to be read; the next scan does it.
+#[tauri::command]
+pub fn set_library_root_kind(db: tauri::State<Db>, id: i64, kind: String) -> Result<usize, String> {
+    let mut conn = db.0.lock().map_err(to_string_err)?;
+    set_root_kind(&mut conn, id, &kind)
+}
+
+fn set_root_kind(conn: &mut Connection, id: i64, kind: &str) -> Result<usize, String> {
+    if kind != "movies" && kind != "tv" {
+        return Err(format!("a library folder can be changed to movies or tv, not {kind}"));
+    }
+    let tx = conn.transaction().map_err(to_string_err)?;
+    let now: String = tx
+        .query_row("SELECT kind FROM library_roots WHERE id = ?1", [id], |r| r.get(0))
+        .map_err(|_| "That library folder is no longer there.".to_string())?;
+    if now == crate::videos::KIND {
+        return Err("A Videos folder cannot be changed to movies or TV: remove it and add the folder again.".into());
+    }
+    if now == kind {
+        return Ok(0);
+    }
+    tx.execute("UPDATE library_roots SET kind = ?2 WHERE id = ?1", params![id, kind])
+        .map_err(to_string_err)?;
+    let again = tx
+        .execute(
+            &format!(
+                "UPDATE media_files AS m
+                    SET match_status = 'unparsed', parsed_at = NULL, parsed_title = NULL,
+                        parsed_year = NULL, parsed_season = NULL, parsed_episode = NULL,
+                        parsed_kind = NULL, parsed_from = NULL, parsed_json = NULL,
+                        parsed_episode_last = NULL, title_id = NULL, match_confidence = NULL,
+                        match_reason = NULL
+                  WHERE m.root_id = ?1 AND m.match_status <> 'video'
+                    AND NOT {}",
+                crate::following::HAND_DECISION
+            ),
+            [id],
+        )
+        .map_err(to_string_err)?;
+    tx.commit().map_err(to_string_err)?;
+    Ok(again)
+}
+
 #[tauri::command]
 pub fn remove_library_root(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<(), String> {
     let conn = db.0.lock().map_err(to_string_err)?;
@@ -609,7 +658,7 @@ pub fn library_stats(db: tauri::State<Db>) -> Result<LibraryStats, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{comparable, is_within, merge_roots, roots_inside};
+    use super::{comparable, is_within, merge_roots, roots_inside, set_root_kind};
 
     /// An in-memory library with two TV folders and a film folder, one file
     /// each, and a watch position on the first file.
@@ -667,6 +716,50 @@ mod tests {
             .query_row("SELECT position_secs FROM playback_state WHERE file_id = 1", [], |r| r.get(0))
             .unwrap();
         assert_eq!(position, 812.5);
+    }
+
+    /// GitHub #26: a folder added as TV by mistake becomes Movies. What the
+    /// machine decided is read again; a match by hand and the resume point stay.
+    #[test]
+    fn changing_a_folders_kind_reads_its_files_again_and_keeps_decisions() {
+        let mut conn = library();
+        conn.execute_batch(
+            "INSERT INTO titles (id, kind, provider, provider_id, title, fetched_at)
+                 VALUES (7, 'movie', 'tmdb', '7', 'A film', 0);
+             INSERT INTO media_files (id, root_id, path, parent_dir, file_name, extension,
+                 size_bytes, modified_at, first_seen_at, last_seen_at, match_status, title_id,
+                 match_reason) VALUES
+                 (4, 1, 'D:\\Media\\Shows A\\d.mkv', 'D:\\Media\\Shows A', 'd.mkv', 'mkv',
+                  1, 1, 1, 1, 'matched', 7, 'manual: picked');
+             UPDATE media_files SET match_status = 'matched', title_id = 7,
+                 parsed_title = 'A film' WHERE id = 1;",
+        )
+        .unwrap();
+        assert_eq!(set_root_kind(&mut conn, 1, "movies").unwrap(), 1);
+        let kind: String =
+            conn.query_row("SELECT kind FROM library_roots WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(kind, "movies");
+        let state = |id: i64| -> (String, Option<i64>) {
+            conn.query_row(
+                "SELECT match_status, title_id FROM media_files WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap()
+        };
+        assert_eq!(state(1), ("unparsed".into(), None));
+        assert_eq!(state(4), ("matched".into(), Some(7)));
+        // Another folder's files are not touched.
+        assert_eq!(state(2).0, "unparsed");
+        let position: f64 = conn
+            .query_row("SELECT position_secs FROM playback_state WHERE file_id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(position, 812.5);
+        // The same kind again does nothing; Videos is refused either way.
+        assert_eq!(set_root_kind(&mut conn, 1, "movies").unwrap(), 0);
+        assert!(set_root_kind(&mut conn, 1, "videos").is_err());
+        conn.execute("UPDATE library_roots SET kind = 'videos' WHERE id = 2", []).unwrap();
+        assert!(set_root_kind(&mut conn, 2, "tv").is_err());
     }
 
     /// Merging is for a folder that holds library folders, nothing else.
