@@ -7,7 +7,7 @@ makes no stability promises.
 
 ## [Unreleased]
 
-## [0.22.0] — 2026-11-22
+## [0.21.1] — 2026-11-22
 
 ### New
 
