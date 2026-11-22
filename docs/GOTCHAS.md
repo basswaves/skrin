@@ -372,6 +372,23 @@ ffmpeg logs decode errors for it too, so counting errors does not separate
 the two cases either. Believe "no frames" only once it has held, still with
 no picture, for 3 s. `decodeCheck.ts`.
 
+### A libmpv's version number does not say what it does
+
+Skrin's bundled libmpv called itself `v0.41.0-918` with libplacebo
+`v7.360.0-109`, both before the releases that announced Dolby Vision
+profile 7 enhancement-layer merging (mpv 0.42.0, libplacebo 7.387). It
+merged the layer all the same: git builds carry a feature months before the
+release that names it. The details panel, written from the version story,
+told every profile 7 film "the enhancement layer is not used" while the
+render passes read `reshaping … enhancement layer`. The layer is not in
+`track-list` either (mpv pairs it with the picture as a hidden stream), so
+nothing but the passes and the log shows it.
+
+**Do:** ask mpv what it does, never what it is called: the passes it ran
+(`vo-passes`, as a string), the log, or whether it accepts the option
+(`dolbyVision.ts` sets `vf=format=enhancement-layer=yes` once before any
+film; an mpv without it refuses).
+
 ---
 
 ## Tauri

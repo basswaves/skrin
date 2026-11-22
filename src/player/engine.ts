@@ -46,6 +46,7 @@ import { capabilitiesNow, loadCapabilities } from '../capabilities';
 import { keyCommand, keyFromValue, KEY_PROPERTY, MPV_KEYS } from './mpvKeys';
 import { loadfile } from './loadfile';
 import { MOUSE_PROPERTY, parseMouse, type MouseEvent } from './mpvMouse';
+import { probeEnhancementLayer } from './dolbyVision';
 import * as media3 from './media3';
 import { VOLUME_MAX, VOLUME_NORMAL } from './volume';
 import type { Film } from './displayMode';
@@ -190,6 +191,8 @@ async function startMpv(options: MpvConfig['initialOptions']): Promise<string> {
       console.warn(`mpv rejected optional setting ${key}=${value}`);
     }
   }
+  // Before any film: whether this mpv merges a Dolby Vision enhancement layer.
+  await probeEnhancementLayer();
   if (capabilitiesNow()?.mpv_video.own_window) {
     await bindKeys();
     await watchMouse();

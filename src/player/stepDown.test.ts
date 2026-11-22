@@ -43,30 +43,40 @@ describe('the ladder', () => {
     const all = { ...BASE_MPV_OPTIONS, ...TONE_MAPPING_OPTIONS };
     for (const step of STEPS) {
       for (const [name, value] of Object.entries(step.base)) {
-        expect(yesNo(all[name]), name).toBe(value);
+        // A filter mpvOptions.ts does not set at all is put back as none.
+        expect(name in all ? yesNo(all[name]) : '', name).toBe(value);
       }
     }
   });
 
   it('is cumulative, and level 0 is the untouched picture', () => {
     expect(optionsForLevel(0)).toEqual(Object.assign({}, ...STEPS.map((s) => s.base)));
-    expect(optionsForLevel(2)['hdr-compute-peak']).toBe('no');
-    expect(optionsForLevel(2).cscale).toBe('bilinear');
-    expect(optionsForLevel(2)['linear-downscaling']).toBe('yes');
+    expect(optionsForLevel(1).vf).toBe('@skrin-el:format=enhancement-layer=no');
+    expect(optionsForLevel(0).vf).toBe('');
+    expect(optionsForLevel(3)['hdr-compute-peak']).toBe('no');
+    expect(optionsForLevel(3).cscale).toBe('bilinear');
+    expect(optionsForLevel(3)['linear-downscaling']).toBe('yes');
     expect(optionsForLevel(STEPS.length)['gamut-mapping-mode']).toBe('relative');
   });
 
   it('goes one rung at a time, cheapest first, and then stops', () => {
-    expect(nextLevel(0, true)).toBe(1);
-    expect(STEPS[0].id).toBe('peak');
-    expect(nextLevel(STEPS.length, true)).toBeNull();
+    expect(nextLevel(0, true, true)).toBe(1);
+    expect(STEPS.map((s) => s.id)).toEqual(['enhancement', 'peak', 'chroma', 'downscaling', 'gamut']);
+    expect(nextLevel(STEPS.length, true, true)).toBeNull();
   });
 
   it('passes over rungs that cannot show in an SDR film', () => {
-    expect(nextLevel(0, false)).toBe(2);
-    expect(nextLevel(3, false)).toBeNull();
-    expect(stepsInForce(4, false).map((s) => s.id)).toEqual(['chroma', 'downscaling']);
-    expect(stepsInForce(4, true)).toHaveLength(4);
+    expect(nextLevel(0, false)).toBe(3);
+    expect(nextLevel(4, false)).toBeNull();
+    expect(stepsInForce(5, false).map((s) => s.id)).toEqual(['chroma', 'downscaling']);
+    expect(stepsInForce(5, true)).toHaveLength(4);
+  });
+
+  it('turns the enhancement layer off only for a film that has one merged', () => {
+    expect(nextLevel(0, true)).toBe(2);
+    expect(nextLevel(0, true, true)).toBe(1);
+    expect(stepsInForce(2, true).map((s) => s.id)).toEqual(['peak']);
+    expect(stepsInForce(2, true, true).map((s) => s.id)).toEqual(['enhancement', 'peak']);
   });
 });
 
@@ -177,16 +187,21 @@ describe('deciding', () => {
 
   it('takes a rung when the card falls behind, and the next when it helped but not enough', () => {
     let r = decide(newWatch(), behind(8), 0, true);
+    expect(r.action).toEqual({ kind: 'down', to: 2, percent: 8 });
+    r = decide(r.watch, behind(4), 2, true);
+    expect(r.action).toEqual({ kind: 'down', to: 3, percent: 4 });
+  });
+
+  it('gives up a merged enhancement layer first', () => {
+    const r = decide(newWatch(), behind(8), 0, true, true);
     expect(r.action).toEqual({ kind: 'down', to: 1, percent: 8 });
-    r = decide(r.watch, behind(4), 1, true);
-    expect(r.action).toEqual({ kind: 'down', to: 2, percent: 4 });
   });
 
   it('puts back a rung whose drops did not fall, and stops', () => {
     // TV PC: the drops stayed at 49.9% after level 2 and after level 3.
     let r = decide(newWatch(), behind(49.9), 0, false);
-    expect(r.action).toEqual({ kind: 'down', to: 2, percent: 49.9 });
-    r = decide(r.watch, behind(49.9), 2, false);
+    expect(r.action).toEqual({ kind: 'down', to: 3, percent: 49.9 });
+    r = decide(r.watch, behind(49.9), 3, false);
     expect(r.action).toEqual({ kind: 'undo', to: 0, before: 49.9, after: 49.9 });
     expect(r.watch.done).toBe(true);
     expect(decide(r.watch, behind(50), 0, false).action).toEqual({ kind: 'none' });
@@ -253,18 +268,27 @@ describe('what is remembered', () => {
 
   it('reads what it wrote, and forgets anything odd', () => {
     const raw = JSON.stringify({
-      a: { level: 2, percent: 3.5 },
-      b: { level: 9 },
-      c: { level: 0 },
-      d: { level: 1 },
+      a: { level: 2, percent: 3.5, v: 2 },
+      b: { level: 9, v: 2 },
+      c: { level: 0, v: 2 },
+      d: { level: 1, v: 2 },
       e: 'x',
     });
     expect(parseMemory(raw)).toEqual({
       a: { level: 2, percent: 3.5, clean: 0 },
       d: { level: 1, percent: null, clean: 0 },
     });
-    expect(parseMemory(JSON.stringify({ a: { level: 2, clean: 2 } })).a.clean).toBe(2);
+    expect(parseMemory(JSON.stringify({ a: { level: 2, clean: 2, v: 2 } })).a.clean).toBe(2);
     for (const bad of [null, '', 'nope', '[]', '3']) expect(parseMemory(bad)).toEqual({});
+  });
+
+  it('moves a level stored before the enhancement rung up by one, so it means the same steps', () => {
+    const old = JSON.stringify({ a: { level: 1 }, b: { level: 4 }, c: { level: 0 } });
+    expect(parseMemory(old)).toEqual({
+      a: { level: 2, percent: null, clean: 0 },
+      b: { level: 5, percent: null, clean: 0 },
+    });
+    expect(STEPS[parseMemory(old).a.level - 1].id).toBe('peak');
   });
 });
 
@@ -274,7 +298,7 @@ describe('the details panel', () => {
   });
 
   it('names each step given up and the share of frames dropped', () => {
-    const row = describeStepDown({ level: 2, percent: 4.17 }, true);
+    const row = describeStepDown({ level: 3, percent: 4.17 }, true);
     expect(row?.value).toBe(
       'HDR peak detection off (was on) · chroma upscaling bilinear (was spline36)'
     );
@@ -285,15 +309,22 @@ describe('the details panel', () => {
   });
 
   it('says it was an earlier film when it does not know the share', () => {
-    const row = describeStepDown({ level: 2, percent: null }, true);
+    const row = describeStepDown({ level: 3, percent: null }, true);
     expect(row?.note).toMatch(/on an earlier film/);
     expect(row?.note).not.toMatch(/% frames/);
   });
 
   it('leaves out what cannot show in an SDR film, and says nothing if that is all', () => {
-    expect(describeStepDown({ level: 2, percent: 3 }, false)?.value).toBe(
+    expect(describeStepDown({ level: 3, percent: 3 }, false)?.value).toBe(
       'chroma upscaling bilinear (was spline36)'
     );
-    expect(describeStepDown({ level: 1, percent: 3 }, false)).toBeNull();
+    expect(describeStepDown({ level: 2, percent: 3 }, false)).toBeNull();
+  });
+
+  it('names the enhancement layer only for a film that has one', () => {
+    expect(describeStepDown({ level: 1, percent: 3 }, true)).toBeNull();
+    expect(describeStepDown({ level: 2, percent: 3 }, true, true)?.value).toBe(
+      'Dolby Vision enhancement layer off (was merged) · HDR peak detection off (was on)'
+    );
   });
 });

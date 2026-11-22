@@ -4,7 +4,6 @@ import {
   displayGroup,
   describeDrawing,
   describeAudioPath,
-  describeDolbyVision,
   describeHdr,
   hwdecNote,
   parseRenderPasses,
@@ -75,18 +74,6 @@ describe('describeAudioPath', () => {
       'decoded · through the Linux sound server'
     );
     expect(describeAudioPath('s32', true, 'Linux').note).toBe('the Linux sound server bypassed');
-  });
-});
-
-describe('describeDolbyVision', () => {
-  it('names what each profile becomes', () => {
-    expect(describeDolbyVision(5)?.value).toBe('profile 5 → converted to HDR10');
-    expect(describeDolbyVision(7)?.value).toBe('profile 7 → HDR10 base layer');
-    expect(describeDolbyVision(8)?.value).toBe('profile 8 → HDR10 base layer');
-  });
-  it('stays out of the way for everything else', () => {
-    expect(describeDolbyVision(null)).toBeNull();
-    expect(describeDolbyVision(0)).toBeNull();
   });
 });
 

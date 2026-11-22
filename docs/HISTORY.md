@@ -4959,6 +4959,35 @@ again what the machine decided, by the same rule as a rename
 kept under their own name stay; watch history is the episode's anyway (v13).
 Videos folders are left out: they are not matched at all.
 
+## Dolby Vision profile 7: the enhancement layer merged on the desktop (2026-11-22)
+
+**The engine already did it; the panel said it did not.** mpv merged a
+profile 7 film's full enhancement layer (FEL) into the HDR10 picture from its
+git builds of July 2026 (mpv 0.42.0 has it, with libplacebo 7.387), and the
+libmpv Skrin bundled — a git build from August — already had it: the render
+passes read "reshaping … enhancement layer" and libplacebo's log names
+`sh_dovi_compose_nlq`. The details panel still said "the enhancement layer is
+not used". It is now read from what ran: an "enhancement layer" render pass
+means merged; otherwise "base layer only" with the reason. libmpv moved to
+mpv 0.42.0-222 / libplacebo 7.387+ (pinned by SHA-256 in the release job).
+
+**Asked of mpv, not of a version.** Whether this mpv can merge at all is one
+question at start-up: setting the `format` filter with `enhancement-layer=yes`
+before any film is refused by an mpv without it. A Linux system's own older
+libmpv answers no, and the film plays its base layer as before ("not
+supported here"). Nothing reads a version number or a distribution's name.
+
+**The first rung of the step-down.** The merge is the most costly pass a
+Dolby Vision film adds (about 2 ms a 4K frame on the test PC's graphics card,
+of about 6 ms for the whole picture) and what turning it off loses is the
+least: the HDR10 base layer is the disc's own fallback. So for a film that
+has one merged, it is the first thing D6 gives up (`vf=format=enhancement-
+layer=no`); passed over for every other film. Levels remembered before it
+existed are moved up one, so they keep meaning the same steps.
+
+**MEL adds nothing**, and libplacebo runs no merge pass for it; the panel
+says "nothing merged" rather than guessing which kind the film is.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and

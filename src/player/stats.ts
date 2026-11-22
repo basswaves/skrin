@@ -48,6 +48,7 @@ import { startRow } from './startTime';
 import { goesDirect, readAudioSettings, targetDevice } from './audioOutput';
 import { getEquipment, type DisplayMode } from './equipment';
 import { capabilitiesNow, screenOwner } from '../capabilities';
+import { describeDolbyVision, enhancementLayerSupported, mergedEnhancementLayer } from './dolbyVision';
 import { CLEAN_FILMS, currentStepDown, stepsInForce, type StepState } from './stepDown';
 
 export interface StatRow {
@@ -293,50 +294,17 @@ function describeScaling(
  * case where the receiver gets exactly what is on the disc.
  */
 /**
- * What happens to a Dolby Vision track. A PC has no way to send a Dolby
- * Vision signal to a TV — Windows and Linux alike — so it is always shown as
- * HDR10; how depends on the profile. `null` for a file that is not Dolby
- * Vision (or whose container does not say).
- */
-export function describeDolbyVision(profile: number | null): StatRow | null {
-  if (profile === null || profile <= 0) return null;
-  const label = 'Dolby Vision';
-  switch (profile) {
-    case 5:
-      return {
-        label,
-        value: 'profile 5 → converted to HDR10',
-        note: 'no HDR10 layer in the file, so its own Dolby Vision metadata maps it; Skrin cannot send Dolby Vision itself',
-      };
-    case 7:
-      return {
-        label,
-        value: 'profile 7 → HDR10 base layer',
-        note: 'the disc’s HDR10 layer is shown and the enhancement layer is not used; Skrin cannot send Dolby Vision itself',
-      };
-    case 8:
-      return {
-        label,
-        value: 'profile 8 → HDR10 base layer',
-        note: 'made to fall back to HDR10 (or HLG), which is shown; Skrin cannot send Dolby Vision itself',
-      };
-    default:
-      return {
-        label,
-        value: `profile ${profile} → HDR10`,
-        note: 'Skrin cannot send Dolby Vision itself',
-      };
-  }
-}
-
-/**
  * Which processing steps Skrin gave up to keep up, and why — only when one is
  * in force for this film (stepDown.ts). The rows around it show the values mpv
  * is using; this says they are not the ones Skrin chose, and who changed them.
  * A step that cannot show in an SDR film's picture is not listed for it.
  */
-export function describeStepDown(state: StepState, hdrSource: boolean): StatRow | null {
-  const steps = stepsInForce(state.level, hdrSource);
+export function describeStepDown(
+  state: StepState,
+  hdrSource: boolean,
+  el = false
+): StatRow | null {
+  const steps = stepsInForce(state.level, hdrSource, el);
   if (steps.length === 0) return null;
   const why =
     state.percent === null
@@ -518,11 +486,16 @@ export function parseRenderPasses(json: string | null): StatRow[] {
  * touching my image?" — every other row here reports what was *requested*.
  * Read as a string, never as the `vo-passes` node.
  */
-async function readRenderPasses(): Promise<{ rows: StatRow[]; unavailable: string | null }> {
+async function readRenderPasses(): Promise<{
+  rows: StatRow[];
+  unavailable: string | null;
+  mergedEl: boolean;
+}> {
   const { value, error } = await probe<string>('vo-passes', 'string');
   const rows = parseRenderPasses(value);
-  if (rows.length > 0) return { rows, unavailable: null };
-  return { rows: [], unavailable: error ?? 'no passes reported' };
+  const mergedEl = mergedEnhancementLayer(value);
+  if (rows.length > 0) return { rows, unavailable: null, mergedEl };
+  return { rows: [], unavailable: error ?? 'no passes reported', mergedEl };
 }
 
 /** Everything the webview can say about the panel it is being drawn on. */
@@ -843,6 +816,12 @@ export async function readPlaybackStats(): Promise<StatGroup[]> {
   // Both peak properties report 0 on SDR content rather than going absent, and
   // "0.00× SDR white" is worse than saying there is nothing to report.
   const hdrSource = isHdr(gamma);
+  // A profile 7 film whose enhancement layer this mpv can merge: the one
+  // kind of film the step-down ladder's first rung is for (stepDown.ts).
+  const elFilm = dolbyVision === 7 && enhancementLayerSupported() !== false;
+  const elSteppedDown = stepsInForce(currentStepDown().level, hdrSource, elFilm).some(
+    (s) => s.elOnly
+  );
   const peak = !hdrSource
     ? 'n/a, SDR source'
     : maxLuma !== null && maxLuma > 0
@@ -955,7 +934,9 @@ export async function readPlaybackStats(): Promise<StatGroup[]> {
         },
         describeScaling(sourceW, sourceH, videoW, videoH, scale, dscale, resizesOnly),
         chromaRow,
-        ...[describeStepDown(currentStepDown(), hdrSource)].filter((r): r is StatRow => r !== null),
+        ...[describeStepDown(currentStepDown(), hdrSource, elFilm)].filter(
+          (r): r is StatRow => r !== null
+        ),
         // An absent value is itself the finding here, so it says so rather than
         // leaving a hole: "no section" and "no passes ran" look identical.
         ...(passes.unavailable
@@ -992,7 +973,13 @@ export async function readPlaybackStats(): Promise<StatGroup[]> {
           },
           capabilitiesNow()?.system
         ),
-        ...[describeDolbyVision(dolbyVision)].filter((r): r is StatRow => r !== null),
+        ...[
+          describeDolbyVision(dolbyVision, {
+            merged: passes.mergedEl,
+            supported: enhancementLayerSupported(),
+            steppedDown: elSteppedDown,
+          }),
+        ].filter((r): r is StatRow => r !== null),
         { label: 'Transfer', value: text(gamma) },
         {
           label: 'Primaries',

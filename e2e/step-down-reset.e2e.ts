@@ -7,6 +7,8 @@
 import { expect, test } from '@playwright/test';
 import { focusKey, focused, open, press } from './kb';
 
+// Stored before the Dolby Vision enhancement rung (no `v`): level 2 then is
+// level 3 now, the same two steps with the enhancement layer below them.
 const MEMORY = JSON.stringify({ 'd3d11 · Test Card': { level: 2, percent: 4.2, clean: 1 } });
 
 test('the steps given up are shown, and forgotten by keys', async ({ page }) => {
@@ -18,7 +20,7 @@ test('the steps given up are shown, and forgotten by keys', async ({ page }) => 
 
   const section = page.locator('.settings-section', { hasText: 'Picture steps given up' });
   await expect(section).toContainText(
-    'Given up on d3d11 · Test Card: HDR peak detection off (was on); chroma upscaling bilinear (was spline36).'
+    'Given up on d3d11 · Test Card: Dolby Vision enhancement layer off (was merged); HDR peak detection off (was on); chroma upscaling bilinear (was spline36).'
   );
 
   // By keys only: into the section, Down until the ring is on the line.

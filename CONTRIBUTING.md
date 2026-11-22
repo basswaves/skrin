@@ -562,9 +562,10 @@ reasoning is in [docs/DESIGN.md](docs/DESIGN.md) and [docs/HISTORY.md](docs/HIST
   drops frames shows a stuttering film, which is further from the creator's
   intent than a slightly cheaper way of drawing it. So only once the card
   itself drops frames (judged over short windows early in a film), the
-  player gives up the least visible processing first — HDR peak measuring,
-  then the chroma scaler, then correct downscaling, then perceptual gamut
-  mapping — one step at a time. Only drops the card caused count: not the
+  player gives up the least visible processing first — a Dolby Vision
+  profile 7 film's merged enhancement layer (only for such a film), then HDR
+  peak measuring, then the chroma scaler, then correct downscaling, then
+  perceptual gamut mapping — one step at a time. Only drops the card caused count: not the
   frames mpv leaves out on purpose when a film is faster than the screen,
   not a decoder that cannot keep up (software decoding), and not seeks,
   pauses, stalls or the player opening and closing — no step can help those.
@@ -582,6 +583,11 @@ reasoning is in [docs/DESIGN.md](docs/DESIGN.md) and [docs/HISTORY.md](docs/HIST
   device lists no decoder for it, the film is handed over as the HEVC it is
   underneath and the details panel reads "HDR10 (PQ) — Dolby Vision layer not
   applied". Skrin never claims a Dolby Vision picture the device did not show.
+  On the desktop no Dolby Vision signal leaves the computer at all; a
+  profile 7 film's full enhancement layer is merged into its HDR10 picture
+  where the video engine can (asked of mpv, never read from a version), and
+  the details panel says "enhancement layer merged" or "base layer only" with
+  the reason (not supported here, dropped to keep up, nothing merged).
 - **Optimisations adapt to what each device reports, never to one test
   device.** Buffer sizes come from the app's memory, worker and download
   counts from the number of cores (clamped), the light look from measured

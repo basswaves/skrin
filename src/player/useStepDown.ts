@@ -14,6 +14,7 @@
  * Nothing here runs where Media3 plays.
  */
 import { useEffect, type RefObject } from 'react';
+import { enhancementLayerSupported } from './dolbyVision';
 import { hasMpv, readProperty } from './engine';
 import type { Session } from './session';
 import { isHdr } from './stats';
@@ -79,6 +80,7 @@ export function useStepDown({
     // The player is still opening for a moment after the first picture.
     let settleUntil = startedAt + SETTLE_MS;
     let hdr: boolean | null = null;
+    let el: boolean | null = null;
     let busy = false;
     let watch = newWatch();
     let toldNotGpu = false;
@@ -118,9 +120,18 @@ export function useStepDown({
           }
           if (verdict.kind === 'behind' || verdict.kind === 'fine') {
             hdr ??= isHdr(await readProperty<string>('video-params/gamma', 'string'));
+            el ??=
+              (await readProperty<number>('current-tracks/video/dolby-vision-profile', 'int64')) ===
+                7 && enhancementLayerSupported() === true;
           }
           if (stopped) return;
-          const { watch: next, action } = decide(watch, verdict, currentStepDown().level, hdr ?? false);
+          const { watch: next, action } = decide(
+            watch,
+            verdict,
+            currentStepDown().level,
+            hdr ?? false,
+            el ?? false
+          );
           watch = next;
           if (action.kind === 'down') await stepDownTo(action.to, action.percent);
           else if (action.kind === 'undo') await stepBackTo(action.to, action.before, action.after);

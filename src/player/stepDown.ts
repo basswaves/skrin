@@ -46,6 +46,11 @@ export interface Step {
   label: string;
   /** Only changes the picture of an HDR film, so it is skipped for an SDR one. */
   hdrOnly: boolean;
+  /**
+   * Only for a film whose Dolby Vision enhancement layer this mpv can merge
+   * (profile 7, `dolbyVision.ts`); passed over for every other film.
+   */
+  elOnly?: boolean;
   /** The value of each option once this rung is down. */
   down: Record<string, string>;
   /**
@@ -56,6 +61,20 @@ export interface Step {
 }
 
 export const STEPS: readonly Step[] = [
+  {
+    // A profile 7 film's full enhancement layer (FEL) is a second picture,
+    // decoded and merged into the first on every frame: the most costly pass
+    // a Dolby Vision film adds, and what it loses is the least — the HDR10
+    // base layer is the film as the disc's own fallback shows it. mpv 0.42's
+    // `format` filter turns it off (`enhancement-layer=no`); labelled, so it
+    // can be told from any other filter.
+    id: 'enhancement',
+    label: 'Dolby Vision enhancement layer off (was merged)',
+    hdrOnly: true,
+    elOnly: true,
+    down: { vf: '@skrin-el:format=enhancement-layer=no' },
+    base: { vf: '' },
+  },
   {
     // Measuring the real peak of every frame is a compute pass over the
     // whole picture. Without it the film's own metadata is used, which is
@@ -105,6 +124,8 @@ export interface StepState {
   percent: number | null;
   /** Films played clean at this level since it was reached (memory only; 0 if not known). */
   clean?: number;
+  /** The ladder version it was stored with (memory only; `parseMemory`). */
+  v?: number;
 }
 
 /** Every option on the ladder with the value it has at `level`. */
@@ -120,16 +141,20 @@ export function optionsForLevel(level: Level): Record<string, string> {
  * picture is passed over (peak detection on an SDR film is already moot);
  * going past it still puts it down, which costs nothing.
  */
-export function nextLevel(level: Level, hdr: boolean): Level | null {
+export function nextLevel(level: Level, hdr: boolean, el = false): Level | null {
   for (let next = level + 1; next <= STEPS.length; next++) {
-    if (!STEPS[next - 1].hdrOnly || hdr) return next;
+    if (shows(STEPS[next - 1], hdr, el)) return next;
   }
   return null;
 }
 
+/** Whether a rung changes this film's picture. */
+const shows = (step: Step, hdr: boolean, el: boolean) =>
+  (hdr || !step.hdrOnly) && (el || !step.elOnly);
+
 /** The rungs that are down and would show in this film's picture. */
-export function stepsInForce(level: Level, hdr: boolean): Step[] {
-  return STEPS.slice(0, Math.max(0, level)).filter((s) => hdr || !s.hdrOnly);
+export function stepsInForce(level: Level, hdr: boolean, el = false): Step[] {
+  return STEPS.slice(0, Math.max(0, level)).filter((s) => shows(s, hdr, el));
 }
 
 // ---- deciding whether frames are being dropped ------------------------------
@@ -304,7 +329,8 @@ export function decide(
   watch: Watch,
   verdict: Verdict,
   level: Level,
-  hdr: boolean
+  hdr: boolean,
+  el = false
 ): { watch: Watch; action: Action } {
   const none: Action = { kind: 'none' };
   if (watch.done || verdict.kind === 'skip' || verdict.kind === 'not-gpu') {
@@ -320,7 +346,7 @@ export function decide(
       action: { kind: 'undo', to: stepped.from, before: stepped.percent, after: verdict.percent },
     };
   }
-  const next = nextLevel(level, hdr);
+  const next = nextLevel(level, hdr, el);
   if (next === null) return { watch: { ...watch, behind: true, done: true }, action: none };
   return {
     watch: { ...watch, behind: true, stepped: { from: level, percent: verdict.percent } },
@@ -371,6 +397,12 @@ export function deviceId(gpuApi: string, gpus: string[]): string {
   return cards.length > 0 ? `${gpuApi} · ${cards.join(' + ')}` : gpuApi;
 }
 
+/**
+ * The ladder's version in the memory. Version 1 (no `v`) had no enhancement
+ * rung, so each of its levels is one rung lower than the same steps now.
+ */
+const LADDER = 2;
+
 /** The remembered levels, read defensively: anything odd is no memory. */
 export function parseMemory(raw: string | null): Record<string, StepState> {
   const out: Record<string, StepState> = {};
@@ -379,8 +411,10 @@ export function parseMemory(raw: string | null): Record<string, StepState> {
     const value: unknown = JSON.parse(raw);
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return out;
     for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      const e = entry as { level?: unknown; percent?: unknown; clean?: unknown } | null;
-      const level = e && typeof e.level === 'number' ? Math.trunc(e.level) : NaN;
+      const e = entry as { level?: unknown; percent?: unknown; clean?: unknown; v?: unknown } | null;
+      const stored = e && typeof e.level === 'number' ? Math.trunc(e.level) : NaN;
+      // Version 1's levels had no enhancement rung below them.
+      const level = e?.v === LADDER || !(stored >= 1) ? stored : stored + 1;
       if (!Number.isFinite(level) || level < 1 || level > STEPS.length) continue;
       const clean = typeof e?.clean === 'number' && e.clean >= 0 ? Math.trunc(e.clean) : 0;
       out[key] = {
@@ -420,7 +454,7 @@ async function remember(state: StepState): Promise<void> {
   remembered = state;
   try {
     const memory = parseMemory(await getSetting(STEP_DOWN_KEY));
-    if (state.level > 0) memory[deviceKey] = state;
+    if (state.level > 0) memory[deviceKey] = { ...state, v: LADDER };
     else delete memory[deviceKey];
     await setSetting(STEP_DOWN_KEY, JSON.stringify(memory));
   } catch (e) {
