@@ -627,6 +627,16 @@ only once the columns the indexes cover have their real values
 sqlite_schema` on every other open connection (`db::reload_statistics`). The
 tests in `db.rs` reproduce the poisoned plan in the bundled SQLite.
 
+### `NOT (a OR b LIKE …)` skips every row where b is NULL
+
+`m.match_reason LIKE 'manual:%'` is NULL, not false, when the reason is
+NULL — and `NOT (false OR NULL)` is NULL, so `WHERE … AND NOT {HAND_DECISION}`
+quietly left out every file with no match reason (unparsed, parsed,
+machine-matched without one) instead of treating it as "no person decided".
+No error, just fewer rows; found by the folder-kind test (GitHub #26).
+**Do:** in a condition that is negated, make each part two-valued:
+`IFNULL(col, '') LIKE …`, `IFNULL(flag, 0) = 1`.
+
 ## Library and intro detection
 
 ### A graceful fallback with nothing to show for it is a silent bug
