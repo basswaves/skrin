@@ -225,6 +225,26 @@ pub(crate) fn hdr_state(p: &DISPLAYCONFIG_PATH_INFO) -> (HdrState, Option<u32>) 
 /// bits per channel. Vendor neutral — the same query as HDR. What says
 /// "HDR at 8 bits", which at 4K 60 Hz over HDMI 2.0 is a bandwidth limit
 /// rather than a setting anyone chose.
+/// The screen's own resolution, the one Windows marks "Recommended" — from
+/// the screen's description of itself. Larger modes in the list can be the
+/// graphics driver's own (NVIDIA DSR, AMD VSR: drawn larger, then shrunk to
+/// fit), which show nothing more. None when Windows does not say.
+pub(crate) fn preferred_of(p: &DISPLAYCONFIG_PATH_INFO) -> Option<(u32, u32)> {
+    let t = &p.targetInfo;
+    let mut info = DISPLAYCONFIG_TARGET_PREFERRED_MODE {
+        header: header::<DISPLAYCONFIG_TARGET_PREFERRED_MODE>(
+            DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_PREFERRED_MODE,
+            t.adapterId,
+            t.id,
+        ),
+        ..Default::default()
+    };
+    if unsafe { DisplayConfigGetDeviceInfo(&mut info.header) } != 0 {
+        return None;
+    }
+    (info.width > 0 && info.height > 0).then_some((info.width, info.height))
+}
+
 pub(crate) fn link_of(p: &DISPLAYCONFIG_PATH_INFO) -> (Option<u32>, Option<String>) {
     let t = &p.targetInfo;
     let mut info2 = AdvancedColorInfo2 {

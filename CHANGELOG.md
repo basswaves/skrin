@@ -10,6 +10,11 @@ makes no stability promises.
 ### Changed
 
 - **Left and Right go on seeking while the film is paused** (GitHub #25). Pausing with Space, OK or a remote's pause key no longer moves onto the controls, so the arrows mean the same thing playing or paused, as in other players. Up or Down still brings the controls up with the ring on them, and OK plays again, even with Skip intro showing.
+- **Resolution → Auto never goes past the screen's own resolution** (GitHub #21). On Windows, a graphics driver can offer larger "virtual" resolutions (NVIDIA DSR, AMD VSR) that it draws big and shrinks to fit; Auto could switch to one for a 4K film, blacking out the screen for a picture with nothing more in it. It now stops at the resolution Windows recommends for the screen. Where the system does not say, nothing changes.
+
+### Changed
+
+- **Left and Right go on seeking while the film is paused** (GitHub #25). Pausing with Space, OK or a remote's pause key no longer moves onto the controls, so the arrows mean the same thing playing or paused, as in other players. Up or Down still brings the controls up with the ring on them, and OK plays again, even with Skip intro showing.
 
 ## [0.21.0] — 2026-11-22
 

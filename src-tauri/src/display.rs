@@ -72,6 +72,10 @@ pub struct ScreenNow {
     pub link_bits: Option<u32>,
     pub link_encoding: Option<String>,
     pub hdr: HdrState,
+    /// The screen's own resolution, where the system says (Windows'
+    /// "Recommended"). Auto never raises the resolution past it
+    /// (`displayMode.ts`).
+    pub native: Option<(u32, u32)>,
     pub modes: Vec<Mode>,
 }
 

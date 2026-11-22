@@ -100,7 +100,7 @@ export default function ScreenSection({
         choices={RESOLUTION_CHOICES}
         value={settings.resolution}
         onChange={(v) => save(SWITCH_RESOLUTION_KEY, v, { ...settings, resolution: v })}
-        note="Auto raises the resolution only when the desktop is set lower than both the video and the screen, such as a 4K movie on a 4K TV with the desktop at 1080p."
+        note="Auto raises the resolution only when the desktop is set lower than both the video and the screen, such as a 4K movie on a 4K TV with the desktop at 1080p, and never past the screen’s own resolution. The screen goes black for a second or two while it switches, and again when the video stops."
         hint="Match the video always uses the video's own resolution, for a TV or video processor (such as a madVR Envy) that should do the upscaling instead of Skrin."
       />
 

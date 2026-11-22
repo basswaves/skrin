@@ -4,7 +4,8 @@
 
 use super::ScreenNow;
 use crate::equipment::win::{
-    active_config, header, hdr_state, link_of, modes, path_for, signal_of, source_gdi,
+    active_config, header, hdr_state, link_of, modes, path_for, preferred_of, signal_of,
+    source_gdi,
 };
 use crate::equipment::{rate_meaning, HdrState};
 use std::mem::size_of;
@@ -49,6 +50,7 @@ pub fn screen_now(gdi: &str) -> Result<ScreenNow, String> {
         link_bits: path.as_ref().and_then(|p| link_of(p).0),
         link_encoding: path.as_ref().and_then(|p| link_of(p).1),
         hdr,
+        native: path.as_ref().and_then(preferred_of),
         modes: list,
     })
 }

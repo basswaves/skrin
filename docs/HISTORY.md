@@ -4942,6 +4942,33 @@ before it takes a prompt (Skip intro, Resumed from): with the ring on Play
 that is what it did, and the flow test found a paused seek landing in an
 intro, where OK skipped and stayed paused.
 
+## Follow-ups from GitHub #21, #25 and #26 (2026-11-22)
+
+**Pausing no longer hands the arrows to the controls (GitHub #25).** Since
+0.4.0 a key pause put the ring on Play/Pause, so the next OK played again and
+the arrows were "already on the controls". It made Left/Right mean seek while
+playing and move-between-buttons while paused, which nobody else does:
+VLC, mpv, MPC-HC, PotPlayer, Kodi, YouTube on the web and Netflix on a TV all
+keep Left/Right as seeking when paused. OK already resumes with the ring off
+the controls (the Enter path in `usePlayerKeys.ts`), so the ring bought one
+press for reaching audio or subtitles while paused, at the price of the
+arrows changing meaning. The reporter's own proposal — VLC's model, Tab for
+the buttons and Up/Down for volume — was declined: a remote has no Tab, and a
+remote on a Windows PC sends the same arrow keys as a keyboard, so a desktop
+split would break TV mode on Windows; a key-layout setting would be a taste
+setting. Volume stays on 9/0, +/− and the wheel, as in mpv. Paused, OK plays
+before it takes a prompt (Skip intro, Resumed from): with the ring on Play
+that is what it did, and the flow test found a paused seek landing in an
+intro, where OK skipped and stayed paused.
+
+**Auto resolution stops at the screen's own (GitHub #21).** Windows' mode list
+includes a driver's virtual modes (DSR, VSR). Auto now goes no higher than
+the target's preferred mode (`DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_PREFERRED_MODE`,
+what Windows labels "Recommended"); Linux desktops list no such modes and
+report none, so nothing changes there. A screen that reports a smaller
+preferred mode than it can show is not raised past it: not switching is the
+safe direction.
+
 ## Open items
 
 They are in [ROADMAP.md](ROADMAP.md). This document is for what was done and

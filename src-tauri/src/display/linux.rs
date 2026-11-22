@@ -53,6 +53,8 @@ pub(crate) fn now_of(s: &Screen) -> ScreenNow {
         link_bits: None,
         link_encoding: None,
         hdr: d.hdr,
+        // The desktops do not offer modes larger than the screen itself.
+        native: None,
         modes: d.modes,
     }
 }
