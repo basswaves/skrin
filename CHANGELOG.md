@@ -9,6 +9,7 @@ makes no stability promises.
 
 ### New
 
+- **The version is shown under the list in Settings**, on every page there (GitHub #27); it was only under Advanced → Updates. Searching Settings for "version" or "about" finds it.
 - **Change a library folder between Movies and TV** (Settings → Library, GitHub #26). **Make it TV** / **Make it Movies** sits beside Remove. The folder's files are read again under the new type straight away; what you watched, resume points and anything you matched or placed by hand stay as they are. Mouse, keyboard and remote.
 
 ### Changed

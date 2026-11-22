@@ -332,6 +332,12 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   // Advanced
   {
     section: 'advanced',
+    label: 'Version',
+    find: 'Look for new versions',
+    about: 'about which version number release build what version am I running Skrin',
+  },
+  {
+    section: 'advanced',
     label: 'Look for new versions',
     about: 'updates new version GitHub',
     values: ['On', 'Off'],

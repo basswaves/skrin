@@ -2355,6 +2355,13 @@ button.cast-member {
   cursor: pointer;
 }
 
+.settings-version {
+  margin: 0.75rem 0 0;
+  padding: 0 0.875rem;
+  color: rgba(245, 245, 247, 0.45);
+  font-size: max(var(--fs-floor), 0.75rem);
+}
+
 .settings-nav button:hover {
   background: rgba(255, 255, 255, 0.07);
 }
@@ -2806,7 +2813,10 @@ button.cast-member {
   flex: 0 1 auto;
 }
 
-.settings-remove {
+/* Remove, and Make it TV / Make it Movies beside it: small, quiet buttons
+   that do not compete with the folder's name. */
+.settings-remove,
+.settings-root-kind {
   padding: 0.3125rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
@@ -2823,7 +2833,15 @@ button.cast-member {
   color: #fff;
 }
 
-.settings-remove.focused {
+.settings-root-kind:hover,
+.settings-root-kind.focused {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.settings-remove.focused,
+.settings-root-kind.focused {
   outline: var(--focus-ring) solid #fff;
   outline-offset: 2px;
 }

@@ -1904,7 +1904,9 @@ differ; one set would fail on the others). A new engine or OS with no
 baseline writes one and **passes** the first time — so a missing set is not
 a green check. Linux's come from Ubuntu 24.04 (CI's image; WSL's distro is
 the same): `scripts\wsl.ps1 'npx playwright test e2e/screens.e2e.ts
---update-snapshots'`, then copy the `*-linux.png` back. The Look is seeded
+--update-snapshots=all'`, then copy the `*-linux.png` back. Plain
+`--update-snapshots` rewrites only pictures that fail: a small change inside
+the tolerance passes and the old picture stays, missing what was added. The Look is seeded
 by `kinemaMockLook` in localStorage: the mock's settings are in memory, so
 setting it after load is lost on a reload.
 

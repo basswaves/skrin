@@ -70,6 +70,11 @@ describe('Settings search', () => {
     expect(first.sectionName).toBe('Skipping intros');
   });
 
+  it('finds the version by "version" and "about" (GitHub #27)', () => {
+    expect(searchSettings('version', desktop)[0].entry.label).toBe('Version');
+    expect(searchSettings('about', desktop).map((m) => m.entry.label)).toContain('Version');
+  });
+
   it('leaves out what this system does not have', () => {
     const android = { ...desktop, runs_programs: false, display_switching: false } as Capabilities;
     expect(searchSettings('ffmpeg', desktop).map((m) => m.entry.label)).toContain('Where ffmpeg is');

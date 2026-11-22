@@ -201,7 +201,7 @@ function RemoveRoot({
 function ChangeKind({ root, onChange }: { root: LibraryRoot; onChange: (kind: 'movies' | 'tv') => void }) {
   const to = root.kind === 'tv' ? 'movies' : 'tv';
   return (
-    <FocusButton className="btn-secondary settings-root-kind" onSelect={() => onChange(to)}>
+    <FocusButton className="settings-root-kind" onSelect={() => onChange(to)}>
       {to === 'tv' ? 'Make it TV' : 'Make it Movies'}
     </FocusButton>
   );
@@ -955,6 +955,7 @@ export default function Settings({
             section={section}
             reviewCount={needsReview}
             hasUpdate={update !== null}
+            version={version}
             onChoose={chooseSection}
             searching={shown === 'search'}
             search={<SearchBox query={query} onChange={setQuery} onOpen={openSearch} />}
@@ -2045,6 +2046,7 @@ function SectionList({
   section,
   reviewCount,
   hasUpdate,
+  version,
   onChoose,
   searching,
   search,
@@ -2052,6 +2054,9 @@ function SectionList({
   section: SectionId;
   reviewCount: number;
   hasUpdate: boolean;
+  /** Under the list, on every page of Settings (GitHub #27): it used to be
+   * only under Advanced → Updates, where nobody looked for it. */
+  version: string | null;
   onChoose: (id: SectionId) => void;
   /** Matches are shown, not a section: none is marked open. */
   searching: boolean;
@@ -2083,6 +2088,7 @@ function SectionList({
             {id === 'advanced' && hasUpdate && <span className="nav-dot" />}
           </FocusButton>
         ))}
+        {version && <p className="settings-version">Skrin {version}</p>}
       </nav>
     </FocusProvider>
   );
