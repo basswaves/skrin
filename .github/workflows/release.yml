@@ -88,9 +88,9 @@ jobs:
       - name: Fetch libmpv (pinned)
         shell: pwsh
         env:
-          MPV_TAG: 2026-11-07-55d3feb45c
-          MPV_ASSET: mpv-dev-lgpl-x86_64-20261107-git-55d3feb45c.7z
-          MPV_SHA256: 17bff1d2e90ad06a9d98ce0fae738feb64feaf10ddd804870e0144111a9715df
+          MPV_TAG: 2026-11-22-09cf7a11f2
+          MPV_ASSET: mpv-dev-lgpl-x86_64-20261122-git-09cf7a11f2.7z
+          MPV_SHA256: 63984c1d1b082ae7f5215a99825d7dbeab420328f66365c21e607892f786c17d
         run: |
           $tmp = Join-Path $env:RUNNER_TEMP 'mpv-dl'
           New-Item -ItemType Directory -Force $tmp | Out-Null
