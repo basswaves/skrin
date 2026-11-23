@@ -82,6 +82,8 @@ export interface OutputFacts {
      * so a correction is never read as the device's own answer.
      */
     corrections?: string[];
+    /** The PCM channel count the user said the device takes, when corrected and sent straight to it. */
+    pcmCorrected?: number | null;
   } | null;
   /** For the wording only (capabilities `system`). Windows unless said. */
   system?: string;
@@ -438,6 +440,19 @@ export function checkSound(f: OutputFacts): Check | null {
   return { ...check, why: check.why ? `${check.why} ${words}` : words };
 }
 
+/**
+ * Why sound sent straight to a device was folded down. A corrected channel
+ * count is the user's word, never the cause unless it is what was sent: a
+ * device that took fewer than the user said is said as the device's doing.
+ */
+export function foldedWhy(name: string, out: number, corrected: number | null): string {
+  if (corrected === null) return `${name[0].toUpperCase()}${name.slice(1)} takes only ${out} channels.`;
+  if (out < corrected) {
+    return `You said ${name} takes ${corrected} channels, but it took only ${out}, so the sound went as ${out}.`;
+  }
+  return `Sent as ${out} channels: what you said ${name} takes.`;
+}
+
 function soundVerdict(f: OutputFacts): Check | null {
   const a = f.audio;
   if (!a || (!a.codec && !a.outFormat)) return null;
@@ -486,9 +501,7 @@ function soundVerdict(f: OutputFacts): Check | null {
       verdict: 'limited',
       value: `folded from ${a.inChannels} to ${a.outChannels} channels`,
       why: a.direct
-        ? a.corrections?.some((c) => c.startsWith('PCM channels'))
-          ? `Sent as ${a.outChannels} channels: what you said ${a.device?.name ?? 'the device'} takes.`
-          : `${a.device?.name ?? 'The device'} takes only ${a.outChannels} channels.`
+        ? foldedWhy(a.device?.name ?? 'the device', a.outChannels!, a.pcmCorrected ?? null)
         : `${system}’s speaker setup for this device has fewer channels than the soundtrack.`,
       fix: a.direct
         ? undefined

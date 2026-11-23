@@ -19,7 +19,7 @@ import {
 import { channelsFor, planAudio, type AudioSettings } from './audioOutput';
 import { equipmentFacts } from './rawFacts';
 import { peakWords, soundCorrections, stepDownCause } from './stats';
-import { checkSound, type OutputFacts } from './outputCheck';
+import { checkSound, foldedWhy, type OutputFacts } from './outputCheck';
 
 const CODECS = ['ac3', 'eac3', 'dts', 'dts-hd', 'truehd'];
 const RECEIVER = 'receiver-endpoint';
@@ -287,11 +287,36 @@ describe('found on the real player (R12-E)', () => {
         direct: true,
         device: receiver,
         corrections: ['PCM channels 2 — you said; the receiver says 6'],
+        pcmCorrected: 2,
       },
     } as unknown as OutputFacts;
     const why = checkSound(facts)!.why!;
     expect(why).toMatch(/^Sent as 2 channels: what you said Receiver takes\. Your correction:/);
     expect(why).not.toMatch(/takes only/);
+  });
+
+  it('a correction above what the device accepted is said as the device doing it, with both values', () => {
+    // Said 6; mpv asked for 5.1(side),5.1,stereo; the device gave stereo (Linux test PC, R12-R).
+    const facts = {
+      audio: {
+        codec: 'ac3',
+        outFormat: 's32',
+        inChannels: 6,
+        outChannels: 2,
+        direct: true,
+        device: receiver,
+        corrections: ['PCM channels 6 — you said; the receiver says 2'],
+        pcmCorrected: 6,
+      },
+    } as unknown as OutputFacts;
+    const why = checkSound(facts)!.why!;
+    expect(why).toMatch(/^You said Receiver takes 6 channels, but it took only 2, so the sound went as 2\./);
+    expect(why).toMatch(/Your correction: PCM channels 6 — you said; the receiver says 2\.$/);
+    expect(why).not.toMatch(/Sent as 2 channels: what you said/);
+  });
+
+  it('no correction: the device own limit', () => {
+    expect(foldedWhy('the device', 2, null)).toBe('The device takes only 2 channels.');
   });
 
   it('Copy facts leaves out device names that the rows say', async () => {

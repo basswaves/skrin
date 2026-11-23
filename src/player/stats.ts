@@ -698,6 +698,7 @@ async function readOutputCheck(from: {
       direct,
       device,
       corrections: soundCorrections(corrections, device, from.codec, direct),
+      pcmCorrected: direct ? pcmFact(corrections, device).corrected : null,
     },
     system: capabilitiesNow()?.system,
   });
