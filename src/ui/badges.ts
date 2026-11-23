@@ -208,6 +208,18 @@ export function aspectLabel(ratio: number): string {
 }
 
 /** `Profile 7 · FEL`, `Profile 8.1`, `Profile 5`. */
+/**
+ * The file's Dolby Vision record, unless the RPU read (dynamic_hdr.rs) found
+ * no RPU in any frame it read — then the file is what its base layer is,
+ * HDR10 most often (owner, 2026-11-23). An RPU not read (no ffmpeg, an older
+ * probe) leaves the record standing: an absence never measured is not
+ * claimed. Same rule as probe.rs `DolbyVision::carried`.
+ */
+export function carriedDolbyVision(video: VideoDetails | null | undefined): DolbyVision | null {
+  const dv = video?.dolby_vision ?? null;
+  return dv && dv.metadata?.rpus !== 0 ? dv : null;
+}
+
 export function dolbyVisionLabel(dv: DolbyVision): string {
   // Profile 8's compatibility is its sub-profile: 8.1 falls back to HDR10,
   // 8.2 to SDR, 8.4 to HLG.
@@ -339,8 +351,9 @@ export function buildBadges(
       label: 'Resolution',
       value: resolutionLabel(video.width, video.height, video.interlaced),
     });
-    if (video.dolby_vision) {
-      picture.push({ label: 'Dolby Vision', value: dolbyVisionLabel(video.dolby_vision) });
+    const dolbyVision = carriedDolbyVision(video);
+    if (dolbyVision) {
+      picture.push({ label: 'Dolby Vision', value: dolbyVisionLabel(dolbyVision) });
     }
     const hdr = video.hdr10_plus
       ? 'HDR10+'

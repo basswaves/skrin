@@ -125,6 +125,24 @@ pub struct DolbyVision {
     pub metadata: Option<DvMetadata>,
 }
 
+impl DolbyVision {
+    /// Whether the file is Dolby Vision as far as was measured: a
+    /// configuration record says so, and the RPU read (`dynamic_hdr.rs`)
+    /// did not find every frame without one. A file whose RPU was not read
+    /// — no ffmpeg, an older probe — still counts: an absence that was not
+    /// measured is never claimed. Owner, 2026-11-23: such a file is shown as
+    /// what its base layer is (HDR10), the panel says "labelled, but no
+    /// metadata in the file".
+    pub fn carried(&self) -> bool {
+        self.metadata.as_ref().and_then(|m| m.rpus) != Some(0)
+    }
+}
+
+/// [`DolbyVision::carried`] on a video's record, if it has one.
+pub fn carries_dolby_vision(video: &Video) -> Option<&DolbyVision> {
+    video.dolby_vision.as_ref().filter(|dv| dv.carried())
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EnhancementLayer {
     /// Full: the enhancement layer carries real picture — 12-bit detail the

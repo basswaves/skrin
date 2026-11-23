@@ -13,7 +13,13 @@
  * preferred over another by itself.
  */
 import { invoke } from '@tauri-apps/api/core';
-import { fileFacts, releaseNames, resolutionLabel, type FileFacts } from '../ui/badges';
+import {
+  carriedDolbyVision,
+  fileFacts,
+  releaseNames,
+  resolutionLabel,
+  type FileFacts,
+} from '../ui/badges';
 import { initParser } from './parse';
 import { readRelease, sourceLabel, type Release } from './release';
 
@@ -87,7 +93,7 @@ export function sizeWords(bytes: number): string {
 function hdrWord(facts: FileFacts | null): string | null {
   const video = facts?.details?.video;
   if (!video) return null;
-  if (video.dolby_vision) return 'Dolby Vision';
+  if (carriedDolbyVision(video)) return 'Dolby Vision';
   if (video.hdr10_plus) return 'HDR10+';
   if (video.transfer === 'pq') return 'HDR10';
   if (video.transfer === 'hlg') return 'HLG';
@@ -115,7 +121,11 @@ export function nameVersions(files: FileRead[]): Version[] {
     const source = release ? sourceLabel(release) : null;
     // Last, the file's own name: what tells two apart when nothing Skrin
     // reads does (an edition guessit does not know, two alike encodes).
-    const name = file.path.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') ?? null;
+    const name =
+      file.path
+        .split(/[\\/]/)
+        .pop()
+        ?.replace(/\.[^.]+$/, '') ?? null;
     return { base, extra: [codec, source, name] };
   });
   const keys = parts.map((p) => [...p.base]);

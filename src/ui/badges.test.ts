@@ -226,6 +226,36 @@ describe('labels', () => {
     expect(aspectLabel(2.1)).toBe('2.10:1');
   });
 
+  it('shows a file labelled Dolby Vision with no RPU as its base layer, once measured', () => {
+    const labels = (video: VideoDetails) =>
+      buildBadges(facts({ details: { ...facts().details!, video } }), null)[0].badges.map(
+        (b) => `${b.label}: ${b.value}`
+      );
+    const meta = {
+      profile: null,
+      enhancement_layer: null,
+      cm_version: null,
+      brightness: null,
+      mastering_peak_nits: null,
+      max_cll: null,
+      max_fall: null,
+      l2_trims: false,
+      l8_trims: false,
+      points: 10,
+    };
+    const p8 = { profile: 8, level: 6, compatibility: 1, enhancement_layer: null };
+    // Read across the film, no RPU anywhere: HDR10, as the base layer is.
+    const absent = labels({ ...VIDEO_4K, dolby_vision: { ...p8, metadata: { ...meta, rpus: 0 } } });
+    expect(absent.some((l) => l.startsWith('Dolby Vision'))).toBe(false);
+    expect(absent).toContain('HDR: HDR10 · 1000 nits');
+    // Not read (no ffmpeg, an older probe), or read and found: Dolby Vision.
+    for (const metadata of [undefined, null, { ...meta, rpus: 10 }]) {
+      expect(labels({ ...VIDEO_4K, dolby_vision: { ...p8, metadata } })).toContain(
+        'Dolby Vision: Profile 8.1'
+      );
+    }
+  });
+
   it('names Dolby Vision profiles and their layers', () => {
     expect(dolbyVisionLabel({ profile: 7, level: 6, compatibility: 6, enhancement_layer: 'MEL' })).toBe(
       'Profile 7 · MEL'

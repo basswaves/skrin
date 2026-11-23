@@ -34,13 +34,16 @@ fn file_traits(details: &MediaDetails) -> BTreeSet<String> {
         if video.width >= 3200 || video.height >= 2000 {
             traits.insert("4k".to_string());
         }
-        if video.transfer != crate::probe::Transfer::Sdr || video.dolby_vision.is_some() {
+        // A file labelled Dolby Vision whose RPU read found none is not
+        // Dolby Vision here, as on its badge (probe.rs `carried`).
+        let dolby_vision = crate::probe::carries_dolby_vision(video);
+        if video.transfer != crate::probe::Transfer::Sdr || dolby_vision.is_some() {
             traits.insert("hdr".to_string());
         }
         if video.hdr10_plus {
             traits.insert("hdr10plus".to_string());
         }
-        if let Some(dv) = &video.dolby_vision {
+        if let Some(dv) = dolby_vision {
             traits.insert("dv".to_string());
             traits.insert(format!("dv:{}", dv.profile));
         }
@@ -196,6 +199,25 @@ mod tests {
         file(&conn, 1, 1, None, Some(UHD_DV_ATMOS));
         file(&conn, 2, 1, None, Some(HD_SDR));
         assert_eq!(traits(&conn, 1), ["4k", "atmos", "dtsx", "dv", "dv:7", "hdr"]);
+    }
+
+    /// Owner, 2026-11-23: a file labelled Dolby Vision whose RPU read found
+    /// none is not in the Dolby Vision collection; one not read still is.
+    #[test]
+    fn a_dolby_vision_label_without_an_rpu_is_not_dolby_vision() {
+        let no_rpu = UHD_DV_ATMOS.replace(
+            r#""enhancement_layer":"FEL"}"#,
+            r#""enhancement_layer":null,"metadata":{"profile":null,"enhancement_layer":null,
+              "cm_version":null,"brightness":null,"mastering_peak_nits":null,"max_cll":null,
+              "max_fall":null,"l2_trims":false,"l8_trims":false,"points":10,"rpus":0}}"#,
+        );
+        assert_ne!(no_rpu, UHD_DV_ATMOS);
+        let conn = library();
+        file(&conn, 1, 1, None, Some(&no_rpu));
+        assert_eq!(traits(&conn, 1), ["4k", "atmos", "hdr"]);
+        // Not read yet: as before.
+        file(&conn, 2, 2, None, Some(UHD_DV_ATMOS));
+        assert!(traits(&conn, 2).contains(&"dv".to_string()));
     }
 
     #[test]
