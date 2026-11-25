@@ -1901,10 +1901,14 @@ const handlers: Record<string, Handler> = {
   },
   list_all_videos: () => shownVideos().map(videoItem),
   // With many clips a frame takes a moment, and each ask is written down in
-  // `window.__frameAsks` so a test can read the order (GitHub #28).
+  // `window.__frameAsks` so a test can read the order (GitHub #28). A test
+  // may hold every frame behind `window.__holdFrames` (a promise) until the
+  // page is where it wants it.
   video_frame: async (a) => {
     if (!EXTRA_VIDEOS) return null;
-    ((window as unknown as { __frameAsks?: number[] }).__frameAsks ??= []).push(num(a, 'fileId'));
+    const w = window as unknown as { __frameAsks?: number[]; __holdFrames?: Promise<void> };
+    (w.__frameAsks ??= []).push(num(a, 'fileId'));
+    await w.__holdFrames;
     await new Promise((r) => setTimeout(r, 40));
     return null;
   },
