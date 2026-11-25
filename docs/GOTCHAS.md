@@ -1921,6 +1921,18 @@ null paths until then, so nothing had needed it. Fixed with
 fails on a missing element, print the page's console errors
 (`page.on('console', …)`) before guessing; the error boundary hides them.
 
+### A self-test's mute lasted one mpv; mpv is ended after each film (round 12b, R)
+
+mpv is ended 30 s after the player closes (`GIVE_BACK_MS`, to give back its
+memory) and a new one is started for the next film. A self-test (and the
+Kinema MCP run) set `mute yes` once, on the mpv running when it began, so the
+second film of a run played with sound — no error, `mute` read `yes` until
+the engine was given back. The log line that gives it away is
+"mpv instance … not found" between two films. **Do:** anything a test sets
+on mpv for the whole run goes through `muteEveryEngine()`-style state that
+`startEngine` applies to every new mpv; check a setting on the *second* film,
+after a wait of more than 30 s.
+
 ### Playwright empties `test-results/` at the start of every run
 
 Any `npx playwright test`, with either config, deletes the whole
