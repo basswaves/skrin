@@ -13,7 +13,7 @@
  * make the pictures the same every run.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { drawn, firstRunToSetupPage, focused, press, ringCovers, settled } from './kb';
+import { drawn, firstRunToSetupPage, focused, openPosterStep, press, ringCovers, settled } from './kb';
 
 type Look = 'full' | 'light';
 
@@ -114,22 +114,20 @@ for (const look of ['full', 'light'] as const) {
       await expect(page).toHaveScreenshot(`setup-ring-${look}.png`, SHOT);
     });
 
-    test('the Poster dialog, the ring on Cancel', async ({ page }) => {
+    test('the poster step, the ring on Cancel', async ({ page }) => {
       await start(page, look);
       await expect.poll(() => focused(page), { timeout: 30_000 }).toContain('Play');
       await page.getByRole('button', { name: 'Movies' }).first().click();
       await page.locator('.search .card', { hasText: 'Example Film' }).click();
       await expect(page.locator('.detail h1')).toHaveText('Example Film');
-      for (let i = 0; i < 10 && !/^Poster/.test((await focused(page)) ?? ''); i++) await press(page, 'ArrowRight');
-      await press(page, 'Enter');
-      await expect(page.getByRole('dialog', { name: 'Poster' })).toBeVisible();
+      await openPosterStep(page);
       await expect.poll(() => focused(page)).toBe('Cancel');
       expect(await ringCovers(page)).toEqual([]);
       await still(page);
       await expect(page).toHaveScreenshot(`poster-ring-${look}.png`, SHOT);
     });
 
-    test('the Poster dialog, a grid of posters with the ring on one', async ({ page }) => {
+    test('the poster step, a grid of posters with the ring on one', async ({ page }) => {
       await page.addInitScript(() => {
         localStorage.setItem('kinemaMockPeople', '1');
         localStorage.setItem('kinemaMockPosters', '1');
@@ -139,8 +137,7 @@ for (const look of ['full', 'light'] as const) {
       await page.getByRole('button', { name: 'Movies' }).first().click();
       await page.locator('.search .card', { hasText: 'Example Part Two' }).click();
       await expect(page.locator('.detail h1')).toHaveText('Example Part Two');
-      for (let i = 0; i < 10 && !/^Poster/.test((await focused(page)) ?? ''); i++) await press(page, 'ArrowRight');
-      await press(page, 'Enter');
+      await openPosterStep(page);
       await expect(page.locator('.poster-choice')).toHaveCount(13);
       await press(page, 'ArrowRight');
       await press(page, 'ArrowDown');

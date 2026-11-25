@@ -659,7 +659,7 @@ function GroupRow({
 /**
  * The search half of fixing a match: a name, Movie or TV series, Search, and
  * what the provider answered, each with its own Link. Shared by Needs
- * attention and the title page's "Files and title" (FilesAndTitle.tsx), so both
+ * attention and the title page's "Identify / Edit metadata" (FilesAndTitle.tsx), so both
  * follow the same rule: nothing is linked but the entry a person picks.
  */
 /** The search box and its buttons: Right from the box is Movie / TV series, Down the results. */

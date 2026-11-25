@@ -2,7 +2,7 @@
  * "Where do these go?" (GitHub #14, placing.ts): a show's season for some
  * files — Specials too — and the episode numbers, when the names and the
  * service disagree. From Needs attention's `Link as…` (in `PlaceDialog`) and
- * from Files and title's `Move to another season…` (inside that dialog).
+ * from Identify / Edit metadata's `Move to another season…` (inside that dialog).
  *
  * It never decides: it shows where each file would go, says which would
  * become a second copy, and the person presses. Nothing on disk changes.
@@ -41,7 +41,7 @@ interface ChooserProps {
   titleId: number;
   show: string;
   files: PlaceFile[];
-  /** `Link` from Needs attention, `Move` from Files and title. */
+  /** `Link` from Needs attention, `Move` from Identify / Edit metadata. */
   verb: 'Link' | 'Move';
   /** The season to start on; `names` = as the names say. */
   initial: number | 'names';

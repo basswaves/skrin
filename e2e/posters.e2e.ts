@@ -1,14 +1,15 @@
 /**
- * Choosing a title's poster (T20, PosterDialog.tsx, library/posters.ts):
- * the list opens by keyboard on the poster shown now, and a choice is kept
- * and shown. That it outlives a refresh is posters.rs's test and the real
+ * Choosing a title's poster (T20, PosterChooser.tsx, library/posters.ts):
+ * a step of Identify / Edit metadata since round 12b (the Poster button
+ * beside it is gone). The list opens by keyboard on the poster shown now,
+ * and a choice is kept and shown. That it outlives a refresh is posters.rs's test and the real
  * app's (the mock fetches nothing).
  * Against `dev:mock` with `kinemaMockPeople` (mockBackend.ts `poster_options`):
  * Example Part Two has a picture beside its file and a TMDB poster; TMDB
  * itself cannot be asked from the mock, so the list keeps asking.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { focused, press } from './kb';
+import { focused, openPosterStep, press } from './kb';
 
 async function open(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -34,19 +35,17 @@ test('a poster is chosen by keyboard, and chosen back', async ({ page }) => {
   expect(await shown(page)).toBe('local');
 
   await expect.poll(() => focused(page)).toMatch(/Play/);
-  for (let i = 0; i < 10 && (await focused(page)) !== 'Poster'; i++) await press(page, 'ArrowRight');
-  expect(await focused(page)).toBe('Poster');
-  await press(page, 'Enter');
-
-  const dialog = page.getByRole('dialog', { name: 'Poster' });
-  await expect(dialog).toBeVisible();
+  // No Poster button of its own any more: the choice is inside Identify / Edit metadata.
+  await expect(page.locator('.detail-actions button', { hasText: /^Poster/ })).toHaveCount(0);
+  const dialog = await openPosterStep(page);
   await expect(dialog).toContainText('Asking TMDB');
   await expect.poll(() => focused(page)).toMatch(/^✓ ?Beside the file/);
   await press(page, 'ArrowRight');
   expect(await focused(page)).toMatch(/^TMDB/);
   await press(page, 'Enter');
-  await expect(dialog).toHaveCount(0);
-  await expect.poll(() => focused(page)).toBe('Poster');
+  // Back to the dialog's first view, saying so, the ring on the poster step.
+  await expect(dialog).toContainText('Poster chosen: TMDB');
+  await expect.poll(() => focused(page)).toBe('Choose the poster…');
   expect(await shown(page)).toMatch(/^https:\/\/image\.tmdb\.org\/.*first/);
 
   // And back to the picture beside the file.
@@ -55,6 +54,31 @@ test('a poster is chosen by keyboard, and chosen back', async ({ page }) => {
   await press(page, 'ArrowLeft');
   await press(page, 'Enter');
   await expect.poll(() => shown(page)).toBe('local');
+  // Back closes the dialog; the ring is on the button that opened it.
+  await press(page, 'Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => focused(page)).toBe('Identify / Edit metadata');
+});
+
+test('the poster step by mouse: opened, a poster clicked, Cancel', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Movies' }).first().click();
+  await page.locator('.search .card', { hasText: 'Example Part Two' }).click();
+  await expect(page.locator('.detail h1')).toHaveText('Example Part Two');
+  await page.locator('.detail-actions button', { hasText: 'Identify / Edit metadata' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Identify / Edit metadata' });
+  await dialog.getByRole('button', { name: 'Choose the poster…' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Poster' })).toBeVisible();
+  // The list is drawn again when TMDB's answer is in: click once it has settled.
+  await expect(dialog).not.toContainText('Asking TMDB');
+  await dialog.locator('.poster-choice', { hasText: 'TMDB' }).click();
+  await expect(dialog).toContainText('Poster chosen: TMDB');
+  expect(await shown(page)).toMatch(/^https:\/\/image\.tmdb\.org\/.*first/);
+  // Cancel leaves the poster as it is and goes back to the first view.
+  await dialog.getByRole('button', { name: 'Choose the poster…' }).click();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog.getByRole('button', { name: 'Choose the poster…' })).toBeVisible();
+  expect(await shown(page)).toMatch(/^https:\/\/image\.tmdb\.org\/.*first/);
 });
 
 /** TMDB's answer with eleven posters (mockBackend.ts), so the list is a grid several rows tall. */
@@ -73,10 +97,7 @@ const openPosters = async (page: Page) => {
   await page.locator('.search .card', { hasText: 'Example Part Two' }).click();
   await expect(page.locator('.detail h1')).toHaveText('Example Part Two');
   await expect.poll(() => focused(page)).toMatch(/Play/);
-  for (let i = 0; i < 10 && (await focused(page)) !== 'Poster'; i++) await press(page, 'ArrowRight');
-  await press(page, 'Enter');
-  const dialog = page.getByRole('dialog', { name: 'Poster' });
-  await expect(dialog).toBeVisible();
+  const dialog = await openPosterStep(page);
   await expect(page.locator('.poster-choice')).toHaveCount(13);
   return dialog;
 };
@@ -121,9 +142,12 @@ test('the posters are a grid the ring moves through, down to the last row', asyn
   await press(page, 'ArrowUp');
   const last = page.locator('.poster-choice.focused');
   await expect(last).toBeInViewport();
+  // Back leaves the poster step for the dialog's first view, then closes it.
+  await press(page, 'Escape');
+  await expect.poll(() => focused(page)).toBe('Choose the poster…');
   await press(page, 'Escape');
   await expect(dialog).toHaveCount(0);
-  await expect.poll(() => focused(page)).toBe('Poster');
+  await expect.poll(() => focused(page)).toBe('Identify / Edit metadata');
 });
 
 test('the posters by mouse: every one is reachable, hover marks it, a click picks it', async ({ page }) => {
@@ -139,6 +163,7 @@ test('the posters by mouse: every one is reachable, hover marks it, a click pick
   await lastTile.hover();
   await expect(lastTile).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.1)');
   await lastTile.click();
-  await expect(dialog).toHaveCount(0);
+  await expect(dialog.locator('.poster-choice')).toHaveCount(0);
+  await expect(dialog).toContainText('Poster chosen');
   expect(await shown(page)).toMatch(/^https:\/\/image\.tmdb\.org\/.*p10/);
 });

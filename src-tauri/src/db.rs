@@ -1657,7 +1657,7 @@ mod tests {
         assert_eq!(clamp_future_times(&conn, 1_000_000).unwrap(), 0);
     }
 
-    /// 0.15.2 (schema 38) to Files and title (39): every row and resume point
+    /// 0.15.2 (schema 38) to Identify / Edit metadata (39): every row and resume point
     /// kept, nothing marked as placed, and the numbers left as the names say.
     #[test]
     fn upgrading_from_0_15_2_loses_nothing() {

@@ -1,9 +1,12 @@
 /**
- * "Files and title" on a title's own page (GitHub #14; was "Wrong title?",
- * T19): the files the title holds, a row per folder and season, and what a
- * person can do with one row — move it to another season, make it a title of
- * its own, unlink it alone, or put back what the names say. Under them, the
- * search from Needs attention for a title that is wrong altogether.
+ * "Identify / Edit metadata" on a title's own page (round 12b; was "Files and
+ * title", GitHub #14, and before that "Wrong title?", T19): the files the
+ * title holds, a row per folder and season, and what a person can do with one
+ * row — move it to another season, make it a title of its own, unlink it
+ * alone, or put back what the names say. Under them, the poster the title
+ * shows (PosterChooser.tsx, a step of its own here; was a Poster button beside
+ * this one), and the search from Needs attention for a title that is wrong
+ * altogether.
  *
  * The same rules as the queue: nothing is linked but the entry a person picks,
  * nothing is matched again, and no file is renamed, moved or written beside
@@ -27,6 +30,7 @@ import { applyMatch, loadProviderKeys } from '../metadata/match';
 import type { Candidate } from '../metadata/score';
 import type { Provider } from '../metadata/match';
 import { MatchSearch } from './FixMatch';
+import PosterChooser from '../ui/PosterChooser';
 import { readLocalName } from './localTitle';
 import { PlaceChooser } from './PlaceChooser';
 import {
@@ -46,8 +50,14 @@ const SEARCH_KEY = 'files-title-search';
 const rowKey = (key: string) => `files-row-${key}`;
 const MOVE_KEY = 'files-row-move';
 const OWN_NAME_KEY = 'files-own-name';
+const POSTER_KEY = 'files-poster';
+const POSTER_CANCEL_KEY = 'files-poster-cancel';
 
-type View = { kind: 'rows' } | { kind: 'place'; row: FolderRow } | { kind: 'own'; row: FolderRow };
+type View =
+  | { kind: 'rows' }
+  | { kind: 'place'; row: FolderRow }
+  | { kind: 'own'; row: FolderRow }
+  | { kind: 'poster' };
 
 interface Props {
   titleId: number;
@@ -55,13 +65,15 @@ interface Props {
   name: string;
   year: number | null;
   isSeries: boolean;
-  /** Kept under its own name (local_title.rs): no search here, Find a match is on its page. */
+  /** Kept under its own name (local_title.rs): no search or poster here, Find a match is on its page. */
   isLocal: boolean;
   onClose: () => void;
   /** The files left for another title (its id), or all went to Needs attention (null). */
   onDone: (titleId: number | null) => void;
   /** Some files changed, the title stays: the page reads itself again. */
   onChanged: () => void;
+  /** Another poster was chosen: the page and the library's cards show it. */
+  onPosterChosen: () => void;
 }
 
 export default function FilesAndTitle({
@@ -73,6 +85,7 @@ export default function FilesAndTitle({
   onClose,
   onDone,
   onChanged,
+  onPosterChosen,
 }: Props) {
   const [files, setFiles] = useState<TitleFile[] | null>(null);
   const [view, setView] = useState<View>({ kind: 'rows' });
@@ -102,7 +115,10 @@ export default function FilesAndTitle({
   }, [reload]);
 
   const back = useCallback(() => {
-    if (view.kind !== 'rows') {
+    if (view.kind === 'poster') {
+      backTo.current = POSTER_KEY;
+      setView({ kind: 'rows' });
+    } else if (view.kind !== 'rows') {
       backTo.current = rowKey(view.row.key);
       setView({ kind: 'rows' });
     } else if (open) {
@@ -129,6 +145,8 @@ export default function FilesAndTitle({
   // A view takes the last one's place: the ring goes with it.
   useLayoutEffect(() => {
     if (view.kind === 'own') navFocus(OWN_NAME_KEY);
+    // Cancel holds the ring until the posters are drawn (PosterChooser.tsx).
+    else if (view.kind === 'poster') navFocus(POSTER_CANCEL_KEY);
     else if (view.kind === 'rows' && backTo.current) {
       navFocus(backTo.current);
       backTo.current = null;
@@ -235,18 +253,37 @@ export default function FilesAndTitle({
 
   const total = files?.length ?? 0;
 
+  const posterDone = useCallback(
+    (words: string | null) => {
+      setNote(words === null ? 'The poster could not be kept; it is as it was.' : `Poster chosen: ${words}.`);
+      if (words !== null) onPosterChosen();
+      backTo.current = POSTER_KEY;
+      setView({ kind: 'rows' });
+    },
+    [onPosterChosen]
+  );
+
   return (
     <FocusProvider value={focusKey}>
       <div className="leave-backdrop" onClick={onClose}>
         <div
-          className="leave wrong-title"
+          // The poster step keeps the poster list's own wide box (ui.css).
+          className={view.kind === 'poster' ? 'leave posters' : 'leave wrong-title'}
           ref={ref}
           onClick={(e) => e.stopPropagation()}
           role="dialog"
-          aria-label="Files and title"
+          aria-label="Identify / Edit metadata"
         >
           {error && <div className="fixmatch-error">{error}</div>}
-          {view.kind === 'place' ? (
+          {view.kind === 'poster' ? (
+            <PosterChooser
+              titleId={titleId}
+              name={name}
+              cancelKey={POSTER_CANCEL_KEY}
+              onChosen={posterDone}
+              onCancel={back}
+            />
+          ) : view.kind === 'place' ? (
             <PlaceChooser
               titleId={titleId}
               show={name}
@@ -279,7 +316,7 @@ export default function FilesAndTitle({
             />
           ) : (
             <>
-              <h2>Files and title: {name}</h2>
+              <h2>Identify / Edit metadata: {name}</h2>
               <p className="muted">
                 {files === null
                   ? 'Reading the files…'
@@ -302,6 +339,24 @@ export default function FilesAndTitle({
                   />
                 ))}
               </FocusGroup>
+              {/* Which picture the title shows everywhere: TMDB's or the one
+                  beside its files (T20). A person's choice of content. */}
+              {!isLocal && (
+                <>
+                  <p className="muted files-search-head">
+                    The poster “{name}” shows everywhere in Skrin.
+                  </p>
+                  <FocusGroup kind="row" className="settings-row">
+                    <FocusButton
+                      focusKey={POSTER_KEY}
+                      className="btn-secondary"
+                      onSelect={() => setView({ kind: 'poster' })}
+                    >
+                      Choose the poster…
+                    </FocusButton>
+                  </FocusGroup>
+                </>
+              )}
               {!isLocal && (
                 <>
                   <p className="muted files-search-head">

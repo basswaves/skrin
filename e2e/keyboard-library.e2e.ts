@@ -235,7 +235,7 @@ for (const [system, sections] of [
   });
 }
 
-test('Files and title on the title page: its files and the queue’s search, by remote; Back closes it, Unlink all goes to the queue', async ({
+test('Identify / Edit metadata on the title page: its files and the queue’s search, by remote; Back closes it, Unlink all goes to the queue', async ({
   page,
 }) => {
   await page.addInitScript(() => localStorage.setItem('kinemaMockVersions', '1'));
@@ -254,7 +254,7 @@ test('Files and title on the title page: its files and the queue’s search, by 
   // Right walks the row in reading order, over the line it wraps at, to the
   // last button; Left walks it back.
   const names = (await row.allTextContents()).map((t) => t.trim());
-  expect(names.at(-1)).toBe('Files and title');
+  expect(names.at(-1)).toBe('Identify / Edit metadata');
   for (const name of names.slice(1)) {
     await press(page, 'ArrowRight');
     await expect.poll(() => focused(page)).toBe(name);
@@ -264,21 +264,24 @@ test('Files and title on the title page: its files and the queue’s search, by 
     await expect.poll(() => focused(page)).toBe(name);
   }
   for (let i = 1; i < names.length; i++) await press(page, 'ArrowRight');
-  await expect.poll(() => focused(page)).toBe('Files and title');
+  await expect.poll(() => focused(page)).toBe('Identify / Edit metadata');
 
   // Opens on the folder's row; under it the search, the title's name in it.
   await press(page, 'Enter');
-  const dialog = page.locator('[role="dialog"][aria-label="Files and title"]');
+  const dialog = page.locator('[role="dialog"][aria-label="Identify / Edit metadata"]');
   await expect(dialog).toContainText('linked to “Example Film” (2017)');
   await expect(dialog.locator('.fixmatch-input')).toHaveValue('Example Film');
   await expect.poll(() => focused(page)).toMatch(/^Example Film \(2017\)/);
+  // The poster step between the files and the search (round 12b).
+  await press(page, 'ArrowDown');
+  await expect.poll(() => focused(page)).toBe('Choose the poster…');
   await press(page, 'ArrowDown');
   await expect.poll(() => page.evaluate(() => document.activeElement?.className ?? '')).toContain('fixmatch-input');
 
   // Back closes it; the ring is back on the button.
   await press(page, 'Escape');
   await expect(dialog).toHaveCount(0);
-  await expect.poll(() => focused(page)).toBe('Files and title');
+  await expect.poll(() => focused(page)).toBe('Identify / Edit metadata');
 
   // Again, down to Unlink all: the files wait in Needs attention, which opens.
   await press(page, 'Enter');

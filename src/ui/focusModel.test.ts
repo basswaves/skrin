@@ -565,7 +565,7 @@ describe('an actor’s page and a collection', () => {
   });
 });
 
-describe('dialogs: the card menu, Files and title, Where do these go?, the poster chooser', () => {
+describe('dialogs: the card menu, Identify / Edit metadata, Where do these go?, the poster chooser', () => {
   const menu = (children: A['children'], extra: Partial<AreaSpec> = {}): A => ({
     area: { kind: 'menu', ...extra },
     children,
@@ -584,7 +584,7 @@ describe('dialogs: the card menu, Files and title, Where do these go?, the poste
     for (const a of ['left', 'right'] as Arrow[]) expect(move(tree, 'list', a, none)).toBeNull();
   });
 
-  it('Files and title: opens on the first folder; an open row is a row of actions; the search and foot under', () => {
+  it('Identify / Edit metadata: opens on the first folder; an open row is a row of actions; the search and foot under', () => {
     const tree = build(
       column([
         ['page', column(['files-button'])],

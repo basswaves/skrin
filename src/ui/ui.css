@@ -1533,7 +1533,7 @@ button.cast-member {
   overflow: hidden;
 }
 
-/* The poster list (PosterDialog.tsx): a grid that scrolls down, inside the
+/* The poster list (PosterChooser.tsx, in Identify / Edit metadata): a grid that scrolls down, inside the
    dialog. Padding is the ring's room (the ring would be clipped by the scroll). */
 .leave.posters {
   width: min(56rem, 92vw);

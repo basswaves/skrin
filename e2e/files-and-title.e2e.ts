@@ -1,5 +1,5 @@
 /**
- * Keyboard flows for GitHub #14: Files and title on a show's page, and
+ * Keyboard flows for GitHub #14: Identify / Edit metadata on a show's page, and
  * Needs attention's `Link as…` (FilesAndTitle.tsx, PlaceChooser.tsx). Keys
  * only, in each engine `playwright.config.ts` lists; the mouse is never
  * touched (CONTRIBUTING, "Two failure modes"). Shared helpers: kb.ts.
@@ -24,13 +24,13 @@ async function openSaga(page: Page): Promise<void> {
   await expect(page.locator('h1, .detail-title').filter({ hasText: 'Example Saga' }).first()).toBeVisible();
 }
 
-test('Files and title: a season folder moves to Specials, then is unlinked alone, by keys', async ({ page }) => {
+test('Identify / Edit metadata: a season folder moves to Specials, then is unlinked alone, by keys', async ({ page }) => {
   await openSaga(page);
   // The last button of the row, renamed from "Wrong title?".
-  await until(page, 'ArrowDown', /^(▶ |Files and title)/, 4);
-  await until(page, 'ArrowRight', /^Files and title$/, 12);
+  await until(page, 'ArrowDown', /^(▶ |Identify \/ Edit metadata)/, 4);
+  await until(page, 'ArrowRight', /^Identify \/ Edit metadata$/, 12);
   await press(page, 'Enter');
-  const dialog = page.locator('[role="dialog"][aria-label="Files and title"]');
+  const dialog = page.locator('[role="dialog"][aria-label="Identify / Edit metadata"]');
   await expect(dialog).toContainText('4 files are linked to “Example Saga”');
   // One row per folder and season; it opens on the first.
   await expect(dialog.locator('.files-row-head')).toHaveCount(2);
@@ -54,7 +54,7 @@ test('Files and title: a season folder moves to Specials, then is unlinked alone
   // Closed: the ring is back on the button, and the page has a Specials season.
   await press(page, 'Escape');
   await expect(dialog).toHaveCount(0);
-  await expect.poll(() => focused(page)).toBe('Files and title');
+  await expect.poll(() => focused(page)).toBe('Identify / Edit metadata');
   await expect(page.locator('button', { hasText: /^Specials/ }).first()).toBeVisible();
 
   // Again: the placed row offers the names back; unlink takes it alone.
@@ -71,10 +71,10 @@ test('Files and title: a season folder moves to Specials, then is unlinked alone
   await expect(dialog).toHaveCount(0);
 });
 
-test('Files and title: make a folder its own title, by keys', async ({ page }) => {
+test('Identify / Edit metadata: make a folder its own title, by keys', async ({ page }) => {
   await openSaga(page);
-  await until(page, 'ArrowDown', /^(▶ |Files and title)/, 4);
-  await until(page, 'ArrowRight', /^Files and title$/, 12);
+  await until(page, 'ArrowDown', /^(▶ |Identify \/ Edit metadata)/, 4);
+  await until(page, 'ArrowRight', /^Identify \/ Edit metadata$/, 12);
   await press(page, 'Enter');
   await expect.poll(() => focused(page)).toMatch(/^Season 1/);
   await press(page, 'Enter');

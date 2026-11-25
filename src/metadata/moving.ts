@@ -52,7 +52,7 @@ export async function applyMovedMatches(): Promise<number> {
         keys,
         1,
         m.reason,
-        // Placed by hand on the other computer (Files and title): here too.
+        // Placed by hand on the other computer (Identify / Edit metadata): here too.
         m.placed
           ? m.file_ids.map((id) => ({
               file_id: id,

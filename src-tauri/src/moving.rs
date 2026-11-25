@@ -56,7 +56,7 @@ pub struct Hand {
     pub provider: Option<String>,
     pub provider_id: Option<String>,
     pub reason: Option<String>,
-    /// Where a person put the file on its show (Files and title, GitHub #14),
+    /// Where a person put the file on its show (Identify / Edit metadata, GitHub #14),
     /// when not where its name says. Absent in files made before 0.16.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub placed: Option<Placed>,
@@ -703,7 +703,7 @@ mod tests {
         assert_eq!(count(&new, "SELECT COUNT(*) FROM watch_outbox"), 0);
     }
 
-    /// Files and title (GitHub #14): a file placed on Specials by hand is
+    /// Identify / Edit metadata (GitHub #14): a file placed on Specials by hand is
     /// placed there on the new computer too, and a file from before has none.
     #[test]
     fn a_placement_by_hand_moves_with_its_match() {

@@ -304,7 +304,7 @@
   font-size: max(var(--fs-floor), 0.8125rem);
 }
 
-/* Files and title and "Where do these go?" (FilesAndTitle.tsx,
+/* Identify / Edit metadata and "Where do these go?" (FilesAndTitle.tsx,
    PlaceChooser.tsx; GitHub #14). */
 .files-rows,
 .place-rows,

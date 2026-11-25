@@ -23,7 +23,6 @@ import { navFocus, useLanding } from './focusStore';
 import MediaBadges, { BadgeRows } from './MediaBadges';
 import HeavyFileNotice from './HeavyFileNotice';
 import VersionDialog from './VersionDialog';
-import PosterDialog from './PosterDialog';
 import FilesAndTitle from '../library/FilesAndTitle';
 import { useChosenVersion, useTitleVersions } from './useVersions';
 import { chooseVersion, pickVersion, readVersions, type Version } from '../library/versions';
@@ -78,7 +77,7 @@ interface Props {
    * it was on no longer exists. Opens the review queue in its place.
    */
   onFindMatch?: () => void;
-  /** "Files and title" linked the files to another title (its id) or unlinked them all (null). */
+  /** "Identify / Edit metadata" linked the files to another title (its id) or unlinked them all (null). */
   onRelinked?: (titleId: number | null) => void;
   /** Another title's page: a film of the same collection. */
   onOpenTitle?: (title: Title) => void;
@@ -218,7 +217,7 @@ export default function TitleDetailView({
         : DETAIL_ACTIONS_KEY
   );
 
-  /** Raised when Files and title moved some files: the page reads itself again. */
+  /** Raised when Identify / Edit metadata moved some files: the page reads itself again. */
   const [reread, setReread] = useState(0);
   useEffect(() => {
     let cancelled = false;
@@ -273,10 +272,8 @@ export default function TitleDetailView({
     versionsHere.screen
   );
   const [versionsOpen, setVersionsOpen] = useState(false);
-  /** "Files and title" is up (FilesAndTitle.tsx). */
+  /** "Identify / Edit metadata" is up (FilesAndTitle.tsx), the poster choice in it. */
   const [wrongOpen, setWrongOpen] = useState(false);
-  /** The poster list is up (PosterDialog.tsx, T20). */
-  const [postersOpen, setPostersOpen] = useState(false);
   const posterChosen = useCallback(async () => {
     try {
       setDetail(await getTitleDetail(title.id));
@@ -900,30 +897,19 @@ export default function TitleDetailView({
                   </FocusButton>
                 )}
 
-                {/* Which picture the title shows everywhere: TMDB's or the one
-                    beside its files (T20). A person's choice of content. */}
-                {!isLocal && (
-                  <FocusButton
-                    className="btn-secondary"
-                    label="Poster: choose the picture this title shows"
-                    onSelect={() => setPostersOpen(true)}
-                  >
-                    Poster
-                  </FocusButton>
-                )}
-
                 {/* The files this title holds, folder by folder (GitHub #14):
                     one moved to another season, made its own title or
-                    unlinked alone; and the same search as Needs attention for
-                    a title that is wrong altogether (T19). Titles kept under
-                    their own name have it too. Last in the row: the rarest
-                    thing anyone comes to a title's page for. */}
+                    unlinked alone; the poster it shows (T20, a Poster button
+                    of its own until round 12b); and the same search as Needs
+                    attention for a title that is wrong altogether (T19).
+                    Titles kept under their own name have it too. Last in the
+                    row: the rarest thing anyone comes to a title's page for. */}
                 {onRelinked && (
                   <FocusButton
                     className="btn-secondary"
                     onSelect={() => setWrongOpen(true)}
                   >
-                    Files and title
+                    Identify / Edit metadata
                   </FocusButton>
                 )}
                   </>
@@ -941,14 +927,7 @@ export default function TitleDetailView({
                   onClose={() => setWrongOpen(false)}
                   onDone={onRelinked}
                   onChanged={() => setReread((n) => n + 1)}
-                />
-              )}
-              {postersOpen && (
-                <PosterDialog
-                  titleId={title.id}
-                  name={name}
-                  onChosen={() => void posterChosen()}
-                  onClose={() => setPostersOpen(false)}
+                  onPosterChosen={() => void posterChosen()}
                 />
               )}
               {versionsOpen && chosen && (

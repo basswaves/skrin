@@ -1,4 +1,4 @@
-//! Files and title (GitHub #14, option A piece 1): which files a title holds,
+//! Identify / Edit metadata (GitHub #14, option A piece 1): which files a title holds,
 //! folder by folder and season by season, and a person's choice of where some
 //! of them go — another season, other episode numbers, a title of their own,
 //! or back to Needs attention.

@@ -2055,7 +2055,7 @@ const handlers: Record<string, Handler> = {
       .filter((f) => f.season === num(a, 'season'))
       .map((f) => ({ file_id: f.id, ...mockFileFacts(f.id) })),
   list_unmatched: () => [],
-  // Files and title → Unlink: the files leave the title (they would wait in
+  // Identify / Edit metadata → Unlink: the files leave the title (they would wait in
   // Needs attention; the mock does not list them there).
   unlink_files: (a) => {
     for (const f of files) {
@@ -2092,7 +2092,7 @@ const handlers: Record<string, Handler> = {
     mockLastMatch = a;
     return (a.fileIds as number[]).length;
   },
-  // Files and title (placing.rs), in memory.
+  // Identify / Edit metadata (placing.rs), in memory.
   title_files: (a) => titleFilesMock(num(a, 'titleId')),
   place_files: (a) => {
     const list = a.placements as { file_id: number; season: number | null; episode: number | null }[];

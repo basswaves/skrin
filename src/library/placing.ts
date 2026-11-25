@@ -1,5 +1,5 @@
 /**
- * Files and title (GitHub #14, `placing.rs`): which files a title holds,
+ * Identify / Edit metadata (GitHub #14, `placing.rs`): which files a title holds,
  * folder by folder and season by season, and where a person puts some of
  * them — another season (Specials too), other episode numbers, a title of
  * their own. Only the library's rows change: no file is renamed, moved or
@@ -76,7 +76,7 @@ export function folderName(dir: string): string {
   return parts[parts.length - 1] ?? dir;
 }
 
-/** One row of Files and title: a folder and a season. */
+/** One row of Identify / Edit metadata: a folder and a season. */
 export interface FolderRow {
   key: string;
   folder: string;

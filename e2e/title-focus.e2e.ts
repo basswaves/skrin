@@ -8,7 +8,7 @@
  * `kinemaMockPeople` (a cast, a collection).
  */
 import { expect, test, type Page } from '@playwright/test';
-import { focused, press, ringCovers, settled } from './kb';
+import { focused, openPosterStep, press, ringCovers, settled } from './kb';
 
 interface Ring {
   key: string | null;
@@ -193,10 +193,7 @@ test('the cast by keys: every face holds a ring, the pictures in one line, OK op
 test('a dialog holds the ring: arrows and Tab stay in it, Back gives it to the button', async ({ page }) => {
   await open(page);
   await openTitle(page, 'Movies', 'Example Part Two');
-  for (let i = 0; i < 10 && !/^Poster/.test(await focused(page) ?? ''); i++) await press(page, 'ArrowRight');
-  await press(page, 'Enter');
-  const dialog = page.getByRole('dialog', { name: 'Poster' });
-  await expect(dialog).toBeVisible();
+  const dialog = await openPosterStep(page);
   const inDialog = () =>
     page.evaluate(() => {
       const el = document.querySelector('.focused');
@@ -214,8 +211,11 @@ test('a dialog holds the ring: arrows and Tab stay in it, Back gives it to the b
     await settled(page);
     expect(await behind(), `the page behind, after ${key}`).toBe(before);
   }
+  // Back steps out of the poster step, then out of the dialog.
+  await press(page, 'Escape');
+  await expect.poll(() => focused(page)).toBe('Choose the poster…');
   await press(page, 'Escape');
   await expect(dialog).toHaveCount(0);
-  await expect.poll(() => focused(page)).toMatch(/^Poster/);
+  await expect.poll(() => focused(page)).toBe('Identify / Edit metadata');
   expectSeen(await ring(page), 'back on the button');
 });

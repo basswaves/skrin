@@ -2,7 +2,7 @@
  * Shared by the keyboard flows (keyboard-*.e2e.ts): key presses, where the
  * focus ring is, the fake mpv, TV mode and opening the mock as a system.
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /** Whether Skrin's own focus engine answers the keys now (focusStore.ts). */
 function onSkrinEngine(page: Page): Promise<boolean> {
@@ -233,4 +233,25 @@ export function ringCovers(page: Page): Promise<string[]> {
     }
     return hits;
   });
+}
+
+/**
+ * From a title's page with the ring in its row of buttons, by keys only:
+ * Identify / Edit metadata, then its poster step (PosterChooser.tsx; a Poster
+ * button of its own until round 12b). Returns the dialog.
+ */
+export async function openPosterStep(page: Page): Promise<Locator> {
+  const button = 'Identify / Edit metadata';
+  for (let i = 0; i < 12 && (await focused(page)) !== button; i++) await press(page, 'ArrowRight');
+  expect(await focused(page)).toBe(button);
+  await press(page, 'Enter');
+  const dialog = page.getByRole('dialog', { name: button });
+  await expect(dialog).toBeVisible();
+  // It opens on the first folder; the poster step is under the folders.
+  await expect.poll(() => focused(page)).not.toBe(button);
+  for (let i = 0; i < 8 && (await focused(page)) !== 'Choose the poster…'; i++) await press(page, 'ArrowDown');
+  expect(await focused(page)).toBe('Choose the poster…');
+  await press(page, 'Enter');
+  await expect(dialog.getByRole('heading', { name: 'Poster' })).toBeVisible();
+  return dialog;
 }

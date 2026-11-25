@@ -6,7 +6,7 @@
  * `ringCovers` (kb.ts) lists the text the ring is drawn over.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { firstRunToSetupPage, focused, open, press, ringCovers, settled, tvMode } from './kb';
+import { firstRunToSetupPage, focused, open, openPosterStep, press, ringCovers, settled, tvMode } from './kb';
 
 /** Every press of `keys`, the ring checked after each; returns what it covered, by control. */
 async function walk(page: Page, keys: string[]): Promise<string[]> {
@@ -40,7 +40,7 @@ for (const tv of [true, false]) {
     expect(await walk(page, keys)).toEqual([]);
   });
 
-  test(`the Poster dialog: Cancel's ring leaves the line above it readable${tv ? ', TV mode' : ''}`, async ({ page }) => {
+  test(`the poster step: Cancel's ring leaves the line above it readable${tv ? ', TV mode' : ''}`, async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('kinemaMockPeople', '1'));
     await open(page, 'windows');
     if (tv) await tvMode(page);
@@ -48,10 +48,7 @@ for (const tv of [true, false]) {
     // A film with one picture: no row of choices, Cancel right under the words.
     await page.locator('.search .card', { hasText: 'Example Film' }).click();
     await expect(page.locator('.detail h1')).toHaveText('Example Film');
-    for (let i = 0; i < 10 && !/^Poster/.test((await focused(page)) ?? ''); i++) await press(page, 'ArrowRight');
-    await press(page, 'Enter');
-    const dialog = page.getByRole('dialog', { name: 'Poster' });
-    await expect(dialog).toBeVisible();
+    await openPosterStep(page);
     await expect.poll(() => focused(page)).toBe('Cancel');
     expect(await walk(page, ['ArrowDown', 'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'])).toEqual([]);
   });
