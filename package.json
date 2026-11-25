@@ -1,6 +1,6 @@
 {
   "name": "skrin",
-  "version": "0.21.1",
+  "version": "0.22.0",
   "description": "A local, serverless media library for movies and TV shows. Tauri 2 + React 19 + libmpv.",
   "license": "MIT",
   "author": "Basswaves",

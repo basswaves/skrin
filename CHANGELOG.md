@@ -7,6 +7,39 @@ makes no stability promises.
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-11-25
+
+### New
+
+- **Chapter marks on the seek bar.** Where a file has chapters, a small mark shows where each one starts, and the chapter's name shows above the bar while you seek: by keys or remote, by dragging, or with the mouse over the bar. Files without chapters look as before.
+- **A file that is not there any more: Skrin looks for it first.** Play on a library file that has gone looks in your library folders for the same file (same name and size). Found once: "It moved to … — use it?", and it plays from there with what you watched, the resume point, the match and your track choices kept. Not found: **Find it…**, **Remove from library** or Cancel. A drive or share that cannot be reached is said as such, with no Remove. Nothing is written to your media folders.
+- **Identify / Edit metadata** is the new name for "Files and title" on a title's page, and choosing the poster is now inside it (**Choose the poster…**) instead of a separate Poster button.
+- **Media info** on a title's page: the file's facts (picture, sound, subtitles) sit together under one heading, and a film's File details fold-out comes straight after them.
+- **The Library page** keeps Playlists and Add a folder as a small row on top, and each Videos folder tile shows four pictures from inside the folder (GitHub #31).
+- **A big Videos folder fills in the pictures on screen first**, then the ones just below, then the rest, which go on in the background after you leave (GitHub #28). Scrolling re-orders them; nothing is made while a film plays.
+- **In TV mode, a double click on the picture (or F) says "Full screen in TV mode"** for a moment instead of doing nothing: TV mode is always full screen.
+
+- **Dolby Vision's second layer is said plainly.** On films with a profile 7 enhancement layer the details panel says whether it was merged into the picture or only the base layer is shown, and why. It used to say "base layer only" even where the layer was merged.
+- **The film's own light levels** for Dolby Vision and HDR10+ films, read from the file and shown in the stats panel: the grade, scene brightness, the light levels it was graded to, and whether that data fed the tone mapping. A file labelled Dolby Vision with no data in its frames says so. Scanning a library reads this once per file (about a second each).
+- **Copy facts**, on the stats panel and in Settings → Your equipment: what your screens and receiver told Skrin, every mpv option Skrin set and the stats rows, as plain text for a post. Device names, ids, serial numbers, file paths and titles are left out.
+- **Why lines** under the stats panel's rows: why this audio and subtitle track, why this tone mapping, what made Skrin step down.
+- **Correct a fact** under each device in Settings → Your equipment: the receiver's PCM channels and which formats it takes, per device (an earlier global value moves to the device the sound goes to), and the screen's peak brightness as steps in words. Copy facts and the checks say "corrected by you".
+
+### Changed
+
+- **A file labelled Dolby Vision with no Dolby Vision data in its frames** no longer gets a Dolby Vision badge or a place in the Dolby Vision collection and filters; its badges say what its picture is (HDR10, or nothing for an SDR picture). Files not yet read keep their badge.
+- **Newer video engine:** libmpv is now mpv 0.42.0 with libplacebo 7.387 (was 0.41 / 7.360). HDR10, HDR10+ and SDR pictures are unchanged. On Linux the packages use the system's libmpv.
+- **When the graphics card cannot keep up on a Dolby Vision film with an enhancement layer, turning that layer off is the first thing Skrin steps down**, before anything else; the panel says so. Levels remembered from before count one step higher.
+
+### Fixed
+
+- **Up next can be stopped** (GitHub #29): Cancel stops the countdown, pausing holds it, going back takes it down, and OK plays the next one now.
+- **Back to a big Videos folder keeps your place** (GitHub #30), also when the mouse moves while the folder is read again.
+- **A trailer's full-screen button works**, and Back leaves full screen first.
+- **With the mouse resting over a grid, arrow keys no longer leave two cards enlarged.** The card under the pointer stops being drawn as chosen once a key is pressed, until the mouse really moves.
+- **A studio logo that showed as a blank white block** (a photo or shaded picture rather than lettering) now shows the studio's name.
+- The Sound check could say a fold-down you had chosen was the device's limit.
+
 ## [0.21.1] — 2026-11-22
 
 ### New
