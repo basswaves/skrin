@@ -2,8 +2,10 @@
  * The Library tab and a Videos folder's page (LOCAL-MEDIA.md phase 2 and
  * decision 1).
  *
- * The Library page holds one tile per Videos folder, then Playlists
- * (PlaylistsPages.tsx) and Folders, so the top bar never grows again. Folders
+ * The Library page holds Playlists (PlaylistsPages.tsx) and Folders on top,
+ * as a small row of plain buttons, then one tile per Videos folder with four
+ * pictures from inside it (GitHub #31: the two were tiles among the folders,
+ * and read as folders). The top bar never grows again. Folders
  * depends on the layout (owner, 2026-10-18): in the TV layout it is Skrin's
  * own browser (FoldersPage.tsx), as a sofa has no Explorer; at a desk it is
  * "Add a folder" — the system's folder window at once, then the same
@@ -12,7 +14,9 @@
  * per sub-folder, each with Play all, which plays through the group by the same
  * previous/next steps an episode uses (`videos::adjacent`).
  *
- * Each tile's picture is a frame from the file (`videos.rs`), asked for one at
+ * A folder tile's pictures are frames from four files spread through it
+ * (`folder_pictures`), two by two; fewer shown as they are, none as the plain
+ * tile with its name. Each tile's picture is a frame from the file (`videos.rs`), asked for one at
  * a time once the page is up, the tiles on screen first (`frameQueue.ts`); until then, and wherever none can be taken (on
  * Android always), a plain picture.
  */
@@ -36,6 +40,7 @@ import { runScanPipeline } from '../library/pipeline';
 import type { LibraryRoot } from '../library/api';
 import type { PlaybackTarget } from '../player/api';
 import {
+  folderPictures,
   groupVideos,
   listVideos,
   playAllStart,
@@ -43,6 +48,7 @@ import {
   videoName,
   videosRoots,
   videoTarget,
+  type FolderPicture,
   type VideoItem,
 } from '../library/videos';
 
@@ -92,6 +98,43 @@ export function LibraryPage({
   }, [asking]);
   const cancel = () => setPicked(null);
 
+  /** Each Videos folder's tile pictures, by folder; frames fill in as they are taken. */
+  const [pictures, setPictures] = useState<Map<number, FolderPicture[]>>(() => new Map());
+  const rootsKey = folders.map((r) => `${r.id}:${r.file_count}`).join(',');
+  useEffect(() => {
+    let live = true;
+    folderPictures()
+      .then((list) => {
+        if (!live) return;
+        setPictures(new Map(list.map((f) => [f.root_id, f.pictures])));
+        wantFrames(list.flatMap((f) => f.pictures.filter((p) => p.frame === null).map((p) => p.file_id)));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [rootsKey]);
+  useEffect(
+    () =>
+      onFrame((id, frame) =>
+        setPictures((all) => {
+          let changed = false;
+          const next = new Map(
+            [...all].map(([root, list]) => [
+              root,
+              list.map((p) => {
+                if (p.file_id !== id) return p;
+                changed = true;
+                return { ...p, frame };
+              }),
+            ])
+          );
+          return changed ? next : all;
+        })
+      ),
+    []
+  );
+
   const added = (name: string) => {
     setPicked(null);
     setNote(`Added ${name} to the library. Scanning it now.`);
@@ -134,49 +177,64 @@ export function LibraryPage({
     <FocusProvider value={focusKey}>
       <div className="search library-page" ref={ref}>
         <h2 className="grid-heading">Library</h2>
-        <TileGrid className="library-tiles" count={folders.length + 2}>
-          {folders.map((root) => (
-            <FocusButton
-              key={root.id}
-              focusKey={`library:${root.id}`}
-              label={root.name ?? root.path}
-              className="library-tile"
-              onSelect={() => onOpen(root)}
-            >
-              <span className="library-tile-name">{root.name ?? root.path}</span>
-              <span className="library-tile-meta">{count(root.file_count, 'video')}</span>
-            </FocusButton>
-          ))}
+        <FocusGroup kind="row" className="library-actions">
           <FocusButton
             focusKey="library:playlists"
-            label="Playlists"
-            className="library-tile library-tile-playlists"
+            className="btn-secondary library-action"
+            title="Films, episodes and videos in your order"
             onSelect={onPlaylists}
           >
-            <span className="library-tile-name">Playlists</span>
-            <span className="library-tile-meta">Films, episodes and videos in your order</span>
+            Playlists
           </FocusButton>
           {tv ? (
             <FocusButton
               focusKey="library:folders"
-              label="Folders"
-              className="library-tile library-tile-folders"
+              className="btn-secondary library-action"
+              title="Drives, network, anything to play"
               onSelect={onFolders}
             >
-              <span className="library-tile-name">Folders</span>
-              <span className="library-tile-meta">Drives, network, anything to play</span>
+              Folders
             </FocusButton>
           ) : (
             <FocusButton
               focusKey="library:folders"
-              label="Add a folder"
-              className="library-tile library-tile-folders"
+              className="btn-secondary library-action"
+              title="Movies, TV shows or videos"
               onSelect={pick}
             >
-              <span className="library-tile-name">Add a folder</span>
-              <span className="library-tile-meta">Movies, TV shows or videos</span>
+              Add a folder
             </FocusButton>
           )}
+        </FocusGroup>
+        <TileGrid className="library-tiles" count={folders.length}>
+          {folders.map((root) => {
+            const shown = (pictures.get(root.id) ?? []).filter((p) => p.frame !== null);
+            return (
+              <FocusButton
+                key={root.id}
+                focusKey={`library:${root.id}`}
+                label={root.name ?? root.path}
+                className={`library-tile${shown.length ? ' library-tile-pictured' : ''}`}
+                onSelect={() => onOpen(root)}
+              >
+                {shown.length > 0 && (
+                  <span className={`library-tile-pics pics-${shown.length}`} aria-hidden>
+                    {shown.map((p) => (
+                      <Art
+                        key={p.file_id}
+                        local={p.frame}
+                        remote={null}
+                        lazy
+                        fallback={<span className="library-tile-pic-plain" />}
+                      />
+                    ))}
+                  </span>
+                )}
+                <span className="library-tile-name">{root.name ?? root.path}</span>
+                <span className="library-tile-meta">{count(root.file_count, 'video')}</span>
+              </FocusButton>
+            );
+          })}
         </TileGrid>
         {picked && <AddFolder key={picked} path={picked} onAdded={added} onCancel={cancel} />}
         {note && <p className="settings-note">{note}</p>}

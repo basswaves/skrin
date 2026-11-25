@@ -69,6 +69,70 @@ pub fn list_all_videos(
     videos_of(&conn, None, &frames)
 }
 
+/// One picture on a Videos folder's tile on the Library page: the file it is
+/// from and its frame, when one has been taken (GitHub #31).
+#[derive(Serialize, Debug, PartialEq)]
+pub struct FolderPicture {
+    pub file_id: i64,
+    pub frame: Option<String>,
+}
+
+/// A Videos folder's tile pictures.
+#[derive(Serialize, Debug)]
+pub struct FolderPictures {
+    pub root_id: i64,
+    pub pictures: Vec<FolderPicture>,
+}
+
+/// How many pictures a folder's tile holds: two by two.
+const TILE_PICTURES: usize = 4;
+
+/// Which of `n` files, in path order, a tile shows: `k` spread evenly from
+/// the first, so a folder of sub-folders shows more than its first one.
+fn spread(n: usize, k: usize) -> Vec<usize> {
+    if n <= k {
+        return (0..n).collect();
+    }
+    (0..k).map(|i| i * n / k).collect()
+}
+
+fn pictures_of(conn: &Connection, frames: &Path) -> Result<Vec<FolderPictures>, String> {
+    let roots: Vec<i64> = {
+        let mut stmt = conn
+            .prepare("SELECT id FROM library_roots WHERE kind = 'videos' ORDER BY id")
+            .map_err(to_string_err)?;
+        let rows = stmt.query_map([], |r| r.get(0)).map_err(to_string_err)?;
+        rows.collect::<rusqlite::Result<_>>().map_err(to_string_err)?
+    };
+    let mut stmt = conn
+        .prepare("SELECT id FROM media_files WHERE root_id = ?1 AND missing = 0 ORDER BY path")
+        .map_err(to_string_err)?;
+    let mut out = Vec::with_capacity(roots.len());
+    for root_id in roots {
+        let ids: Vec<i64> = stmt
+            .query_map([root_id], |r| r.get(0))
+            .map_err(to_string_err)?
+            .collect::<rusqlite::Result<_>>()
+            .map_err(to_string_err)?;
+        let pictures = spread(ids.len(), TILE_PICTURES)
+            .into_iter()
+            .map(|i| FolderPicture { file_id: ids[i], frame: cached_frame(frames, ids[i]) })
+            .collect();
+        out.push(FolderPictures { root_id, pictures });
+    }
+    Ok(out)
+}
+
+/// Every Videos folder's tile pictures, for the Library page. The page asks
+/// for the frames not yet taken, in turn (`frameQueue.ts`); a tile with fewer
+/// than four shows what it has, and one with none its plain picture.
+#[tauri::command]
+pub fn folder_pictures(app: tauri::AppHandle, db: tauri::State<Db>) -> Result<Vec<FolderPictures>, String> {
+    let frames = frames_dir(&app)?;
+    let conn = db.0.lock().map_err(to_string_err)?;
+    pictures_of(&conn, &frames)
+}
+
 fn videos_of(conn: &Connection, root_id: Option<i64>, frames: &Path) -> Result<Vec<VideoItem>, String> {
     let mut stmt = conn
         .prepare(
@@ -619,6 +683,31 @@ mod tests {
         assert!(adjacent(&conn, 1, true).unwrap().is_none(), "the folder ends; nothing beyond it");
         assert!(adjacent(&conn, 2, false).unwrap().is_none());
         assert!(adjacent(&conn, 4, true).unwrap().is_none(), "another folder is another group");
+    }
+
+    #[test]
+    fn a_folder_tile_takes_four_files_spread_through_the_folder() {
+        assert_eq!(spread(2, 4), vec![0, 1]);
+        assert_eq!(spread(8, 4), vec![0, 2, 4, 6]);
+        assert_eq!(spread(5, 4), vec![0, 1, 2, 3]);
+        assert!(spread(0, 4).is_empty());
+        let conn = library();
+        conn.execute_batch(
+            "INSERT INTO library_roots (id, path, kind, added_at) VALUES (2, 'C:/m', 'movies', 0), (3, 'C:/e', 'videos', 0);
+             UPDATE media_files SET missing = 1 WHERE id = 4;",
+        )
+        .unwrap();
+        let frames = std::env::temp_dir().join(format!("kinema-folder-pictures-{}", std::process::id()));
+        std::fs::create_dir_all(&frames).unwrap();
+        std::fs::write(frame_path(&frames, 2), b"jpg").unwrap();
+        let all = pictures_of(&conn, &frames).unwrap();
+        // Only Videos folders; a missing file is never shown; an empty folder has none.
+        assert_eq!(all.iter().map(|f| f.root_id).collect::<Vec<_>>(), vec![1, 3]);
+        let ids: Vec<i64> = all[0].pictures.iter().map(|p| p.file_id).collect();
+        assert_eq!(ids, vec![3, 1, 2], "path order: Clip 3, clip 10, clip 2");
+        assert!(all[0].pictures[2].frame.is_some() && all[0].pictures[0].frame.is_none());
+        assert!(all[1].pictures.is_empty());
+        let _ = std::fs::remove_dir_all(&frames);
     }
 
     #[test]

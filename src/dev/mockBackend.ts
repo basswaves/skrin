@@ -1900,6 +1900,25 @@ const handlers: Record<string, Handler> = {
     return shownVideos().map(videoItem);
   },
   list_all_videos: () => shownVideos().map(videoItem),
+  // The Library page's folder tiles (GitHub #31): four files spread through
+  // the folder, as videos.rs picks them. `kinemaMockFrames=N` gives the first
+  // N of them a frame (a picture the mock cannot serve, so a test reads the
+  // tile's layout, not the pixels).
+  folder_pictures: () => {
+    const framed = Number(localStorage.getItem('kinemaMockFrames') ?? 0) || 0;
+    const ids = shownVideos()
+      .map((v) => ({ id: v.id, path: `${v.dir}/${v.name}` }))
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+      .map((v) => v.id);
+    const k = Math.min(4, ids.length);
+    const picks = Array.from({ length: k }, (_, i) => ids[Math.floor((i * ids.length) / k)]);
+    return [
+      {
+        root_id: VIDEOS_ROOT.id,
+        pictures: picks.map((id, i) => ({ file_id: id, frame: i < framed ? `C:/frames/frame-${id}.jpg` : null })),
+      },
+    ];
+  },
   // With many clips a frame takes a moment, and each ask is written down in
   // `window.__frameAsks` so a test can read the order (GitHub #28). A test
   // may hold every frame behind `window.__holdFrames` (a promise) until the

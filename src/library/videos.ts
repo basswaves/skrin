@@ -24,6 +24,14 @@ export const listVideos = (rootId: number) => invoke<VideoItem[]>('list_videos',
 export const listAllVideos = () => invoke<VideoItem[]>('list_all_videos');
 /** A frame from the file, taken now if need be; null where none can be. */
 export const videoFrame = (fileId: number) => invoke<string | null>('video_frame', { fileId });
+/** One picture on a Videos folder's tile (GitHub #31): a file and its frame, once taken. */
+export interface FolderPicture {
+  file_id: number;
+  frame: string | null;
+}
+/** Up to four files spread through each Videos folder, for its tile on the Library page. */
+export const folderPictures = () =>
+  invoke<{ root_id: number; pictures: FolderPicture[] }[]>('folder_pictures');
 export const getVideoPrefs = (fileId: number) => invoke<TitlePrefs>('get_video_prefs', { fileId });
 export const setVideoPrefs = (fileId: number, prefs: TitlePrefs) =>
   invoke<void>('set_video_prefs', { fileId, prefs });

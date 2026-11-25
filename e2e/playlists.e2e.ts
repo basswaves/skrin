@@ -56,7 +56,7 @@ async function openEvening(page: Page): Promise<void> {
   await moveTo(page, 'ArrowRight', 'Library');
   await press(page, 'Enter');
   await expect(page.locator('.library-page')).toBeVisible();
-  await moveTo(page, 'ArrowRight', 'Playlists');
+  await moveTo(page, 'ArrowUp', 'Playlists');
   await press(page, 'Enter');
   await expect(page.locator('.playlists-page')).toBeVisible();
   await expect.poll(() => focused(page)).toMatch(/Evening/);

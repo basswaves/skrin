@@ -618,6 +618,7 @@ pub fn run() {
             playlists::import_playlist,
             videos::list_videos,
             videos::list_all_videos,
+            videos::folder_pictures,
             videos::video_frame,
             seek_preview::seek_preview,
             seek_preview::seek_preview_fill,

@@ -390,10 +390,10 @@
       "Your OpenSubtitles password": { "U": "The username, not the email address", "D": "·", "L": "·", "R": "·" }
     },
     "library": {
-      "Home videos": { "U": "Library", "D": "Library folders", "L": "·", "R": "Playlists" },
-      "Playlists": { "U": "Library", "D": "Library folders", "L": "Home videos", "R": "Folders" },
-      "Folders": { "U": "Library", "D": "Library folders", "L": "Playlists", "R": "·" },
-      "Library folders": { "U": "Folders", "D": "·", "L": "·", "R": "·" }
+      "Playlists": { "U": "Library", "D": "Home videos", "L": "·", "R": "Folders" },
+      "Folders": { "U": "Library", "D": "Home videos", "L": "Playlists", "R": "·" },
+      "Home videos": { "U": "Playlists", "D": "Library folders", "L": "·", "R": "·" },
+      "Library folders": { "U": "Home videos", "D": "·", "L": "·", "R": "·" }
     },
     "videos": {
       "← Back": { "U": "Library", "D": "▶ Play all #1", "L": "·", "R": "·" },
@@ -925,10 +925,10 @@
       "Your OpenSubtitles password": { "U": "The username, not the email address", "D": "·", "L": "·", "R": "·" }
     },
     "library": {
-      "Home videos": { "U": "Library", "D": "Library folders", "L": "·", "R": "Playlists" },
-      "Playlists": { "U": "Library", "D": "Library folders", "L": "Home videos", "R": "Folders" },
-      "Folders": { "U": "Library", "D": "Library folders", "L": "Playlists", "R": "·" },
-      "Library folders": { "U": "Folders", "D": "·", "L": "·", "R": "·" }
+      "Playlists": { "U": "Library", "D": "Home videos", "L": "·", "R": "Folders" },
+      "Folders": { "U": "Library", "D": "Home videos", "L": "Playlists", "R": "·" },
+      "Home videos": { "U": "Playlists", "D": "Library folders", "L": "·", "R": "·" },
+      "Library folders": { "U": "Home videos", "D": "·", "L": "·", "R": "·" }
     },
     "videos": {
       "← Back": { "U": "Library", "D": "▶ Play all #1", "L": "·", "R": "·" },
@@ -1377,10 +1377,10 @@
       "Save key": { "U": "TMDB API key", "D": "·", "L": "·", "R": "·" }
     },
     "library": {
-      "Home videos": { "U": "Library", "D": "Library folders", "L": "·", "R": "Playlists" },
-      "Playlists": { "U": "Library", "D": "Library folders", "L": "Home videos", "R": "Folders" },
-      "Folders": { "U": "Library", "D": "Library folders", "L": "Playlists", "R": "·" },
-      "Library folders": { "U": "Folders", "D": "·", "L": "·", "R": "·" }
+      "Playlists": { "U": "Library", "D": "Home videos", "L": "·", "R": "Folders" },
+      "Folders": { "U": "Library", "D": "Home videos", "L": "Playlists", "R": "·" },
+      "Home videos": { "U": "Playlists", "D": "Library folders", "L": "·", "R": "·" },
+      "Library folders": { "U": "Home videos", "D": "·", "L": "·", "R": "·" }
     },
     "videos": {
       "← Back": { "U": "Library", "D": "▶ Play all #1", "L": "·", "R": "·" },

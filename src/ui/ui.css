@@ -4701,6 +4701,71 @@ kbd {
   font-weight: 700;
 }
 
+/* Playlists and Add a folder (Folders in TV mode): a small row of plain
+   buttons above the folders, so they never read as folders (GitHub #31). */
+.library-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+/* A folder's tile: four frames from inside it, two by two; three as one tall
+   and two, two side by side, one alone. The name stays readable on a shade. */
+.library-tile {
+  position: relative;
+  overflow: hidden;
+}
+
+.library-tile-pics {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  background: #000;
+}
+
+.library-tile-pics > * {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+}
+
+.library-tile-pics.pics-1 > * {
+  grid-column: 1 / span 2;
+  grid-row: 1 / span 2;
+}
+
+.library-tile-pics.pics-2 > * {
+  grid-row: 1 / span 2;
+}
+
+.library-tile-pics.pics-3 > :first-child {
+  grid-row: 1 / span 2;
+}
+
+.library-tile-pic-plain {
+  background: linear-gradient(135deg, #2a2a33, #17171b);
+}
+
+.library-tile-pictured::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0) 60%);
+}
+
+.library-tile-pictured .library-tile-name,
+.library-tile-pictured .library-tile-meta {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
 .library-tile-meta,
 .video-tile-date {
   font-size: max(var(--fs-floor), 0.8125rem);

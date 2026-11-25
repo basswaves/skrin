@@ -47,6 +47,7 @@ async function openFolders(page: Page): Promise<void> {
   await expect.poll(() => focused(page)).toContain('Play');
   await tvMode(page);
   await openLibrary(page);
+  await press(page, 'ArrowUp');
   await moveTo(page, 'ArrowRight', 'Folders');
   await press(page, 'Enter');
   await expect(page.locator('.folders-page')).toBeVisible();
@@ -150,7 +151,8 @@ test('at a desk, Add a folder opens the system window and asks the same question
   await page.addInitScript(() => localStorage.setItem('kinemaMockPick', 'D:\\Concerts'));
   await page.goto('/');
   await openLibrary(page);
-  await expect(page.locator('.library-tile', { hasText: /^Folders/ })).toHaveCount(0);
+  await expect(page.locator('.library-actions button', { hasText: /^Folders/ })).toHaveCount(0);
+  await press(page, 'ArrowUp');
   await moveTo(page, 'ArrowRight', 'Add a folder');
   await press(page, 'Enter');
   await expect(page.getByText('Add D:\\Concerts to the library as:')).toBeVisible();
@@ -175,6 +177,6 @@ test('at a desk, Add a folder opens the system window and asks the same question
 
   // The TV layout has Skrin's own browser there instead.
   await tvMode(page);
-  await expect(page.locator('.library-tile', { hasText: /^Folders/ })).toBeVisible();
-  await expect(page.locator('.library-tile', { hasText: 'Add a folder' })).toHaveCount(0);
+  await expect(page.locator('.library-actions button', { hasText: /^Folders/ })).toBeVisible();
+  await expect(page.locator('.library-actions button', { hasText: 'Add a folder' })).toHaveCount(0);
 });
