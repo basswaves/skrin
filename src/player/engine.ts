@@ -144,6 +144,21 @@ const onWindow = () =>
     __mpvGoing?: Promise<void>;
   };
 
+/**
+ * A self-test run (selftest.ts) is silent, film after film. mpv is ended a
+ * while after each film and started again for the next (GIVE_BACK_MS), and a
+ * new mpv starts with sound: so every mpv this page starts starts mute, not
+ * only the one running when the test began.
+ */
+let muteEveryStart = false;
+
+/** Mute now, and every engine started from here on (self-tests only). */
+export async function muteEveryEngine(): Promise<void> {
+  muteEveryStart = true;
+  await startEngine();
+  await command('set', ['mute', 'yes']);
+}
+
 /** Start the engine, or wait for the start already under way. */
 export function startEngine(): Promise<string> {
   const host = onWindow();
@@ -165,7 +180,7 @@ export function startEngine(): Promise<string> {
       })
       .then((options) => {
         if (options === null) return 'main';
-        return startMpv(options);
+        return startMpv(muteEveryStart ? { ...options, mute: 'yes' } : options);
       });
   }
 

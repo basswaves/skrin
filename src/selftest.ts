@@ -32,6 +32,7 @@ import {
   listenMpvEvents,
   mpvCommand,
   mpvGet,
+  muteEveryEngine,
   nowPlaying,
   onPlaybackEvent,
   openFile,
@@ -515,9 +516,7 @@ async function startInteractive(plan: SelfTestPlan): Promise<void> {
   );
   await win.setAlwaysOnTop(true).catch(() => {});
   if (plan.mute !== false) {
-    void startEngine()
-      .then(() => mpvCommand('set', ['mute', 'yes']))
-      .catch((e) => console.warn('selftest: could not mute', e));
+    void muteEveryEngine().catch((e) => console.warn('selftest: could not mute', e));
   }
   (window as unknown as { __kinemaSelfTest: unknown }).__kinemaSelfTest = {
     screen,
@@ -607,8 +606,7 @@ export async function runSelfTest(plan: SelfTestPlan): Promise<void> {
   }
 
   if (plan.mute !== false) {
-    void startEngine()
-      .then(() => mpvCommand('set', ['mute', 'yes']))
+    void muteEveryEngine()
       .then(() => note('muted'))
       .catch((e) => note('mute-failed', String(e)));
   }
