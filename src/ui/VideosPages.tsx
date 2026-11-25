@@ -257,10 +257,13 @@ export function LibraryPage({
 
 export function VideosPage({
   root,
+  filesChanged = 0,
   onPlay,
   onBack,
 }: {
   root: LibraryRoot;
+  /** Changes when a file was relinked or taken out (MissingFile.tsx): read the folder again. */
+  filesChanged?: number;
   onPlay: (target: PlaybackTarget) => void;
   onBack: () => void;
 }) {
@@ -281,7 +284,7 @@ export function VideosPage({
     return () => {
       live = false;
     };
-  }, [root.id, root.path]);
+  }, [root.id, root.path, filesChanged]);
 
   // Frames arrive one at a time, the tiles on screen first (frameQueue.ts);
   // the rest go on after the page is left.

@@ -6,7 +6,7 @@
  * `kinemaMockPick` is what Find it…'s file window gives.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { focused, mpv, press } from './kb';
+import { focused, mpv, open, press } from './kb';
 
 const DAY = '2026-10-02T12:00:00';
 
@@ -108,4 +108,26 @@ test('a drive that cannot be reached is said as such, with no Remove', async ({ 
   await expect.poll(() => focused(page)).toBe('Find it…');
   await press(page, 'ArrowDown');
   await expect.poll(() => focused(page)).toBe('Cancel');
+});
+
+test('a Videos folder page drops a tile taken out of the library at once', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('kinemaMockGone', 'not_found'));
+  await open(page, 'windows');
+  await press(page, 'ArrowUp');
+  for (let i = 0; i < 6 && (await focused(page)) !== 'Library'; i++) await press(page, 'ArrowRight');
+  await press(page, 'Enter');
+  await expect.poll(() => focused(page)).toContain('Home videos');
+  await press(page, 'Enter');
+  await expect.poll(() => focused(page), { timeout: 15_000 }).toContain('Birthday 2024-05-02');
+  const tiles = page.locator('.video-tile');
+  const before = await tiles.count();
+  const name = (await focused(page)) ?? '';
+  await press(page, 'Enter');
+  await expect.poll(() => focused(page)).toBe('Find it…');
+  await press(page, 'ArrowDown');
+  await expect.poll(() => focused(page)).toBe('Remove from library');
+  await press(page, 'Enter');
+  await expect(dialog(page)).toHaveCount(0);
+  await expect(tiles, 'the removed tile is gone without leaving the page').toHaveCount(before - 1);
+  await expect(page.locator('.video-tile', { hasText: name.split('\n')[0] })).toHaveCount(0);
 });

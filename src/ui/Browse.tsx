@@ -375,10 +375,16 @@ export default function Browse() {
     }
   }, []);
 
+  /**
+   * Bumped when a missing file is relinked or removed: a Videos folder page
+   * lists its own files, so it reads them again rather than show the old tile.
+   */
+  const [filesChanged, setFilesChanged] = useState(0);
   /** A missing file found or picked: it plays, and the library is read again. */
   const playFound = useCallback(
     (target: PlaybackTarget) => {
       setMissing(null);
+      setFilesChanged((n) => n + 1);
       openView({ name: 'player', target }, missingFrom.current);
       void load();
     },
@@ -388,6 +394,7 @@ export default function Browse() {
   const removedMissing = useCallback(
     (message: string) => {
       setMissing(null);
+      setFilesChanged((n) => n + 1);
       setRemovedNote(message);
       void load();
     },
@@ -954,7 +961,7 @@ export default function Browse() {
 
         {view.name === 'videos' && (
           <FocusScreen key={`videos:${view.root.id}`}>
-            <VideosPage root={view.root} onPlay={(target) => void startPlayback(target)} onBack={goBack} />
+            <VideosPage root={view.root} filesChanged={filesChanged} onPlay={(target) => void startPlayback(target)} onBack={goBack} />
           </FocusScreen>
         )}
 

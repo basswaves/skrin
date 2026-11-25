@@ -765,11 +765,15 @@ for (let i = 1; i <= EXTRA_VIDEOS; i++) {
 }
 function shownVideos() {
   const only = typeof localStorage !== 'undefined' && localStorage.getItem('kinemaMockRootVideos') === '1';
-  return only ? mockVideos.filter((v) => v.dir === VIDEOS_ROOT.path) : mockVideos;
+  // A file taken out of the library is not listed, as videos.rs (missing = 0).
+  const listed = mockVideos.filter((v) => !mockRemoved.has(v.id));
+  return only ? listed.filter((v) => v.dir === VIDEOS_ROOT.path) : listed;
 }
 const videoPrefs = new Map<string, TitlePrefs>();
 /** Files found or picked for a missing one (`relink_file`): there from then on. */
 const mockFound = new Set<string>();
+/** Library files taken out (`remove_missing_file`): no longer listed. */
+const mockRemoved = new Set<number>();
 
 function videoItem(v: (typeof mockVideos)[number]) {
   const row = playback.get(v.id);
@@ -1936,6 +1940,7 @@ const handlers: Record<string, Handler> = {
     return null;
   },
   remove_missing_file: (a) => {
+    mockRemoved.add(num(a, 'fileId'));
     (window as unknown as { __missingFile?: unknown }).__missingFile = { removed: num(a, 'fileId') };
     return null;
   },
