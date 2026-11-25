@@ -757,6 +757,12 @@ const mockVideos = [
   { id: 9004, dir: 'D:/Videos/Summer trip', name: 'clip 2.mp4' },
   { id: 9005, dir: 'D:/Videos/Summer trip', name: 'clip 10.mp4' },
 ];
+// `kinemaMockVideos=N`: N more clips in the folder's own files, read back after
+// 400 ms as a real folder of that size is (GitHub #30: Back to a big folder).
+const EXTRA_VIDEOS = Math.min(5000, Number(flag('kinemaMockVideos') ?? 0) || 0);
+for (let i = 1; i <= EXTRA_VIDEOS; i++) {
+  mockVideos.push({ id: 20000 + i, dir: 'D:/Videos', name: `clip ${String(i).padStart(4, '0')}.mp4` });
+}
 function shownVideos() {
   const only = typeof localStorage !== 'undefined' && localStorage.getItem('kinemaMockRootVideos') === '1';
   return only ? mockVideos.filter((v) => v.dir === VIDEOS_ROOT.path) : mockVideos;
@@ -1889,7 +1895,10 @@ const handlers: Record<string, Handler> = {
     return { id: list.id, name: list.name, library: 0, loose: 1, skipped: 1 };
   },
   // `kinemaMockRootVideos=1`: only the folder's own two files.
-  list_videos: () => shownVideos().map(videoItem),
+  list_videos: async () => {
+    if (EXTRA_VIDEOS) await new Promise((r) => setTimeout(r, 400));
+    return shownVideos().map(videoItem);
+  },
   list_all_videos: () => shownVideos().map(videoItem),
   video_frame: () => null,
   // Seek previews: a drawn picture saying its second, so a test can read it.

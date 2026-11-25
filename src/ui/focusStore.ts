@@ -113,6 +113,8 @@ const screens: Screen[] = [];
 const landings = new Map<number, string | null>();
 let screenIds = 0;
 let inputs = 0;
+/** Of those, the ones that act (keys, presses, a wheel), not a pointer moved. */
+let acts = 0;
 let pending: { key: string; scrollTop?: number } | null = null;
 /**
  * A Back return that has landed, until the person does anything. The page it
@@ -338,7 +340,7 @@ function settle(): void {
     }
   }
 
-  if (returned && returned.at !== inputs) returned = null;
+  if (returned && returned.at !== acts) returned = null;
   if (returned && focused === returned.key && returned.scrollTop !== undefined) {
     const page = entries.get(returned.key)?.node?.closest<HTMLElement>('.browse');
     if (page) {
@@ -351,7 +353,7 @@ function settle(): void {
     const { key, scrollTop } = pending;
     if (entries.has(key) && enter(tree, key, memory) === key) {
       pending = null;
-      returned = { key, scrollTop, at: inputs };
+      returned = { key, scrollTop, at: acts };
       screen.arrivedAt = -1;
       const page = entries.get(key)?.node?.closest<HTMLElement>('.browse');
       if (page && scrollTop !== undefined) page.scrollTop = scrollTop;
@@ -359,8 +361,8 @@ function settle(): void {
       return;
     }
     // Not here (yet): the landing meanwhile; the return still wins if its
-    // control comes before the person does anything.
-    if (!fresh) pending = null;
+    // control comes before the person does anything (`countInput` drops it
+    // then; a pointer only moved does not: GitHub #30).
   }
 
   const live = focused !== null && entries.has(focused) && enter(tree, focused, memory) === focused;
@@ -528,10 +530,24 @@ function onKeyDown(event: KeyboardEvent): void {
 let lastPointer = { x: NaN, y: NaN };
 let pointerMoved = false;
 
+/**
+ * A key, a press or a wheel: the person is doing something, and a Back return
+ * still waiting for its control (or putting the scroll again) gives way.
+ */
 function countInput(): void {
   inputs++;
+  acts++;
   if (pending) pending = null;
   returned = null;
+}
+
+/**
+ * The pointer moved: a hand on the mouse, not a choice. The page's landing
+ * claim gives way, but a Back return does not — a big folder read back while
+ * the mouse is touched came back at the top (GitHub #30).
+ */
+function countPointerMove(): void {
+  inputs++;
 }
 
 /**
@@ -596,7 +612,7 @@ function install(): void {
       pointerMoved = e.screenX !== lastPointer.x || e.screenY !== lastPointer.y;
       lastPointer = { x: e.screenX, y: e.screenY };
       if (pointerMoved) {
-        countInput();
+        countPointerMove();
         lastInput('pointer');
       }
     },
