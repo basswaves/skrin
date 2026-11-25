@@ -5051,6 +5051,17 @@ kbd {
   transform: none;
 }
 
+/* And the other way: once a key is pressed, the control under a resting
+   pointer is not drawn as chosen until the pointer really moves (a page
+   scrolled under a still one moves :hover, not the pointer). One enlarged
+   card at a time, whichever was used last. */
+:root[data-input='key'] :is(.card, .continue-body, .see-all-card, .btn-primary, .btn-secondary):hover:not(.focused) {
+  transform: none;
+}
+:root[data-input='key'] .see-all-card:hover:not(.focused) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 /* The light look has no zoom to say what the pointer is over: a thin outline,
    dimmer than the ring and with no transform, on the pictures and the shelf's
    last card. */
@@ -5064,4 +5075,10 @@ kbd {
 :root[data-look='light'] .continue-body.focused:hover .continue-art,
 :root[data-look='light'] .see-all-card.focused:hover {
   outline: var(--focus-ring) solid #fff;
+}
+/* Keys last: no pointer mark beside the ring (as the zoom above). */
+:root[data-look='light'][data-input='key'] .card:not(.focused):hover .card-art,
+:root[data-look='light'][data-input='key'] .continue-body:not(.focused):hover .continue-art,
+:root[data-look='light'][data-input='key'] .see-all-card:not(.focused):hover {
+  outline: none;
 }

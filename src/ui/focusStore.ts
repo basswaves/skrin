@@ -527,7 +527,7 @@ function onKeyDown(event: KeyboardEvent): void {
   entries.get(at)?.select?.();
 }
 
-let lastPointer = { x: NaN, y: NaN };
+let lastPointer = { x: NaN, y: NaN, cx: NaN, cy: NaN };
 let pointerMoved = false;
 
 /**
@@ -605,12 +605,19 @@ function install(): void {
   }
   window.addEventListener('wheel', () => { wheeled = true; }, { capture: true, passive: true });
   // A pointer that really moved, not a page scrolled under a still one: some
-  // engines send a move after every scroll.
+  // engines send a move after every scroll. Where it is in the window counts
+  // as well as on the screen: WebKit may say 0 for the screen every time (seen
+  // in its test build; a Wayland window does not know where it is), and the
+  // pointer would never count as moved again after the first time.
   window.addEventListener(
     'pointermove',
     (e) => {
-      pointerMoved = e.screenX !== lastPointer.x || e.screenY !== lastPointer.y;
-      lastPointer = { x: e.screenX, y: e.screenY };
+      pointerMoved =
+        e.screenX !== lastPointer.x ||
+        e.screenY !== lastPointer.y ||
+        e.clientX !== lastPointer.cx ||
+        e.clientY !== lastPointer.cy;
+      lastPointer = { x: e.screenX, y: e.screenY, cx: e.clientX, cy: e.clientY };
       if (pointerMoved) {
         countPointerMove();
         lastInput('pointer');

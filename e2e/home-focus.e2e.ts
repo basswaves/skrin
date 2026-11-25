@@ -319,3 +319,56 @@ test('the light look marks what the pointer is over with an outline and no zoom 
   expect(mark.width).toBeGreaterThan(0);
   expect(mark.transform).toBe('none');
 });
+
+/** The cards drawn larger than they sit, once their zoom has finished. */
+async function enlarged(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    // The zoom's transition, run to its end.
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
+    return Array.from(document.querySelectorAll<HTMLElement>('.card, .continue-body, .see-all-card'))
+      .filter((el) => {
+        const t = getComputedStyle(el).transform;
+        return t !== 'none' && new DOMMatrix(t).a > 1.001;
+      })
+      .map((el) => el.dataset.navKey ?? el.className);
+  });
+}
+
+test('the pointer resting on one card and the keys moving: one card enlarged, the ringed one (owner, after GitHub #15)', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('kinemaMockTitles', '40'));
+  await open(page, 'windows');
+  await page.evaluate(async () => {
+    const path = '/src/ui/lightLook.ts';
+    (await import(/* @vite-ignore */ path)).setLook('full');
+  });
+  // A grid: Movies, from the top bar by keys.
+  await press(page, 'ArrowUp');
+  for (let i = 0; i < 6 && (await focused(page)) !== 'Movies'; i++) await press(page, 'ArrowRight');
+  await press(page, 'Enter');
+  await expect.poll(() => focusKey(page)).toMatch(/^grid:/);
+  await settled(page);
+  // The pointer comes to rest on a card the keys are not on.
+  const card = page.locator('.search .card').nth(2);
+  await card.scrollIntoViewIfNeeded();
+  const box = (await card.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
+  await page.mouse.move(box.x + box.width / 2 + 3, box.y + box.height / 3);
+  expect(await enlarged(page), 'the pointer alone: the card under it').toHaveLength(1);
+
+  // The keys move on, the pointer left where it was.
+  await press(page, 'ArrowRight');
+  await settled(page);
+  const ringed = await focusKey(page);
+  const big = await enlarged(page);
+  expect(big, 'one card enlarged after a key').toHaveLength(1);
+  expect(big[0]).toBe(ringed);
+  await press(page, 'ArrowDown');
+  await settled(page);
+  expect(await enlarged(page), 'and after the page moved under the pointer').toEqual([await focusKey(page)]);
+
+  // The pointer really moves: its card is the one enlarged again.
+  await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 3 + 20);
+  await page.mouse.move(box.x + box.width / 2 + 9, box.y + box.height / 3 + 4);
+  await expect(page.locator(':root')).toHaveAttribute('data-input', 'pointer');
+  expect(await enlarged(page)).toHaveLength(1);
+});
