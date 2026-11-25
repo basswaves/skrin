@@ -88,7 +88,12 @@ export function useScreen({
 
   const toggleFullscreen = useCallback(async () => {
     // In TV mode the window is always fullscreen and has no other state to
-    // toggle to — see tv.ts.
+    // toggle to — see tv.ts. So F and a double click on the picture do
+    // nothing there, on purpose, with display switching on or off: switching
+    // only acts in full screen, and a TV-mode window that left it would turn
+    // every switch off until someone found the way back (docs/HISTORY.md,
+    // "TV mode means fullscreen"). Back leaves the player instead. Outside TV
+    // mode switching changes nothing here (e2e/mouse.e2e.ts).
     if (isTvMode()) return;
     const entering = !(await isPictureFullscreen());
     if (!entering) {

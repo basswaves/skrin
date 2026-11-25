@@ -1383,6 +1383,9 @@ const mpvOnly =
 const backListeners: string[] = [];
 /** Addresses handed to the system's browser, in order. */
 const openedLinks: string[] = [];
+/** The screen's switches and restores, in order (`switch_screen`, `restore_screen`). */
+const screenLog: string[] = [];
+let screenSwitched = false;
 /**
  * `kinemaMockReview` pretends that many videos wait in the review queue.
  * Read at each count, so a test can match them "by hand" part-way through.
@@ -2470,8 +2473,30 @@ const handlers: Record<string, Handler> = {
       { width: 3840, height: 2160, hz: 23, rate: 23.976 },
     ],
   }),
-  switch_screen: () => null,
-  restore_screen: () => false,
+  // A switch answered as Windows' is (display.rs): the screen as it is after,
+  // and each switch and restore kept, so a check can see the screen go and
+  // come back. The mode itself is not kept: screen_now stays the desktop's.
+  switch_screen: (a) => {
+    screenLog.push(`switch ${a.width}x${a.height}@${a.hz}`);
+    screenSwitched = true;
+    const rate = Number(a.hz) === 23 ? 23.976 : Number(a.hz);
+    return {
+      gdi_name: ON_LINUX ? 'HDMI-1' : String.raw`\\.\DISPLAY1`,
+      width: a.width,
+      height: a.height,
+      hz: a.hz,
+      rate,
+      exact_rate: rate,
+      hdr: SCREEN_HDR ? 'on' : 'off',
+      modes: [],
+    };
+  },
+  restore_screen: () => {
+    const was = screenSwitched;
+    screenSwitched = false;
+    if (was) screenLog.push('restore');
+    return was;
+  },
   player_window: () => null,
 
   // settings and logs
@@ -2900,6 +2925,7 @@ export function installMockBackend(): void {
   (window as unknown as { __kinemaMock: unknown }).__kinemaMock = {
     backListeners,
     openedLinks,
+    screenLog,
     playback,
     settings,
     files,

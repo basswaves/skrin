@@ -155,6 +155,63 @@ test('the player by mouse: controls, pause, full screen, seek bar, volume and Ba
   await expect(page.locator('.player')).toHaveCount(0);
 });
 
+/** The screen's switches and restores so far (mockBackend.ts). */
+const screenLog = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __kinemaMock: { screenLog: string[] } }).__kinemaMock.screenLog);
+
+test('display switching on: a double click goes full screen and switches, another leaves and puts the screen back', async ({
+  page,
+}) => {
+  // The owner: a double click did not leave full screen with switching on.
+  // Outside TV mode nothing should differ from switching off.
+  await play(page);
+  await page.evaluate(() => {
+    const m = window as unknown as {
+      __kinemaMock: { settings: Map<string, string> };
+      __fakeMpv: { extra: Record<string, unknown> };
+    };
+    m.__kinemaMock.settings.set('display_switch_refresh', 'on');
+    Object.assign(m.__fakeMpv.extra, {
+      'video-params/gamma': 'bt.1886',
+      'video-params/w': 3840,
+      'video-params/h': 2160,
+      'container-fps': 23.976,
+    });
+  });
+  const film = await onTheFilm(page);
+  expect(await fullscreen(page)).toBe(false);
+
+  await page.mouse.dblclick(film.x, film.y);
+  await expect.poll(() => fullscreen(page)).toBe(true);
+  await expect.poll(() => screenLog(page)).toEqual(['switch 3840x2160@23']);
+  // Played on after the switch.
+  await expect.poll(async () => (await mpv(page)).paused, { timeout: 10_000 }).toBe(false);
+
+  await page.mouse.dblclick(film.x, film.y);
+  await expect.poll(() => fullscreen(page)).toBe(false);
+  await expect.poll(() => screenLog(page)).toEqual(['switch 3840x2160@23', 'restore']);
+  await pause(page, 600, 'past the single-click wait');
+  expect((await mpv(page)).paused).toBe(false);
+
+  // And again, the same way: nothing about the first round sticks.
+  await page.mouse.dblclick(film.x, film.y);
+  await expect.poll(() => fullscreen(page)).toBe(true);
+  await expect.poll(() => screenLog(page)).toHaveLength(3);
+  await page.mouse.dblclick(film.x, film.y);
+  await expect.poll(() => fullscreen(page)).toBe(false);
+  await expect.poll(() => screenLog(page)).toHaveLength(4);
+
+  // Out again before the switch is made: the screen is not left switched
+  // under a window that is no longer full screen.
+  await page.mouse.dblclick(film.x, film.y);
+  await page.mouse.dblclick(film.x, film.y);
+  await expect.poll(() => fullscreen(page)).toBe(false);
+  await pause(page, 3000, 'time on purpose: past where a late switch would land');
+  const log = await screenLog(page);
+  expect(log[log.length - 1]).toBe('restore');
+  expect(await fullscreen(page)).toBe(false);
+});
+
 test('Android: Skrin’s own folder browser by mouse', async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 540 });
   await page.addInitScript(() => {
