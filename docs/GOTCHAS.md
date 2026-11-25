@@ -1415,6 +1415,19 @@ under parallel load:** Look `Auto` may switch to the light look mid-run
 (cards 38 px tall, the grid short, the page clamped to the top) — set
 `setLook('full')` first, or the flow fails in one engine only.
 
+### A pointer "really moved" cannot be told by `screenX` alone (round 12b)
+
+`focusStore.ts` tells a real pointer move from the move some engines send
+after a scroll under a still pointer. It compared `screenX`/`screenY` only —
+and Playwright's WebKit reports **0 for both on every move** (a Wayland
+window cannot know where it is on the screen either). The first move counted,
+every later one looked like "not moved": after a key, the pointer never took
+over again, and no error said so. Compare `clientX`/`clientY` as well; a
+scroll under a still pointer leaves those the same too. Also: a pointer move
+is not an act — it must not drop a Back return still waiting for a big page
+(GitHub #30); only keys, presses and the wheel do (`countInput` vs
+`countPointerMove`).
+
 ### Every press measures every sibling of the focused control (before round 7)
 
 Left to itself the library answers an arrow press by calling
