@@ -602,8 +602,15 @@ test('Up next counting down: a pause holds it, going back takes it down, Cancel 
   await playheadTo(page, 1499.9);
   await expect(card).toContainText('Play now');
   await expect(card).toContainText('Cancel');
+  // mpv pauses at the end by itself, a moment later (keep-open): that is not
+  // the viewer's pause, and the count goes on.
+  await expect.poll(async () => (await mpv(page)).paused).toBe(true);
+  const counted = await card.textContent();
+  await expect(card).not.toHaveText(counted ?? '');
+  await expect(card).toContainText('Play now');
 
-  // A pause holds it: the card stays, counting nothing, and nothing comes.
+  // The viewer's pause key holds it, though mpv at the end stays paused and
+  // says nothing changed: the card stays, counting nothing, and nothing comes.
   await press(page, ' ');
   await expect(card).toContainText('Play next');
   await expect(card).not.toContainText('Play now');
@@ -618,7 +625,7 @@ test('Up next counting down: a pause holds it, going back takes it down, Cancel 
   await expect(card).toContainText('Keep watching');
   await expect(card).not.toContainText('Play now');
   await expect.poll(async () => (await mpv(page)).position).toBeLessThan(1495);
-  await press(page, ' ');
+  if ((await mpv(page)).paused) await press(page, ' ');
   await expect.poll(async () => (await mpv(page)).paused).toBe(false);
 
   // So its next end counts down again, and Cancel by remote stays in the player.

@@ -151,15 +151,28 @@ function startTicking(): void {
       // keep-open=yes: no end-file at the natural end, only eof-reached.
       state.eof = true;
       change('eof-reached', true);
+      // And pauses, as keep-open does — heard a moment after the end, as the
+      // real player's was (round 12b: it held every Up next count).
+      window.setTimeout(() => {
+        if (!state.eof || state.paused) return;
+        state.paused = true;
+        eofPaused = true;
+        change('pause', true);
+      }, 400);
     }
   }, TICK_MS);
 }
 
+/** Paused by the end of the file itself, which a new file undoes (as the real one did). */
+let eofPaused = false;
+
 function seek(target: number): void {
   if (state.duration === null) throw new Error('seek: nothing loaded');
   state.position = Math.max(0, Math.min(state.duration, target));
+  const wasEof = state.eof;
   state.eof = state.position >= state.duration;
   change('time-pos', state.position);
+  if (wasEof && !state.eof) change('eof-reached', false);
   send({ event: 'playback-restart' });
 }
 
@@ -199,6 +212,11 @@ function loadfile(args: unknown[]): void {
     state.duration = lookupDuration(path);
     state.position = start ?? 0;
     state.eof = false;
+    if (eofPaused) {
+      eofPaused = false;
+      state.paused = false;
+      change('pause', false);
+    }
     send({ event: 'start-file', playlist_entry_id: 1 });
     send({ event: 'file-loaded' });
     change('duration', state.duration);
@@ -328,7 +346,9 @@ function trackField(name: string): unknown {
 /** `plugin:libmpv|set_property`, and `set` through `command`. */
 export function setProperty(name: string, value: unknown): null {
   if (name === 'pause') {
-    state.paused = value === true || value === 'yes';
+    // At the end of a file keep-open stays paused, whatever it is told (seen
+    // on the real player, round 12b).
+    state.paused = value === true || value === 'yes' || state.eof;
     change('pause', state.paused);
   }
   if (name === 'volume') state.volume = Number(value);

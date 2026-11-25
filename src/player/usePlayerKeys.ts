@@ -31,6 +31,7 @@ export function usePlayerKeys({
   skipPrompt,
   performSkip,
   upNext,
+  upNextCounting,
   steps,
   osdFocus,
   enterOsdFocus,
@@ -68,6 +69,8 @@ export function usePlayerKeys({
   performSkip: () => Promise<void>;
   /** The Up next card showing, which OK plays. */
   upNext: EpisodeRef | null;
+  /** The card is counting down: the file has ended, and any pause is mpv's own. */
+  upNextCounting: boolean;
   /** Previous/next: episodes, or the files beside a video outside the library. */
   steps: Steps;
   /** The controls hold the arrows: then they, and OK, belong to the spatial system. */
@@ -248,8 +251,12 @@ export function usePlayerKeys({
           e.preventDefault();
           // Paused, OK plays: pausing used to put the ring on Play, so this is
           // what OK did then, and a prompt still showing is not what someone
-          // who paused is answering (GitHub #25).
-          if (paused) {
+          // who paused is answering (GitHub #25). Not while Up next counts
+          // down: the file has ended and mpv paused it there itself, so OK
+          // is the card's, as it always meant (round 12b, on the real player).
+          if (upNext && upNextCounting) {
+            playNow();
+          } else if (paused) {
             void togglePauseByKey();
           } else if (resumedFrom !== null) {
             startOver();
@@ -278,6 +285,7 @@ export function usePlayerKeys({
     skipPrompt,
     performSkip,
     upNext,
+    upNextCounting,
     steps,
     osdFocus,
     enterOsdFocus,

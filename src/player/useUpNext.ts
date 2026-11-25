@@ -31,6 +31,8 @@ const NEXT_EPISODE_COUNTDOWN = 12;
  * step (session.ts), less than any seek a key makes.
  */
 export const SEEK_BACK_SECS = 3;
+/** This close to the end, the file has ended (keep-open stops a frame short). */
+const END_SECS = 1;
 
 /**
  * What a change in the player does to a running or held countdown (GitHub
@@ -39,16 +41,24 @@ export const SEEK_BACK_SECS = 3;
  * down, and the file is no longer over. `start` is the pause state when the
  * count began; `furthest` the furthest position since (the credits may still
  * be playing under the card).
+ *
+ * A pause that comes at the very end of the file is mpv's own (keep-open
+ * pauses there), not the viewer's: it can arrive after the count has begun
+ * (seen on the real player, round 12b), and taken for a pause it held every
+ * natural end. It is the new starting point instead (`'adopt'`).
  */
 export function countdownChange(
   start: { paused: boolean },
   furthest: number | null,
-  now: { paused: boolean; timePos: number | null }
-): 'hold' | 'went-back' | null {
+  now: { paused: boolean; timePos: number | null; duration: number | null }
+): 'hold' | 'went-back' | 'adopt' | null {
   if (furthest !== null && now.timePos !== null && now.timePos < furthest - SEEK_BACK_SECS) {
     return 'went-back';
   }
-  return now.paused !== start.paused ? 'hold' : null;
+  if (now.paused === start.paused) return null;
+  const atEnd =
+    now.duration !== null && now.timePos !== null && now.timePos >= now.duration - END_SECS;
+  return now.paused && atEnd ? 'adopt' : 'hold';
 }
 
 export function useUpNext({
@@ -66,6 +76,8 @@ export function useUpNext({
   dismiss,
   paused,
   timePos,
+  duration,
+  scrubbing,
   reopen,
 }: {
   target: PlaybackTarget;
@@ -86,6 +98,9 @@ export function useUpNext({
   /** The player's pause state and position: pausing or going back stops the count. */
   paused: boolean;
   timePos: number | null;
+  duration: number | null;
+  /** A seek being steered: its position is not where mpv is. */
+  scrubbing: boolean;
   /** The file is not over after all: its next end offers the next one again. */
   reopen: () => void;
 }) {
@@ -222,8 +237,8 @@ export function useUpNext({
    * whatever the player did: paused, or started again from the beginning,
    * the next episode still came when it reached nought.
    *
-   * Measured from where the count began, so the pause mpv makes by itself at
-   * the end of a file (keep-open) — before the count starts — is not one.
+   * Measured from where the count began; the pause mpv makes by itself at the
+   * end of a file (keep-open), before or after the count starts, is not one.
    */
   const counting = countdown !== null;
   const watch = useRef<{ start: { paused: boolean }; furthest: number | null } | null>(null);
@@ -236,10 +251,15 @@ export function useUpNext({
       watch.current = { start: { paused }, furthest: timePos };
       return;
     }
+    // While a seek is being steered the position is the seek bar's, not
+    // mpv's: still at the end, mpv would end the file again under it.
+    if (scrubbing) return;
     const w = watch.current;
     if (timePos !== null && (w.furthest === null || timePos > w.furthest)) w.furthest = timePos;
-    const change = countdownChange(w.start, w.furthest, { paused, timePos });
-    if (change === 'went-back') {
+    const change = countdownChange(w.start, w.furthest, { paused, timePos, duration });
+    if (change === 'adopt') {
+      w.start = { paused };
+    } else if (change === 'went-back') {
       setCountdown(null);
       setHeld(false);
       setUpNext(null);
@@ -248,7 +268,7 @@ export function useUpNext({
       setCountdown(null);
       setHeld(true);
     }
-  }, [counting, held, paused, timePos, reopen]);
+  }, [counting, held, paused, timePos, duration, scrubbing, reopen]);
 
   /** Jump straight to a neighbouring episode, keeping the show's identity. */
   const playNeighbour = useCallback(
@@ -323,6 +343,23 @@ export function useUpNext({
    * playing under where the card was. It declines the credits too, as Keep
    * watching does, or their offer would raise the card again at once.
    */
+  /**
+   * The viewer asked to pause or play (GitHub #29): a running count stops,
+   * the card staying. Called on the request, since at the end of a file mpv
+   * reports no change.
+   */
+  // Read when called, not when made: a key can reach a handler made before
+  // the last render (seen in WebKit), which would hold a count long gone.
+  const countingNow = useRef(false);
+  useEffect(() => {
+    countingNow.current = counting;
+  }, [counting]);
+  const hold = useCallback(() => {
+    if (!countingNow.current) return;
+    countingNow.current = false;
+    setCountdown(null);
+    setHeld(true);
+  }, []);
   const cancel = useCallback(() => {
     setCountdown(null);
     setHeld(false);
@@ -347,6 +384,7 @@ export function useUpNext({
     playNow,
     leave,
     cancel,
+    hold,
     keepWatching,
     playNeighbour,
     handlePlaybackEnded,

@@ -192,6 +192,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
     playNow,
     leave,
     cancel,
+    hold: holdUpNext,
     keepWatching,
     playNeighbour,
     handlePlaybackEnded,
@@ -210,6 +211,8 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
       dismiss,
       paused: session.paused,
       timePos: session.timePos,
+      duration: session.duration,
+      scrubbing: session.scrubbing,
       reopen,
     });
 
@@ -279,6 +282,9 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
   // ---- controls -----------------------------------------------------------
   /** Resolves to whether it is paused now, or null if mpv did not answer. */
   const togglePause = useCallback(async (): Promise<boolean | null> => {
+    // Asked, not heard back: at the end of a file mpv stays paused whatever
+    // it is told (keep-open), so the count could not tell (GitHub #29).
+    holdUpNext();
     try {
       const current = await isPaused();
       await setPaused(!current);
@@ -288,7 +294,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
       fail(e);
       return null;
     }
-  }, [showOsd, fail]);
+  }, [showOsd, fail, holdUpNext]);
 
   // A click on the picture pauses after a short wait for a second click; a
   // double click is full screen only (clickPause.ts, GitHub #24).
@@ -423,6 +429,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
     skipPrompt,
     performSkip,
     upNext,
+    upNextCounting: countdown !== null,
     steps,
     osdFocus,
     enterOsdFocus,
