@@ -124,6 +124,18 @@ answer a diagnostic panel must not give.
 
 **Do:** prefer `hw-pixelformat`, fall back to `pixelformat`.
 
+### A chapter with no title is titled "(unnamed)"
+
+`chapter-list/N/title` for a chapter the file gives no title does not fail
+or come back empty: mpv answers its own placeholder, the text `(unnamed)`
+(ffprobe shows no title on the same chapter). Code that names a missing title
+itself ("Chapter 2") never runs, and the chapter list and the seek bar said
+"(unnamed)". The mock answered null, so every test passed; a real run on a
+generated clip found it (round 12b).
+
+**Do:** treat exactly `(unnamed)` as no title (`engine.ts` readChapters); the
+mock answers as mpv does (`fakeMpv.ts`).
+
 ### `osd-dimensions` is the surface, not the video
 
 It includes the letterbox margins, so comparing the source resolution against it

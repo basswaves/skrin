@@ -3335,6 +3335,44 @@ button.cast-member {
   background: rgba(0, 0, 0, 0.6);
 }
 
+.seek-preview-chapter {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: max(var(--fs-floor), 0.875rem);
+  font-weight: 600;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Words only (no pictures made here): the chapter's name and the time. */
+.seek-preview-words {
+  --preview-w: 12rem;
+}
+
+/* Where each chapter starts (PlayerControls.tsx): a short upright line across
+   the bar, over the drawn track, inset as the slider is by the wrap's padding.
+   Never takes the mouse. */
+.seek-chapter-marks {
+  position: absolute;
+  inset: 0 0.5rem;
+  pointer-events: none;
+}
+
+.seek-chapter-mark {
+  position: absolute;
+  top: 50%;
+  left: var(--at);
+  width: 2px;
+  height: 0.6rem;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+}
+
 .seek-preview-time {
   font-size: max(var(--fs-floor), 0.8125rem);
   font-variant-numeric: tabular-nums;

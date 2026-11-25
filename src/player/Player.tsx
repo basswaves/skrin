@@ -630,7 +630,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
         onSeekBy={onSeekBy}
         onTogglePause={onTogglePause}
         onTracks={onTracks}
-        hasChapters={chapters.length >= 2}
+        chapters={chapters}
         showChapters={showChapters}
         onChapters={onChapters}
         onVolumeChange={changeVolume}

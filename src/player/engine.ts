@@ -899,6 +899,9 @@ export interface Chapter {
   title: string | null;
 }
 
+/** What mpv's `chapter-list/N/title` says for a chapter the file gives no title. */
+const MPV_UNNAMED_CHAPTER = '(unnamed)';
+
 /**
  * The file's chapters in order, or an empty list when it has none. Same rule
  * as `readTracks`: never `chapter-list` as a node, every field a flat
@@ -921,7 +924,9 @@ export async function readChapters(): Promise<Chapter[]> {
     // may still be missing, which is ordinary — most remuxes number chapters
     // rather than naming them.
     if (time === null || Number.isNaN(time)) return null;
-    return { time, title };
+    // mpv answers a chapter with no title with its own placeholder, not with
+    // nothing (docs/GOTCHAS.md): the name is ours to give ("Chapter 2").
+    return { time, title: title === MPV_UNNAMED_CHAPTER ? null : title };
   };
 
   const chapters = await Promise.all(Array.from({ length: count }, (_, i) => read(i)));

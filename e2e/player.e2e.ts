@@ -1297,6 +1297,71 @@ test('no chapter list for a file without chapters', async ({ page }) => {
   await press(page, 'ArrowDown');
   await expect(page.locator('.player-controls')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Chapters' })).toHaveCount(0);
+  // Nor marks on the bar, nor a chapter's name while seeking.
+  await expect(page.locator('.seek-chapter-mark')).toHaveCount(0);
+  await press(page, 'ArrowUp');
+  await expect.poll(() => page.evaluate(() => document.querySelector('.focused')?.getAttribute('aria-label'))).toBe(
+    'Position'
+  );
+  await press(page, 'ArrowRight');
+  await expect(page.locator('.seek-preview')).toBeVisible();
+  await expect(page.locator('.seek-preview-chapter')).toHaveCount(0);
+});
+
+test('chapter marks on the seek bar, and the chapter’s name while seeking by keys and by mouse', async ({
+  page,
+}) => {
+  await play(page, 'series', (p) =>
+    p.evaluate(() => {
+      (window as unknown as { __fakeMpv: { chapters: unknown[] } }).__fakeMpv.chapters = [
+        { time: 0, title: 'Opening' },
+        { time: 90, title: null },
+        { time: 600, title: 'Last part' },
+      ];
+    })
+  );
+  const duration = await page.evaluate(
+    () => (window as unknown as { __fakeMpv: { duration: number | null } }).__fakeMpv.duration ?? 0
+  );
+  expect(duration).toBeGreaterThan(900);
+
+  // A mark where each chapter after the first starts; none at the very start.
+  await press(page, 'ArrowDown');
+  const marks = page.locator('.seek-chapter-mark');
+  await expect(marks).toHaveCount(2);
+  const left = async (i: number) => {
+    const bar = await page.locator('.player-seek').boundingBox();
+    const mark = await marks.nth(i).boundingBox();
+    return bar && mark ? (mark.x + mark.width / 2 - bar.x) / bar.width : -1;
+  };
+  expect(Math.abs((await left(0)) - 90 / duration)).toBeLessThan(0.02);
+  expect(Math.abs((await left(1)) - 600 / duration)).toBeLessThan(0.02);
+
+  // Keys on the bar: the name of the chapter the seek will land in.
+  await playheadTo(page, 20);
+  await press(page, 'ArrowUp');
+  await expect.poll(() => page.evaluate(() => document.querySelector('.focused')?.getAttribute('aria-label'))).toBe(
+    'Position'
+  );
+  await press(page, 'ArrowRight');
+  const name = page.locator('.seek-preview .seek-preview-chapter');
+  await expect(name).toHaveText('Opening');
+  // On, into the second chapter, which has no title of its own.
+  for (let i = 0; i < 12 && (await name.textContent()) !== 'Chapter 2'; i++) {
+    await press(page, 'ArrowRight');
+  }
+  await expect(name).toHaveText('Chapter 2');
+
+  // The mouse over the bar: the chapter under the pointer.
+  // The seek is sent, and the name goes with the picture.
+  await expect(page.locator('.seek-preview')).toHaveCount(0);
+  const bar = await page.locator('.player-seek').boundingBox();
+  if (!bar) throw new Error('no seek bar');
+  const over = (duration + 600) / 2 / duration;
+  await page.mouse.move(bar.x + bar.width * over, bar.y + bar.height / 2, { steps: 4 });
+  await expect(name).toHaveText('Last part');
+  await page.mouse.move(bar.x + bar.width * (45 / duration), bar.y + bar.height / 2, { steps: 4 });
+  await expect(name).toHaveText('Opening');
 });
 
 test('sound that will not open falls back, and says so', async ({ page }) => {

@@ -419,7 +419,9 @@ export function getProperty(name: string): unknown {
       const chapter = /^chapter-list\/(\d+)\/(time|title)$/.exec(name);
       if (chapter && state.path !== null) {
         const c = state.chapters[Number(chapter[1])];
-        if (c) return chapter[2] === 'time' ? c.time : c.title;
+        // A chapter with no title answers as real mpv's does: "(unnamed)",
+        // not nothing (docs/GOTCHAS.md).
+        if (c) return chapter[2] === 'time' ? c.time : (c.title ?? '(unnamed)');
       }
       const field = trackField(name);
       if (field !== undefined) return field;

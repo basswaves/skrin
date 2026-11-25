@@ -9,6 +9,8 @@ import FocusGroup from '../ui/FocusGroup';
 import { formatTime } from '../ui/format';
 import { setShortcutsOpen } from '../ui/shortcutsState';
 import type { Steps } from './useNeighbours';
+import type { Chapter } from './engine';
+import { chapterAt, chapterName } from './chapters';
 import { PLAYER_CHAPTERS_KEY, PLAYER_PLAY_KEY, PLAYER_TRACKS_KEY } from './focusKeys';
 import {
   BackTenIcon,
@@ -47,8 +49,11 @@ interface Props {
    */
   steps: Steps;
   showTracks: boolean;
-  /** The file has chapters to choose between: the Chapters button shows. */
-  hasChapters: boolean;
+  /**
+   * The file's chapters. Two or more: the Chapters button shows, the bar marks
+   * where each starts, and a seek names the chapter it lands in.
+   */
+  chapters: Chapter[];
   showChapters: boolean;
   volume: number;
   /** The top of the volume: 200 where the sound can be boosted, else 100. */
@@ -88,7 +93,7 @@ function PlayerControls({
   paused,
   steps,
   showTracks,
-  hasChapters,
+  chapters,
   showChapters,
   volume,
   volumeMax,
@@ -120,6 +125,10 @@ function PlayerControls({
   // mouse's point, while the bar can be seen — a pointer left resting on it
   // when the bar faded is not a point any more.
   const previewAt = scrubbing ? timePos : visible ? hoverAt : null;
+  const hasChapters = chapters.length >= 2;
+  // The chapter the seek lands in, or the pointer is over: before the first
+  // chapter starts there is none to name.
+  const previewChapter = hasChapters && previewAt !== null ? chapterAt(chapters, previewAt) : -1;
   const pointAt = (e: { clientX: number; currentTarget: HTMLElement }) => {
     if (!duration) return;
     const box = e.currentTarget.getBoundingClientRect();
@@ -137,7 +146,27 @@ function PlayerControls({
           onRelease={onScrubRelease}
           onEnter={onSeekBarEnter}
         >
-          <SeekPreviewPicture fileId={fileId} at={previewAt} duration={duration} />
+          <SeekPreviewPicture
+            fileId={fileId}
+            at={previewAt}
+            duration={duration}
+            chapter={previewChapter >= 0 ? chapterName(chapters[previewChapter], previewChapter) : null}
+          />
+          {/* Where each chapter after the first starts (a mark at 0:00 says
+              nothing). Drawn under the slider, never taking the mouse. */}
+          {hasChapters && duration ? (
+            <div className="seek-chapter-marks" aria-hidden="true">
+              {chapters.map((c, i) =>
+                c.time > 0.5 && c.time < duration ? (
+                  <span
+                    key={i}
+                    className="seek-chapter-mark"
+                    style={{ '--at': `${(c.time / duration) * 100}%` } as CSSProperties}
+                  />
+                ) : null
+              )}
+            </div>
+          ) : null}
           <input
             className="player-seek"
             type="range"
