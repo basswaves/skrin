@@ -28,6 +28,12 @@
  * the plate is *enclosed*: it never touches the logo's see-through
  * surroundings. Dark lettering on nothing touches them everywhere, so a logo
  * whose dark part is its name can never lose it this way.
+ *
+ * Last, whatever was done: a logo whose white would fill (nearly) its whole
+ * box is a picture, not a mark — a photograph, a gradient, a plate in many
+ * colours that none of the above recognises. In white it is a blank square
+ * (owner, 2026-11-25), so the studio's name is shown instead, in Skrin's own
+ * lettering (`isBlock`).
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
@@ -219,8 +225,58 @@ export function keepLight(pixels: Uint8ClampedArray, split: number): void {
   }
 }
 
+/**
+ * A logo whose shown part is at least this share of its own box is a block.
+ * Of a library's 447 studio logos, the 8 that drew as blank white measured
+ * 0.93–1; the next, a mark with its lettering cut out, 0.86.
+ */
+const BLOCK = 0.9;
+
+/**
+ * Whether the logo, drawn in white as `pixels` (RGBA) say, would be a block
+ * with nothing to read in it: what shows fills its own box.
+ */
+export function isBlock(pixels: Uint8ClampedArray, width: number): boolean {
+  const height = Math.floor(pixels.length / 4 / width);
+  let top = height;
+  let bottom = -1;
+  let left = width;
+  let right = -1;
+  let shown = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (pixels[(y * width + x) * 4 + 3] < SOLID) continue;
+      shown++;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+      if (x < left) left = x;
+      if (x > right) right = x;
+    }
+  }
+  if (shown < 50) return false;
+  return shown / ((bottom - top + 1) * (right - left + 1)) >= BLOCK;
+}
+
+/**
+ * How a logo is shown, its `pixels` (RGBA, `width` wide) changed in place when
+ * that is `changed`: `plain` white as it is, or the studio's `name` instead.
+ */
+export function drawLogo(pixels: Uint8ClampedArray, width: number): 'plain' | 'changed' | 'name' {
+  const split = letteringSplit(pixels);
+  const enclosed = split === null ? enclosedPlateSplit(pixels, width) : null;
+  const plate = split === null && enclosed === null ? plateBrightness(pixels) : null;
+  if (split !== null) cutOut(pixels, split);
+  else if (enclosed !== null) keepLight(pixels, enclosed);
+  else if (plate !== null) removePlate(pixels, plate);
+  if (isBlock(pixels, width)) return 'name';
+  return split === null && enclosed === null && plate === null ? 'plain' : 'changed';
+}
+
+/** What to show for a logo: a drawn version of it, or the studio's name. */
+export type LogoLook = { image: string } | 'name';
+
 /** One look per logo, for as long as Skrin runs. */
-const looked = new Map<string, Promise<string | null>>();
+const looked = new Map<string, Promise<LogoLook | null>>();
 
 function load(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -234,7 +290,7 @@ function load(src: string): Promise<HTMLImageElement> {
   });
 }
 
-async function lookAt(sources: string[]): Promise<string | null> {
+async function lookAt(sources: string[]): Promise<LogoLook | null> {
   for (const src of sources) {
     try {
       // In Keep everything on this computer, never one from the internet.
@@ -249,19 +305,11 @@ async function lookAt(sources: string[]): Promise<string | null> {
       if (!context || canvas.width === 0) return null;
       context.drawImage(img, 0, 0);
       const data = context.getImageData(0, 0, canvas.width, canvas.height);
-      const split = letteringSplit(data.data);
-      const enclosed = split === null ? enclosedPlateSplit(data.data, canvas.width) : null;
-      if (split !== null) {
-        cutOut(data.data, split);
-      } else if (enclosed !== null) {
-        keepLight(data.data, enclosed);
-      } else {
-        const plate = plateBrightness(data.data);
-        if (plate === null) return null;
-        removePlate(data.data, plate);
-      }
+      const drawn = drawLogo(data.data, canvas.width);
+      // Nothing to change: plain white, as drawn by the page (ui.css).
+      if (drawn !== 'changed') return drawn === 'name' ? 'name' : null;
       context.putImageData(data, 0, 0);
-      return canvas.toDataURL('image/png');
+      return { image: canvas.toDataURL('image/png') };
     } catch (e) {
       // Not loaded, or not readable: the next source, then plain white.
       console.warn('studio logo:', e);
@@ -271,12 +319,12 @@ async function lookAt(sources: string[]): Promise<string | null> {
 }
 
 /**
- * The logo with its lettering cut out, once it has been looked at — or null
- * while looking, and for every logo that is not a plate, which then stays as
- * it was.
+ * The logo with its lettering cut out, or `'name'` for a logo that would be a
+ * blank block, once it has been looked at — or null while looking, and for
+ * every other logo, which then stays as it was.
  */
-export function useLetteringCutOut(local: string | null, remote: string | null): string | null {
-  const [image, setImage] = useState<string | null>(null);
+export function useLetteringCutOut(local: string | null, remote: string | null): LogoLook | null {
+  const [image, setImage] = useState<LogoLook | null>(null);
   useEffect(() => {
     const sources = [local ? convertFileSrc(local) : null, remote].filter(
       (s): s is string => Boolean(s)

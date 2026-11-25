@@ -120,11 +120,13 @@ export function BadgeRows({ rows, heading }: { rows: BadgeRow[]; heading?: strin
 /**
  * A studio's logo in white — or, for light lettering on a solid plate, the
  * plate in white with the lettering cut out, which plain white turned into a
- * blank block (logoCutOut.ts).
+ * blank block; and the studio's name for a logo that would be a blank block
+ * whatever was done (logoCutOut.ts).
  */
 function StudioLogo({ studio }: { studio: Studio }) {
   const cut = useLetteringCutOut(studio.logo_path, studio.logo_url);
-  if (cut) return <img className="media-badge-logo cut-out" src={cut} alt={studio.name} draggable={false} />;
+  if (cut === 'name') return <span className="media-badge-value">{studio.name}</span>;
+  if (cut) return <img className="media-badge-logo cut-out" src={cut.image} alt={studio.name} draggable={false} />;
   return (
     <Art
       className="media-badge-logo"
