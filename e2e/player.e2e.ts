@@ -589,6 +589,55 @@ test('the credits: Up next is offered, Keep watching declines it, the end counts
     .toMatchObject({ completed: true });
 });
 
+test('Up next counting down: a pause holds it, going back takes it down, Cancel by remote stays', async ({
+  page,
+}) => {
+  // GitHub #29: the count ran on whatever the player did.
+  await play(page, 'series');
+  await controlsHidden(page);
+  const card = page.locator('.up-next');
+  const onFirst = async () => expect((await mpv(page)).path).toContain('S01E01');
+
+  // The end: counting down, with a way out.
+  await playheadTo(page, 1499.9);
+  await expect(card).toContainText('Play now');
+  await expect(card).toContainText('Cancel');
+
+  // A pause holds it: the card stays, counting nothing, and nothing comes.
+  await press(page, ' ');
+  await expect(card).toContainText('Play next');
+  await expect(card).not.toContainText('Play now');
+  await expect(card).toContainText('Back to library');
+  await pause(page, 2500, 'time on purpose: a held count must not go on');
+  await expect(card).toContainText('Play next');
+  await onFirst();
+
+  // Going back takes the count down: the file is not over. Still in the
+  // credits, so what is left is the offer they always make, counting nothing.
+  await press(page, 'ArrowLeft');
+  await expect(card).toContainText('Keep watching');
+  await expect(card).not.toContainText('Play now');
+  await expect.poll(async () => (await mpv(page)).position).toBeLessThan(1495);
+  await press(page, ' ');
+  await expect.poll(async () => (await mpv(page)).paused).toBe(false);
+
+  // So its next end counts down again, and Cancel by remote stays in the player.
+  await playheadTo(page, 1499.9);
+  await expect(card).toContainText('Play now');
+  await press(page, 'ArrowUp');
+  await expect(osdFocused(page)).toBeAttached();
+  for (let i = 0; i < 6 && (await focused(page)) !== 'Cancel'; i++) {
+    await press(page, (await focused(page))?.includes('Play now') ? 'ArrowRight' : 'ArrowUp');
+  }
+  await expect.poll(() => focused(page)).toBe('Cancel');
+  await press(page, 'Enter');
+  await expect(card).toHaveCount(0);
+  await expect(page.locator('.player')).toBeAttached();
+  await pause(page, 2500, 'time on purpose: a cancelled count must not come back');
+  await expect(card).toHaveCount(0);
+  await onFirst();
+});
+
 test('the film: the scene after the credits is offered, and the end goes back to the library', async ({
   page,
 }) => {

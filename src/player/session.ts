@@ -86,6 +86,11 @@ export type Event =
   | { type: 'eof' }
   /** The credits were skipped: the same end as a natural one. */
   | { type: 'end-early' }
+  /**
+   * Gone back from the end (GitHub #29): the file is not over after all, and
+   * its next end is handled again.
+   */
+  | { type: 'reopen' }
   | { type: 'error'; message: string }
   | { type: 'scrub-start' }
   | { type: 'scrub'; timePos: number }
@@ -255,6 +260,9 @@ export function reduce(state: Session, event: Event): Session {
       // the outgoing one is still reporting that it has ended.
       if (!state.open || state.ended) return state;
       return { ...state, ended: true };
+
+    case 'reopen':
+      return state.ended ? { ...state, ended: false } : state;
 
     case 'error':
       return { ...state, error: event.message };

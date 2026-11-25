@@ -15,15 +15,20 @@ export default function UpNextCard({
   episode,
   countdown,
   asking = false,
+  held = false,
   onPlay,
   onLeave,
+  onCancel,
   onKeepWatching,
 }: {
   episode: EpisodeRef;
   countdown: number | null;
   asking?: boolean;
+  /** The countdown stopped by a pause: the file has ended, nothing is counted. */
+  held?: boolean;
   onPlay: () => void;
   onLeave: () => void;
+  onCancel: () => void;
   onKeepWatching: () => void;
 }) {
   return (
@@ -35,7 +40,14 @@ export default function UpNextCard({
           <FocusButton className="btn-primary" onSelect={onPlay}>
             {countdown !== null ? `▶ Play now (${countdown})` : '▶ Play next'}
           </FocusButton>
-          {countdown !== null || asking ? (
+          {/* A countdown can always be stopped (GitHub #29): Cancel stays in
+              the player, on the last picture or the credits still playing. */}
+          {countdown !== null && (
+            <FocusButton className="btn-secondary" onSelect={onCancel}>
+              Cancel
+            </FocusButton>
+          )}
+          {countdown !== null || asking || held ? (
             <FocusButton className="btn-secondary" onSelect={onLeave}>
               Back to library
             </FocusButton>

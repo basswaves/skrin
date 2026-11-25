@@ -3,7 +3,7 @@
  * as an offer with no countdown, or when the file ends, counting down to it —
  * and moving to an episode either side.
  */
-import { useCallback, useEffect, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import {
   episodeRefLabel,
   nextEpisode,
@@ -25,6 +25,32 @@ import {
 
 const NEXT_EPISODE_COUNTDOWN = 12;
 
+/**
+ * How far back the position must go, while the card counts down or is held,
+ * for it to count as going back (GitHub #29): more than the position's own
+ * step (session.ts), less than any seek a key makes.
+ */
+export const SEEK_BACK_SECS = 3;
+
+/**
+ * What a change in the player does to a running or held countdown (GitHub
+ * #29). A pause, either way, holds it: the card stays, counting nothing.
+ * Going back before the furthest point since the count began takes the card
+ * down, and the file is no longer over. `start` is the pause state when the
+ * count began; `furthest` the furthest position since (the credits may still
+ * be playing under the card).
+ */
+export function countdownChange(
+  start: { paused: boolean },
+  furthest: number | null,
+  now: { paused: boolean; timePos: number | null }
+): 'hold' | 'went-back' | null {
+  if (furthest !== null && now.timePos !== null && now.timePos < furthest - SEEK_BACK_SECS) {
+    return 'went-back';
+  }
+  return now.paused !== start.paused ? 'hold' : null;
+}
+
 export function useUpNext({
   target,
   onPlayTarget,
@@ -38,6 +64,9 @@ export function useUpNext({
   activeToScene,
   dismissed,
   dismiss,
+  paused,
+  timePos,
+  reopen,
 }: {
   target: PlaybackTarget;
   onPlayTarget: (target: PlaybackTarget) => void;
@@ -54,12 +83,22 @@ export function useUpNext({
   activeToScene: boolean;
   dismissed: string | null;
   dismiss: (key: string) => void;
+  /** The player's pause state and position: pausing or going back stops the count. */
+  paused: boolean;
+  timePos: number | null;
+  /** The file is not over after all: its next end offers the next one again. */
+  reopen: () => void;
 }) {
   const [upNext, setUpNext] = useState<EpisodeRef | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   /** "Still watching?": the next episode asked for, not counted down to. */
   const [asking, setAsking] = useState(false);
   const [askOn, setAskOn] = useState(true);
+  /**
+   * The countdown stopped by a pause (GitHub #29): the card stays, offering
+   * the next episode, and nothing comes until someone answers.
+   */
+  const [held, setHeld] = useState(false);
 
   // Any press while the player is up means someone is there (stillWatching.ts).
   useEffect(() => listenForPresses(), []);
@@ -79,6 +118,7 @@ export function useUpNext({
     setUpNext(null);
     setCountdown(null);
     setAsking(false);
+    setHeld(false);
     /* eslint-enable react-hooks/set-state-in-effect */
     targetStarted();
   }, [target.path, target.fileId, target.fromStart]);
@@ -149,7 +189,7 @@ export function useUpNext({
     // A countdown means the file has genuinely ended and the next episode is
     // coming regardless, so that card is not an offer and must not be withdrawn;
     // nor is "Still watching?", asked once the file ended.
-    if (countdown !== null || asking) return;
+    if (countdown !== null || asking || held) return;
 
     // Credits with a scene after them are not the end of anything yet.
     if (
@@ -171,10 +211,44 @@ export function useUpNext({
     activeToScene,
     countdown,
     asking,
+    held,
     dismissed,
     neighbours.next,
     upNext,
   ]);
+
+  /**
+   * Pausing or going back stops the count (GitHub #29). It used to run on
+   * whatever the player did: paused, or started again from the beginning,
+   * the next episode still came when it reached nought.
+   *
+   * Measured from where the count began, so the pause mpv makes by itself at
+   * the end of a file (keep-open) — before the count starts — is not one.
+   */
+  const counting = countdown !== null;
+  const watch = useRef<{ start: { paused: boolean }; furthest: number | null } | null>(null);
+  useEffect(() => {
+    if (!counting && !held) {
+      watch.current = null;
+      return;
+    }
+    if (!watch.current) {
+      watch.current = { start: { paused }, furthest: timePos };
+      return;
+    }
+    const w = watch.current;
+    if (timePos !== null && (w.furthest === null || timePos > w.furthest)) w.furthest = timePos;
+    const change = countdownChange(w.start, w.furthest, { paused, timePos });
+    if (change === 'went-back') {
+      setCountdown(null);
+      setHeld(false);
+      setUpNext(null);
+      reopen();
+    } else if (change === 'hold' && counting) {
+      setCountdown(null);
+      setHeld(true);
+    }
+  }, [counting, held, paused, timePos, reopen]);
 
   /** Jump straight to a neighbouring episode, keeping the show's identity. */
   const playNeighbour = useCallback(
@@ -226,21 +300,35 @@ export function useUpNext({
    * "Still watching?" plays it as a choice, which starts the count again.
    */
   const playNow = useCallback(() => {
-    if (asking && upNext) {
+    if ((asking || held) && upNext) {
       setAsking(false);
+      setHeld(false);
       setUpNext(null);
       playNeighbour(upNext);
       return;
     }
     setCountdown(0);
-  }, [asking, upNext, playNeighbour]);
+  }, [asking, held, upNext, playNeighbour]);
   /** Up next's Back to library, after a file that ended. */
   const leave = useCallback(() => {
     setCountdown(null);
     setUpNext(null);
     setAsking(false);
+    setHeld(false);
     void exit();
   }, [exit]);
+  /**
+   * Up next's Cancel, while it counts down (GitHub #29): no next episode, and
+   * the player stays where it is — on the last picture, or the credits still
+   * playing under where the card was. It declines the credits too, as Keep
+   * watching does, or their offer would raise the card again at once.
+   */
+  const cancel = useCallback(() => {
+    setCountdown(null);
+    setHeld(false);
+    setUpNext(null);
+    if (activeKey) dismiss(activeKey);
+  }, [activeKey, dismiss]);
   /**
    * Up next's Keep watching. Refuse the offer for the rest of this file.
    * Dismissing by segment rather than by a flag also silences the small
@@ -255,8 +343,10 @@ export function useUpNext({
     upNext,
     countdown,
     asking,
+    held,
     playNow,
     leave,
+    cancel,
     keepWatching,
     playNeighbour,
     handlePlaybackEnded,

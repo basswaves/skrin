@@ -168,6 +168,7 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
   });
 
   // ---- the episodes either side, skipping, and Up next ---------------------
+  const reopen = useCallback(() => dispatch({ type: 'reopen' }), [dispatch]);
   const neighbours = useNeighbours(target.fileId, target.playlist, target.titleId);
   const {
     active,
@@ -187,8 +188,10 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
     upNext,
     countdown,
     asking,
+    held,
     playNow,
     leave,
+    cancel,
     keepWatching,
     playNeighbour,
     handlePlaybackEnded,
@@ -205,6 +208,9 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
       activeToScene,
       dismissed,
       dismiss,
+      paused: session.paused,
+      timePos: session.timePos,
+      reopen,
     });
 
   // The Skip button is never taken away by a timer (it would leave an intro
@@ -532,8 +538,10 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
           episode={upNext}
           countdown={countdown}
           asking={asking}
+          held={held}
           onPlay={playNow}
           onLeave={leave}
+          onCancel={cancel}
           onKeepWatching={keepWatching}
         />
       )}
