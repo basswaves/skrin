@@ -311,6 +311,25 @@ async function click(selector, button = 'left') {
   return box;
 }
 
+/**
+ * The pointer to an element and a few pixels on, as a hand on the mouse does:
+ * the page tells a real move from a still pointer by its position changing.
+ */
+async function hover(selector) {
+  const box = await evaluate(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+  if (!box) throw new Error(`nothing matches ${selector}`);
+  for (const d of [-6, -3, 0]) {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: box.x + d, y: box.y + d });
+    await sleep(30);
+  }
+  return box;
+}
+
 // ---------------------------------------------------------------- reading
 
 const STATE = `(() => {
@@ -448,6 +467,10 @@ async function runStep(step) {
     await click(step.click, step.button);
     return `clicked ${step.click}`;
   }
+  if (step.hover) {
+    await hover(step.hover);
+    return `pointer over ${step.hover}`;
+  }
   if (step.wait) {
     await sleep(Math.min(step.wait, 60000));
     return `waited ${step.wait} ms`;
@@ -549,7 +572,7 @@ const TOOLS = [
     name: 'kinema_run',
     description:
       'A whole check in one call: steps run in order, one result line each, stopping at the first failure (with what is on screen). Prefer this to separate kinema_input/kinema_state calls. Each step has one of: ' +
-      '{keys:[...],waitMs} | {text} | {click:selector,button} | {wait:ms} | {until:js,timeoutMs} (poll until truthy, default 10 s) | ' +
+      '{keys:[...],waitMs} | {text} | {click:selector,button} | {hover:selector} (the pointer moved onto it, no click) | {wait:ms} | {until:js,timeoutMs} (poll until truthy, default 10 s) | ' +
       '{expect:js, equals?} (truthy, or equal to `equals`) | {read:js} | {state:true} | {sql,params,rows?} (rows: expected count) | ' +
       '{mpv:[props]} | {call:fn,args} | {logs:{file,grep,last,matches?}}; any step may have a `label`. `keepGoing` runs on past failures.',
     inputSchema: {
