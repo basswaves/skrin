@@ -221,13 +221,54 @@ pub fn scan_all(conn: &mut Connection) -> rusqlite::Result<ScanReport> {
 /// of a scan over SMB, and the whole walk used to happen *inside* a transaction
 /// — so the write lock was held for the network round trips as well as for the
 /// writes. Now the lock is only taken to flush a batch of already-gathered rows.
-struct SeenFile {
-    path: String,
-    parent_dir: String,
-    file_name: String,
-    extension: String,
-    size: i64,
-    modified: i64,
+pub(crate) struct SeenFile {
+    pub(crate) path: String,
+    pub(crate) parent_dir: String,
+    pub(crate) file_name: String,
+    pub(crate) extension: String,
+    pub(crate) size: i64,
+    pub(crate) modified: i64,
+}
+
+/// Every video under a library folder, walked as a scan walks it, writing
+/// nothing: what the search for a moved file looks through (missing_file.rs).
+/// No video at all is what an offline drive or share looks like, as in
+/// `scan_root`.
+pub(crate) fn videos_under(root_path: &str) -> Vec<SeenFile> {
+    let mut files = Vec::new();
+    let mut found = |file: Result<SeenFile, Unread>| -> rusqlite::Result<()> {
+        if let Ok(f) = file {
+            files.push(f);
+        }
+        Ok(())
+    };
+    let walked = if crate::netshare::is_share_path(root_path) {
+        walk_share(root_path, &mut found)
+    } else {
+        walk_local(Path::new(root_path), &mut found)
+    };
+    if let Err(e) = walked {
+        crate::log!("missing file: could not walk a library folder: {e}");
+    }
+    files
+}
+
+/// One file as a scan would write it, read now: a file picked by hand to be
+/// a missing one (missing_file.rs). `None` for anything that is not a video
+/// file the library would scan.
+pub(crate) fn seen_file(path: &Path) -> Option<SeenFile> {
+    let meta = std::fs::metadata(path).ok()?;
+    if !meta.is_file() || !has_video_extension(path) {
+        return None;
+    }
+    Some(SeenFile {
+        parent_dir: path.parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
+        file_name: path.file_name()?.to_string_lossy().to_string(),
+        extension: extension_of(path),
+        path: path.to_str()?.to_string(),
+        size: meta.len() as i64,
+        modified: mtime_secs(&meta),
+    })
 }
 
 /// Rows written per transaction.

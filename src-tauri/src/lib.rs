@@ -28,6 +28,7 @@ mod introdb_app;
 mod jobs;
 mod library;
 mod lifecycle;
+mod missing_file;
 mod local_title;
 mod metadata;
 mod import_watched;
@@ -619,6 +620,9 @@ pub fn run() {
             videos::list_videos,
             videos::list_all_videos,
             videos::folder_pictures,
+            missing_file::locate_file,
+            missing_file::relink_file,
+            missing_file::remove_missing_file,
             videos::video_frame,
             seek_preview::seek_preview,
             seek_preview::seek_preview_fill,

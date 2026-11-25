@@ -768,6 +768,8 @@ function shownVideos() {
   return only ? mockVideos.filter((v) => v.dir === VIDEOS_ROOT.path) : mockVideos;
 }
 const videoPrefs = new Map<string, TitlePrefs>();
+/** Files found or picked for a missing one (`relink_file`): there from then on. */
+const mockFound = new Set<string>();
 
 function videoItem(v: (typeof mockVideos)[number]) {
   const row = playback.get(v.id);
@@ -1900,6 +1902,43 @@ const handlers: Record<string, Handler> = {
     return shownVideos().map(videoItem);
   },
   list_all_videos: () => shownVideos().map(videoItem),
+  // A library file not there on Play (missing_file.rs). `kinemaMockGone`
+  // names what the look finds for every library file: moved, not_found,
+  // several or offline. A file found or picked is there from then on; what
+  // was relinked or removed is in `window.__missingFile` for a test to read.
+  // Without it the answer is unknown, as before there was one.
+  file_state: (a) => {
+    const gone = localStorage.getItem('kinemaMockGone');
+    return gone && !mockFound.has(String(a.path)) ? 'missing' : 'unknown';
+  },
+  locate_file: async () => {
+    await new Promise((r) => setTimeout(r, 150));
+    switch (localStorage.getItem('kinemaMockGone')) {
+      case 'moved':
+        return { state: 'moved', path: 'E:\\Sorted\\Films\\moved.mkv', folder: 'E:\\Sorted\\Films' };
+      case 'offline':
+        return { state: 'offline', place: 'F:\\Films' };
+      case 'several':
+        return { state: 'several', count: 2 };
+      case 'not_found':
+        return { state: 'not_found' };
+      default:
+        return { state: 'here' };
+    }
+  },
+  relink_file: (a) => {
+    const path = String(a.path);
+    if (!/\.(mkv|mp4|m4v|avi|mov|m2ts|ts|webm)$/i.test(path)) {
+      throw new Error("That is not a video file Skrin can play. Choose the film's own file.");
+    }
+    mockFound.add(path);
+    (window as unknown as { __missingFile?: unknown }).__missingFile = { relinked: num(a, 'fileId'), path };
+    return null;
+  },
+  remove_missing_file: (a) => {
+    (window as unknown as { __missingFile?: unknown }).__missingFile = { removed: num(a, 'fileId') };
+    return null;
+  },
   // The Library page's folder tiles (GitHub #31): four files spread through
   // the folder, as videos.rs picks them. `kinemaMockFrames=N` gives the first
   // N of them a frame (a picture the mock cannot serve, so a test reads the

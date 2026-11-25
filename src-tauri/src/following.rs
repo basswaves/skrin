@@ -192,7 +192,7 @@ pub fn follow(conn: &mut Connection, added: &[i64]) -> rusqlite::Result<Vec<i64>
 /// version, a playlist entry, a Videos folder's track choices and its put-away
 /// Continue Watching card (those by folder, and only once nothing is left in
 /// the old folder).
-fn carry_paths(
+pub(crate) fn carry_paths(
     conn: &Connection,
     id: i64,
     old_path: &str,

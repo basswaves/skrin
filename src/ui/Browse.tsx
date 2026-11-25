@@ -81,7 +81,8 @@ import PersonPage from './PersonPage';
 import PlaySomething from './PlaySomething';
 import { isPlaySomethingKey, type Pool } from './somethingPick';
 import { registerSelfTestPlay, runSelfTest, selfTestPlan } from '../selftest';
-import { startEngine } from '../player/engine';
+import { fileState, startEngine } from '../player/engine';
+import MissingFile, { type MissingTarget } from './MissingFile';
 import './ui.css';
 
 /** The nav entries, in order. Detail and player are reached, not navigated to. */
@@ -230,10 +231,41 @@ export default function Browse() {
    * the first film back for a one-time question about the sound; that is a
    * notice on Home now, and nothing stands between Play and the film.
    */
+  /**
+   * …except a library file that is not there: Skrin looks for it first
+   * (MissingFile.tsx) — moved, offline, or gone. One look at the file on each
+   * Play; an address, a share or a video from outside goes straight on.
+   */
+  const [missing, setMissing] = useState<MissingTarget | null>(null);
+  /** Where the ring was when Play was pressed on a missing file: Back returns there. */
+  const missingFrom = useRef<string | null>(null);
   const startPlayback = useCallback(
-    (target: PlaybackTarget) => openView({ name: 'player', target }),
+    (target: PlaybackTarget) => {
+      const from = currentFocusKey();
+      const fileId = target.fileId;
+      if (fileId === null || target.resumeByPath) {
+        openView({ name: 'player', target }, from);
+        return;
+      }
+      void fileState(target.path).then((state) => {
+        if (state !== 'missing') {
+          openView({ name: 'player', target }, from);
+          return;
+        }
+        missingFrom.current = from;
+        setMissing({ ...target, fileId });
+      });
+    },
     [openView]
   );
+  /** Put into words when a missing file is taken out of the library. */
+  const [removedNote, setRemovedNote] = useState<string | null>(null);
+  // A line, not a notice to answer: it goes by itself (and on a click).
+  useEffect(() => {
+    if (!removedNote) return;
+    const id = window.setTimeout(() => setRemovedNote(null), 10_000);
+    return () => window.clearTimeout(id);
+  }, [removedNote]);
 
   /**
    * A video opened while Skrin runs — passed on by a second Skrin started
@@ -342,6 +374,25 @@ export default function Browse() {
       setLoaded(true);
     }
   }, []);
+
+  /** A missing file found or picked: it plays, and the library is read again. */
+  const playFound = useCallback(
+    (target: PlaybackTarget) => {
+      setMissing(null);
+      openView({ name: 'player', target }, missingFrom.current);
+      void load();
+    },
+    [openView, load]
+  );
+  const closeMissing = useCallback(() => setMissing(null), []);
+  const removedMissing = useCallback(
+    (message: string) => {
+      setMissing(null);
+      setRemovedNote(message);
+      void load();
+    },
+    [load]
+  );
 
   const openSetup = useCallback(() => {
     setSetupOpen(true);
@@ -769,6 +820,12 @@ export default function Browse() {
           </div>
         )}
 
+        {removedNote && (
+          <div className="browse-notice missing-file-removed" onClick={() => setRemovedNote(null)}>
+            {removedNote}
+          </div>
+        )}
+
         {/* On Home with titles it is one of Home's notices, with an OK a
             remote can reach; elsewhere a line a click puts away. */}
         {scanTrouble && !scanTroubleOnHome && !scanTrouble.homeOnly && (
@@ -1019,6 +1076,15 @@ export default function Browse() {
         )}
 
         {leaving && <LeaveDialog onClose={() => setLeaving(false)} />}
+        {missing && (
+          <MissingFile
+            key={missing.fileId}
+            target={missing}
+            onPlay={playFound}
+            onRemoved={removedMissing}
+            onClose={closeMissing}
+          />
+        )}
         {/* The menu on cards (cardMenuStore.ts), over whichever screen the card is on. */}
         <CardMenuHost
           onPlay={(title) => void playTitle(title)}

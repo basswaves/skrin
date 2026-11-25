@@ -5099,3 +5099,40 @@ order changed:** still one frame at a time, still waiting while a film plays
 tester asked for the order, not a choice. The order lives in the page, not in
 Rust: the page asks one frame at a time, so the backend's queue never holds
 more than one, and the page is what knows what is on screen.
+
+## The Library page: buttons on top, pictures on the folders (2026-11-25, GitHub #31)
+
+Playlists and Add a folder (Folders in TV mode) were tiles among the Videos
+folders and read as folders. They are now a small row of plain buttons
+above them, and each folder tile shows frames from four files spread through
+the folder (`videos::folder_pictures`, first to last by path, so a folder of
+sub-folders shows more than its first one), two by two. Fewer frames are
+shown as they are (one alone, two side by side, three as one tall and two),
+none as the plain tile with its name: Android takes no frames, and a file
+that gives none leaves no blank. The frames are asked for in turn, as a
+folder's page asks (`frameQueue.ts`). The owner chose the split and the
+four pictures.
+
+## Play on a file that is not there: Skrin looks first (2026-11-25, round 12b)
+
+A tester asked to be asked "moved or deleted?" when a file is not found.
+Owner's choice: before the player opens, one look at the file
+(`file_state`); if it is not there, `missing_file::locate` looks in the
+library folders for **one** file of the same name *and* size. One → "It
+moved to … — use it?", and the row takes the new path with everything on
+it (watched state, resume, match, track choices), as a scan's pairing
+would. None, or more than one → Find it… (the system's file window; only a
+video file inside a library folder of the same kind is taken), Remove from
+library, Cancel. A name alone is never enough, and two candidates is
+nothing: handing one film's history to another is worse than asking. A
+library folder that cannot be listed, or is empty (an unmounted disk or
+share looks like that), is said to be out of reach, and Remove is not
+offered: it is not deleted. Remove does now what the next scan would (the
+row is marked missing and comes back with its history if the file does);
+nothing is ever written to the media folders.
+
+It is a dialog in the page's focus tree (a `menu` group, as Add to a
+playlist) rather than a line inside one page, because Play is pressed on
+Home, a title's page, a Videos folder, a playlist and Continue watching
+alike. A share Skrin opens itself, an address and a video from outside go
+straight to the player as before.
