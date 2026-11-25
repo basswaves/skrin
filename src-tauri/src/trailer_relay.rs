@@ -21,7 +21,7 @@ use std::time::Duration;
 /// and a relay of messages between it and the overlay around it.
 const PAGE: &str = r#"<!doctype html><meta charset="utf-8"><title>Trailer</title>
 <style>html,body,iframe{margin:0;width:100%;height:100%;border:0;background:#000;overflow:hidden}</style>
-<iframe id="y" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+<iframe id="y" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
 <script>
 const Y = 'https://www.youtube-nocookie.com';
 const y = document.getElementById('y');

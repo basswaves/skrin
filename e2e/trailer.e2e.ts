@@ -15,7 +15,11 @@ const WATCH = `https://www.youtube.com/watch?v=${KEY}`;
 
 /** YouTube's player, as far as the overlay can tell: ready and playing at 30 s, or an error. */
 function stub(error: number | null): string {
-  return `<!doctype html><body style="background:#123"><script>
+  // YouTube's full-screen button, as its player has one: full screen on a click.
+  return `<!doctype html><body style="background:#123">
+<button id="fs" style="position:fixed;right:0;bottom:0"
+  onclick="document.documentElement.requestFullscreen().then(() => (window.full = 'yes'), (e) => (window.full = String(e)))">Full screen</button>
+<script>
 window.told = [];
 window.started = false;
 const post = (m) => parent.postMessage(JSON.stringify({ ...m, channel: 'widget', id: 1 }), '*');
@@ -118,6 +122,34 @@ test('a click in YouTube’s player does not keep the keyboard', async ({ page }
   await expect(page.locator('.trailer-screen')).toHaveClass(/focused/);
   await page.locator('.trailer iframe').click();
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('IFRAME');
+  await press(page, 'Escape');
+  await expect(page.locator('.trailer')).toHaveCount(0);
+});
+
+test('YouTube’s full-screen button fills the screen, and Back leaves it before closing', async ({
+  page,
+}) => {
+  // A tester: the button did nothing — the frame was never allowed full screen.
+  await open(page, null);
+  const inFrame = async () => (await player(page)).evaluate(() => (window as unknown as { full?: string }).full);
+  const windowFull = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as { __TAURI_INTERNALS__: { invoke: (c: string) => Promise<boolean> } }
+      ).__TAURI_INTERNALS__.invoke('plugin:window|is_fullscreen')
+    );
+  await expect.poll(() => player(page).then(() => true).catch(() => false)).toBe(true);
+  await (await player(page)).locator('#fs').click();
+  await expect.poll(inFrame).toBe('yes');
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.tagName)).toBe('IFRAME');
+  // Skrin's window with it: a frame full screen fills only the window.
+  await expect.poll(windowFull).toBe(true);
+
+  // Back leaves full screen, window and all; the trailer stays.
+  await press(page, 'Escape');
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
+  await expect.poll(windowFull).toBe(false);
+  await expect(page.locator('.trailer')).toHaveCount(1);
   await press(page, 'Escape');
   await expect(page.locator('.trailer')).toHaveCount(0);
 });

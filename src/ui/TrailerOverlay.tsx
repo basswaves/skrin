@@ -10,6 +10,7 @@
  * hands it the keyboard anyway, Skrin takes it straight back — the click
  * itself still reaches YouTube's own controls.
  */
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import FocusButton from './FocusButton';
 import FocusGroup, { FocusProvider } from './FocusGroup';
@@ -120,7 +121,9 @@ export default function TrailerOverlay({ trailer }: { trailer: ShownTrailer }) {
       if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'BrowserBack') {
         e.preventDefault();
         e.stopPropagation();
-        close();
+        // Full screen is a layer, as in the player: Back leaves it first.
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+        else close();
       } else if (e.key === ' ' || e.key === 'MediaPlayPause') {
         e.preventDefault();
         e.stopPropagation();
@@ -145,6 +148,37 @@ export default function TrailerOverlay({ trailer }: { trailer: ShownTrailer }) {
     return () => window.removeEventListener('blur', onBlur);
   }, []);
 
+  // YouTube's own full-screen button (a tester: it did nothing — the frame was
+  // never allowed full screen). Allowed, it fills only Skrin's window, so the
+  // window goes full screen with it, and back when it leaves, unless it was
+  // already (TV mode, or a person who made it so).
+  useEffect(() => {
+    let ours = false;
+    const onChange = () => {
+      const win = getCurrentWindow();
+      if (document.fullscreenElement === frame.current) {
+        void win
+          .isFullscreen()
+          .then((already) => {
+            if (already) return;
+            ours = true;
+            return win.setFullscreen(true);
+          })
+          .catch(() => undefined);
+      } else if (ours) {
+        ours = false;
+        void win.setFullscreen(false).catch(() => undefined);
+      }
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      // Closed while full screen (an error from YouTube, say): give it all back.
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+      if (ours) void getCurrentWindow().setFullscreen(false).catch(() => undefined);
+    };
+  }, []);
+
 
   return (
     <FocusProvider value={focusKey}>
@@ -162,7 +196,8 @@ export default function TrailerOverlay({ trailer }: { trailer: ShownTrailer }) {
               src={src}
               title={`${trailer.title} · Trailer`}
               tabIndex={-1}
-              allow="autoplay; encrypted-media; picture-in-picture"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
               referrerPolicy="strict-origin-when-cross-origin"
               onLoad={onLoad}
             />
