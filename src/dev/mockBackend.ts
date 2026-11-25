@@ -1900,7 +1900,14 @@ const handlers: Record<string, Handler> = {
     return shownVideos().map(videoItem);
   },
   list_all_videos: () => shownVideos().map(videoItem),
-  video_frame: () => null,
+  // With many clips a frame takes a moment, and each ask is written down in
+  // `window.__frameAsks` so a test can read the order (GitHub #28).
+  video_frame: async (a) => {
+    if (!EXTRA_VIDEOS) return null;
+    ((window as unknown as { __frameAsks?: number[] }).__frameAsks ??= []).push(num(a, 'fileId'));
+    await new Promise((r) => setTimeout(r, 40));
+    return null;
+  },
   // Seek previews: a drawn picture saying its second, so a test can read it.
   seek_preview: (a) => mockSeekPreview(num(a, 'secs')),
   seek_preview_fill: () => null,

@@ -13,7 +13,7 @@
  * previous/next steps an episode uses (`videos::adjacent`).
  *
  * Each tile's picture is a frame from the file (`videos.rs`), asked for one at
- * a time once the page is up; until then, and wherever none can be taken (on
+ * a time once the page is up, the tiles on screen first (`frameQueue.ts`); until then, and wherever none can be taken (on
  * Android always), a plain picture.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -31,6 +31,7 @@ import { userError } from './errors';
 import { count } from './format';
 import { useTvMode } from './tv';
 import { chooseFolder } from '../library/folders';
+import { framesOnScreen, onFrame, wantFrames } from '../library/frameQueue';
 import { runScanPipeline } from '../library/pipeline';
 import type { LibraryRoot } from '../library/api';
 import type { PlaybackTarget } from '../player/api';
@@ -39,7 +40,6 @@ import {
   listVideos,
   playAllStart,
   videoDate,
-  videoFrame,
   videoName,
   videosRoots,
   videoTarget,
@@ -209,8 +209,6 @@ export function VideosPage({
   const { ref, focusKey } = useNavGroup({ kind: 'column' }, { focusKey: VIDEOS_FOCUS_KEY });
   const [videos, setVideos] = useState<VideoItem[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  /** The files that had no frame when the list arrived, in page order. */
-  const [missing, setMissing] = useState<number[]>([]);
 
   useEffect(() => {
     let live = true;
@@ -219,7 +217,7 @@ export function VideosPage({
         if (!live) return;
         setVideos(list);
         const order = groupVideos(list, root.path).flatMap((g) => g.items);
-        setMissing(order.filter((v) => v.frame === null).map((v) => v.id));
+        wantFrames(order.filter((v) => v.frame === null).map((v) => v.id));
       })
       .catch((e) => live && setFailed(String(e)));
     return () => {
@@ -227,23 +225,33 @@ export function VideosPage({
     };
   }, [root.id, root.path]);
 
-  // Frames for the tiles that have none, one at a time, in page order. Each
-  // arrives as it is taken; leaving the page stops asking.
+  // Frames arrive one at a time, the tiles on screen first (frameQueue.ts);
+  // the rest go on after the page is left.
+  useEffect(
+    () =>
+      onFrame((id, frame) =>
+        setVideos((list) => list && list.map((v) => (v.id === id ? { ...v, frame } : v)))
+      ),
+    []
+  );
+  const tiles = videos?.length ?? 0;
   useEffect(() => {
-    let live = true;
-    void (async () => {
-      for (const id of missing) {
-        if (!live) return;
-        const frame = await videoFrame(id).catch(() => null);
-        if (live && frame) {
-          setVideos((list) => list && list.map((v) => (v.id === id ? { ...v, frame } : v)));
-        }
+    if (!tiles) return;
+    const shown = new Set<number>();
+    const seen = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const id = Number((e.target as HTMLElement).dataset.video);
+        if (e.isIntersecting) shown.add(id);
+        else shown.delete(id);
       }
-    })();
+      framesOnScreen(new Set(shown));
+    });
+    document.querySelectorAll('.videos-page [data-video]').forEach((tile) => seen.observe(tile));
     return () => {
-      live = false;
+      seen.disconnect();
+      framesOnScreen(new Set());
     };
-  }, [missing]);
+  }, [tiles]);
 
   const groups = useMemo(() => groupVideos(videos ?? [], root.path), [videos, root.path]);
   /** A group being added to a playlist, and the sentence after. */
@@ -364,7 +372,7 @@ export function VideoTile({
       onSelect={() => onPlay(videoTarget(video))}
       onHighlight={onHighlight}
     >
-      <span className="video-tile-art">
+      <span className="video-tile-art" data-video={video.id}>
         <Art local={video.frame} remote={null} lazy fallback={<span className="video-tile-plain">▶</span>} />
         {percent > 0 && (
           <span className="continue-progress">

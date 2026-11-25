@@ -5086,3 +5086,16 @@ mapping would invite taste in a fact's clothes and a second tone map in the TV.
 **Both values everywhere** ("you said; the device says", "corrected by the
 user" in Copy facts) keeps "Skrin never presents the user's word as the
 device's". "Now says the same" is said once per correction, then stays quiet.
+
+## A big Videos folder: the frames on screen first (2026-11-25, GitHub #28)
+
+A newly added folder of 1500 clips got its tile frames first to last, so the
+tiles on screen waited for every one above them. Now `frameQueue.ts` picks
+the next frame: the tiles on screen, then those just below (where a scroll
+goes next), then the rest in page order; a scroll re-orders at once, and the
+rest go on after the folder is left, so it is ready next time. **Only the
+order changed:** still one frame at a time, still waiting while a film plays
+(`videos::take_in_turn`), the same on every system, and no setting — the
+tester asked for the order, not a choice. The order lives in the page, not in
+Rust: the page asks one frame at a time, so the backend's queue never holds
+more than one, and the page is what knows what is on screen.
