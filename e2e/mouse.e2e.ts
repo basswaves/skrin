@@ -212,6 +212,64 @@ test('display switching on: a double click goes full screen and switches, anothe
   expect(await fullscreen(page)).toBe(false);
 });
 
+for (const kind of ['resolution', 'HDR'] as const) {
+  test(`display switching on (${kind}): a double click goes full screen and switches, another leaves and puts the screen back`, async ({
+    page,
+  }) => {
+    await play(page);
+    await page.evaluate((k) => {
+      const m = window as unknown as {
+        __kinemaMock: { settings: Map<string, string> };
+        __fakeMpv: { extra: Record<string, unknown> };
+      };
+      // Resolution: a 1080p film on the 4K desktop, matched. HDR: a 4K HDR film
+      // on the same mode with HDR off — the switch is HDR alone.
+      if (k === 'resolution') m.__kinemaMock.settings.set('display_switch_resolution', 'match');
+      else m.__kinemaMock.settings.set('display_switch_hdr', 'on');
+      Object.assign(m.__fakeMpv.extra, {
+        'video-params/gamma': k === 'HDR' ? 'pq' : 'bt.1886',
+        'video-params/w': k === 'HDR' ? 3840 : 1920,
+        'video-params/h': k === 'HDR' ? 2160 : 1080,
+        'container-fps': 60,
+      });
+    }, kind);
+    const film = await onTheFilm(page);
+    const expected = kind === 'HDR' ? 'switch 3840x2160@60 hdr' : 'switch 1920x1080@60';
+
+    for (let round = 0; round < 2; round++) {
+      await page.mouse.dblclick(film.x, film.y);
+      await expect.poll(() => fullscreen(page)).toBe(true);
+      await expect.poll(async () => (await screenLog(page)).at(-1)).toBe(expected);
+      await expect.poll(async () => (await mpv(page)).paused, { timeout: 10_000 }).toBe(false);
+      await page.mouse.dblclick(film.x, film.y);
+      await expect.poll(() => fullscreen(page)).toBe(false);
+      await expect.poll(async () => (await screenLog(page)).at(-1)).toBe('restore');
+    }
+    expect(await screenLog(page)).toEqual([expected, 'restore', expected, 'restore']);
+    await pause(page, 600, 'past the single-click wait');
+    expect((await mpv(page)).paused).toBe(false);
+  });
+}
+
+test('TV mode: a double click on the picture stays full screen and says so, briefly', async ({ page }) => {
+  await play(page);
+  await page.evaluate(async () => {
+    const path = '/src/ui/tv.ts';
+    const tv = await import(/* @vite-ignore */ path);
+    await tv.setTvMode(true);
+  });
+  await expect.poll(() => fullscreen(page)).toBe(true);
+  const film = await onTheFilm(page);
+  await page.mouse.dblclick(film.x, film.y);
+  const notice = page.locator('.player-notice', { hasText: 'Full screen in TV mode' });
+  await expect(notice).toBeVisible();
+  await pause(page, 600, 'past where leaving full screen would have landed');
+  expect(await fullscreen(page)).toBe(true);
+  // About two seconds, then gone on its own.
+  await expect(notice).toHaveCount(0, { timeout: 4000 });
+  expect(await fullscreen(page)).toBe(true);
+});
+
 test('Android: Skrin’s own folder browser by mouse', async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 540 });
   await page.addInitScript(() => {

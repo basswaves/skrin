@@ -14,6 +14,13 @@ import type { Session } from './session';
 // who has not met a player that switches takes that for a fault (GitHub #21).
 const MATCHING = 'Matching the screen to the video. It may go black for a moment.';
 
+/**
+ * Said when F or a double click asks for full screen to change in TV mode,
+ * where it does not (toggleFullscreen): without a word, a double click that
+ * does nothing looks broken (owner, 2026-11-25). Shown briefly (Player.tsx).
+ */
+export const TV_FULLSCREEN_NOTICE = 'Full screen in TV mode';
+
 export function useScreen({
   onExit,
   sessionRef,
@@ -93,8 +100,14 @@ export function useScreen({
     // only acts in full screen, and a TV-mode window that left it would turn
     // every switch off until someone found the way back (docs/HISTORY.md,
     // "TV mode means fullscreen"). Back leaves the player instead. Outside TV
-    // mode switching changes nothing here (e2e/mouse.e2e.ts).
-    if (isTvMode()) return;
+    // mode switching changes nothing here (e2e/mouse.e2e.ts). It says so,
+    // briefly, rather than seem not to have heard — but never over a notice
+    // that is up for its own reason (no picture, the sound gone): this one
+    // clears itself, and would take that one with it.
+    if (isTvMode()) {
+      setNotice((n) => n ?? TV_FULLSCREEN_NOTICE);
+      return;
+    }
     const entering = !(await isPictureFullscreen());
     if (!entering) {
       await leaveFullscreen();
@@ -117,7 +130,7 @@ export function useScreen({
     } finally {
       if (pausedByUs) await setPaused(false);
     }
-  }, [matchScreen, sessionRef]);
+  }, [matchScreen, sessionRef, setNotice]);
 
   /**
    * The last rung of the Back ladder. Fullscreen is a layer in exactly the way

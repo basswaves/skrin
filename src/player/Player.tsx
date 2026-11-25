@@ -52,7 +52,7 @@ import { usePlayerKeys } from './usePlayerKeys';
 import { usePlaybackEngine } from './usePlaybackEngine';
 import { usePlaybackSession } from './usePlaybackSession';
 import { useProgressSave } from './useProgressSave';
-import { useScreen } from './useScreen';
+import { TV_FULLSCREEN_NOTICE, useScreen } from './useScreen';
 import { useScrub } from './useScrub';
 import { useSkipMarkers } from './useSkipMarkers';
 import { useTracks } from './useTracks';
@@ -84,6 +84,8 @@ function Landing() {
 
 /** How long a notice about the sound stays on screen. */
 const AUDIO_NOTICE_MS = 12000;
+/** How long a passing word stays: "Full screen in TV mode". */
+const SHORT_NOTICE_MS = 2000;
 
 export default function Player({ target, onExit, onPlayTarget }: Props) {
   const tv = useTvMode();
@@ -275,7 +277,8 @@ export default function Player({ target, onExit, onPlayTarget }: Props) {
   // one saying there is no picture: the screen stays black, so it stays.
   useEffect(() => {
     if (!notice || (paused && isSoundLostNotice(notice)) || isNoPictureNotice(notice)) return;
-    const id = window.setTimeout(() => setNotice(null), AUDIO_NOTICE_MS);
+    const ms = notice === TV_FULLSCREEN_NOTICE ? SHORT_NOTICE_MS : AUDIO_NOTICE_MS;
+    const id = window.setTimeout(() => setNotice(null), ms);
     return () => window.clearTimeout(id);
   }, [notice, paused]);
 

@@ -2487,13 +2487,14 @@ const handlers: Record<string, Handler> = {
     modes: [
       { width: 3840, height: 2160, hz: 60, rate: 60 },
       { width: 3840, height: 2160, hz: 23, rate: 23.976 },
+      { width: 1920, height: 1080, hz: 60, rate: 60 },
     ],
   }),
   // A switch answered as Windows' is (display.rs): the screen as it is after,
   // and each switch and restore kept, so a check can see the screen go and
   // come back. The mode itself is not kept: screen_now stays the desktop's.
   switch_screen: (a) => {
-    screenLog.push(`switch ${a.width}x${a.height}@${a.hz}`);
+    screenLog.push(`switch ${a.width}x${a.height}@${a.hz}${a.hdr ? ' hdr' : ''}`);
     screenSwitched = true;
     const rate = Number(a.hz) === 23 ? 23.976 : Number(a.hz);
     return {
