@@ -400,7 +400,7 @@ fn list_roots(conn: &rusqlite::Connection) -> Result<Vec<LibraryRoot>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT r.id, r.path, r.kind,
-                    (SELECT COUNT(*) FROM media_files m WHERE m.root_id = r.id), r.name
+                    (SELECT COUNT(*) FROM media_files m WHERE m.root_id = r.id AND m.missing = 0), r.name
              FROM library_roots r ORDER BY r.id",
         )
         .map_err(to_string_err)?;
@@ -658,7 +658,7 @@ pub fn library_stats(db: tauri::State<Db>) -> Result<LibraryStats, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{comparable, is_within, merge_roots, roots_inside, set_root_kind};
+    use super::{comparable, is_within, list_roots, merge_roots, roots_inside, set_root_kind};
 
     /// An in-memory library with two TV folders and a film folder, one file
     /// each, and a watch position on the first file.
@@ -681,6 +681,16 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    /// A file taken out of the library (missing) is not counted: the Library
+    /// page's tile and Settings say how many videos are there to play.
+    #[test]
+    fn a_missing_file_is_not_counted() {
+        let conn = library();
+        conn.execute("UPDATE media_files SET missing = 1 WHERE id = 1", []).unwrap();
+        let counts: Vec<(i64, i64)> = list_roots(&conn).unwrap().iter().map(|r| (r.id, r.file_count)).collect();
+        assert_eq!(counts, vec![(1, 0), (2, 1), (3, 1)]);
     }
 
     fn root_ids_of_files(conn: &rusqlite::Connection) -> Vec<(i64, i64)> {
