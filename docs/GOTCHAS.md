@@ -93,6 +93,16 @@ the simpler answer, and the stats panel does that (once a second, while open).
 visually. But then mpv emits **no `end-file` event** at the end of playback.
 `eof-reached` is the property that fires.
 
+### At the end of a file `keep-open` pauses, late, and stays paused
+
+At the end mpv sets `pause` to yes itself — heard *after* `eof-reached`, so after
+anything the end started (the Up next count took it for the viewer's pause and
+held every natural end). And there it stays paused whatever it is told: a pause
+key at the end changes nothing mpv reports. A new file undoes it. The fake mpv
+passed all of this until it did both (round 12b, GitHub #29). **Do:** a pause at
+the very end is mpv's; act on the viewer's *request* (`togglePause`), not on
+the `pause` property, where the end is involved (`useUpNext.ts`).
+
 ### mpv init aborts on one bad option, silently
 
 Options are applied in order; a rejected option aborts `mpv_initialize()`. The window
