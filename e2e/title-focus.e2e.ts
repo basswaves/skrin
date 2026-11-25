@@ -93,15 +93,18 @@ test("a film's page by keys: every area on screen and clear of the bars, and Bac
   expect((await step(page, 'ArrowUp', 'Up to Back')).key).toBe('detail-back');
   expect((await step(page, 'ArrowDown', 'Down to Play')).key).toBe('detail-play');
   for (let i = 0; i < 8; i++) await step(page, 'ArrowRight', `along the buttons ${i + 1}`);
-  // Down area by area: the collection, the cast, the file's details.
+  // Down area by area: the file's details under Media info, the collection, the cast.
   const seen: string[] = [];
+  const names: string[] = [];
   for (let i = 0; i < 6; i++) {
     const r = await step(page, 'ArrowDown', `Down ${i + 1}`);
     if (seen[seen.length - 1] === r.key) break;
     seen.push(r.key ?? '');
+    names.push((await focused(page)) ?? '');
   }
+  expect(names[0]).toMatch(/File details/);
   expect(seen.some((k) => k.startsWith('detail-cast:'))).toBe(true);
-  expect(await focused(page)).toMatch(/File details/);
+  expect(seen[seen.length - 1]).toMatch(/^detail-cast:/);
   // Back up to the buttons, which land on Play, with the page at its top.
   for (let i = 0; i < 6 && (await ring(page)).key !== 'detail-play'; i++) await step(page, 'ArrowUp', `Up ${i + 1}`);
   const play = await ring(page);

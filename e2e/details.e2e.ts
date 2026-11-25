@@ -37,13 +37,15 @@ test('a film says who made it, when it ends, and the rest of its collection', as
   await expect(page.locator('.detail-meta')).toContainText(/Ends at \d/);
   await expect(page.locator('.detail-crew')).toHaveText(['Directed by Dee Rector']);
 
-  // Down from the buttons: the collection, oldest first, Play for the first
-  // one not watched yet.
+  // Down from the buttons: the file details under Media info, then the
+  // collection, oldest first, Play for the first one not watched yet.
   await expect(page.locator('.detail-collection h2')).toHaveText('Part of Example Collection');
   await expect(page.locator('.detail-collection .card-title')).toHaveText([
     'Example Part One',
     'Example Part Two',
   ]);
+  await press(page, 'ArrowDown');
+  expect(await focused(page)).toMatch(/File details/);
   await press(page, 'ArrowDown');
   expect(await focused(page)).toMatch(/^▶ Play the series from Example Part One/);
   await press(page, 'ArrowRight');
@@ -68,6 +70,33 @@ test('the file details open by keyboard and can be read', async ({ page }) => {
   await expect(rows.first()).toHaveText('File');
   await expect(page.locator('.file-info-list')).toContainText('Example.Part.Two.2014.1080p.mkv');
   await expect(page.locator('.file-info-list')).toHaveCSS('user-select', 'text');
+});
+
+test('Media info: a film’s file details under its tiles; a show’s stay at the foot, Down from Play reaching the seasons', async ({
+  page,
+}) => {
+  await open(page);
+  // A film: one headed section under the buttons, the tiles and the file details in it.
+  await openTitle(page, 'Movies', 'Example Part Two');
+  const film = page.locator('.detail-head .media-info');
+  await expect(film.locator('h2')).toHaveText('Media info');
+  await expect(film.locator('.media-badges')).toBeVisible();
+  await expect(film.locator('.file-info button')).toHaveText(/File details/);
+  await press(page, 'ArrowDown');
+  expect(await focused(page)).toMatch(/File details/);
+
+  // A show: the tiles under Media info, the episode's file details still at
+  // the page's foot, and Down from Play is the season tabs, as before.
+  await page.getByRole('button', { name: 'TV shows' }).first().click();
+  await page.locator('.search .card', { hasText: 'Example Saga' }).click();
+  await expect(page.locator('.detail h1')).toHaveText('Example Saga');
+  await expect.poll(() => focused(page)).toMatch(/Play/);
+  const show = page.locator('.detail-head .media-info');
+  await expect(show.locator('h2')).toHaveText('Media info');
+  await expect(show.locator('.file-info')).toHaveCount(0);
+  await expect(page.locator('.file-info')).toHaveCount(1);
+  await press(page, 'ArrowDown');
+  expect(await focused(page)).toMatch(/^Season 1/);
 });
 
 test('a show says it has ended; a Wikidata film says nothing it does not know', async ({ page }) => {

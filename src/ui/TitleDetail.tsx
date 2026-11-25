@@ -315,6 +315,8 @@ export default function TitleDetailView({
       what: '',
     };
   }, [title.kind, name, nextUp, detail, chosen]);
+  /** The file a film's Media info describes: the version Play would start. */
+  const filmFileId = primary?.fileId ?? detail?.movie_file_id ?? null;
 
   /**
    * An episode row's Play: where that episode is here more than once, the
@@ -955,7 +957,7 @@ export default function TitleDetailView({
                   only when that file is far above what Android says the
                   device's video chip is made for (heavyFile.ts). */}
               <HeavyFileNotice
-                fileId={primary?.fileId ?? null}
+                fileId={primary?.fileId ?? detail?.movie_file_id ?? null}
                 runtimeMins={
                   (title.kind === 'series'
                     ? detail?.episodes.find((e) => e.file_id === primary?.fileId)?.runtime_mins
@@ -965,15 +967,26 @@ export default function TitleDetailView({
               />
               {/* Below the buttons, not above them: three rows of tiles above
                   Play pushed it off a TV screen under a long description, and
-                  Play is where a remote lands. */}
+                  Play is where a remote lands. One headed section, like Cast
+                  (round 12b, a tester's "Media info"): a film's file details
+                  fold out under its tiles. A show's stay at the page's foot —
+                  they describe one episode, the tiles the whole season, and
+                  Down from Play to the seasons stays one press. */}
               {title.kind === 'series' ? (
-                seasonBadges && <BadgeRows rows={seasonBadges.rows} heading={seasonHeading} />
+                seasonBadges && (
+                  <section className="media-info">
+                    <h2 className="cast-heading">Media info</h2>
+                    <BadgeRows rows={seasonBadges.rows} heading={seasonHeading} />
+                  </section>
+                )
               ) : (
-                <MediaBadges
-                  fileId={primary?.fileId ?? detail?.movie_file_id ?? null}
-                  kind={title.kind}
-                  studios={studios}
-                />
+                filmFileId !== null && (
+                  <section className="media-info">
+                    <h2 className="cast-heading">Media info</h2>
+                    <MediaBadges fileId={filmFileId} kind={title.kind} studios={studios} />
+                    <FileInfo focusKey={DETAIL_FILE_KEY} fileId={filmFileId} what="film" />
+                  </section>
+                )
               )}
             </div>
           </div>
@@ -1205,11 +1218,13 @@ export default function TitleDetailView({
             </section>
           )}
 
-          <FileInfo
-            focusKey={DETAIL_FILE_KEY}
-            fileId={primary?.fileId ?? detail?.movie_file_id ?? null}
-            what={title.kind === 'series' ? 'episode' : 'film'}
-          />
+          {title.kind === 'series' && (
+            <FileInfo
+              focusKey={DETAIL_FILE_KEY}
+              fileId={primary?.fileId ?? detail?.movie_file_id ?? null}
+              what="episode"
+            />
+          )}
         </div>
       </div>
     </FocusProvider>

@@ -5120,3 +5120,18 @@ kbd {
 :root[data-look='light'][data-input='key'] .see-all-card:not(.focused):hover {
   outline: none;
 }
+
+/* Media info on a title's page (TitleDetail.tsx, round 12b): the tiles, and
+   for a film its file details, as one headed section under the buttons. */
+.media-info {
+  margin: 1.5rem 0 0;
+}
+.media-info > .cast-heading {
+  margin-bottom: 0.5rem;
+}
+.media-info > .media-badges {
+  margin-top: 0;
+}
+.media-info > .file-info {
+  margin: 0.875rem 0 0;
+}
